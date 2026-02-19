@@ -177,13 +177,13 @@
 - [ ] Circle-circle collision detection: collision when `distance(a, b) < radiusA + radiusB`
 - [ ] Exactly touching is NOT a collision
 - [ ] No duplicate pairs detected
-- [ ] Elastic collision conserves momentum (within 1% tolerance, mass = radius²)
-- [ ] Elastic collision conserves kinetic energy (within 2% tolerance)
+- [ ] Elastic collision conserves momentum exactly (mass = radius², shared impulse perturbation preserves momentum)
+- [ ] Elastic collision approximately conserves kinetic energy (within 5% tolerance — ±2% impulse perturbation can cause up to ~4% KE error on high-velocity collisions)
 - [ ] Large asteroid barely flinches; small one ricochets dramatically
 - [ ] Two equal asteroids in head-on collision approximately swap velocities
 - [ ] Overlapping asteroids are separated along collision normal after resolution
 - [ ] Lighter asteroid is pushed more during separation
-- [ ] Small random perturbation (±2%) on post-collision velocity prevents repeating loops
+- [ ] Small random perturbation (±1% on impulse magnitude) prevents repeating loops
 - [ ] Angular velocity is nudged slightly on impact
 - [ ] **Visible result**: asteroids bump and bounce realistically
 

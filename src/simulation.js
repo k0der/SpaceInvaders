@@ -1,4 +1,5 @@
 import { createAsteroid, updateAsteroid } from './asteroid.js';
+import { detectCollisions, resolveCollision, separateOverlap } from './physics.js';
 
 const SPAWN_STAGGER = 0.3; // seconds between spawns
 const MARGIN = 5; // px margin beyond radius for off-screen detection
@@ -115,6 +116,13 @@ export function updateSimulation(sim, dt, canvasWidth, canvasHeight) {
   // Update all asteroids
   for (const a of sim.asteroids) {
     updateAsteroid(a, dt);
+  }
+
+  // Detect and resolve collisions
+  const pairs = detectCollisions(sim.asteroids);
+  for (const [a, b] of pairs) {
+    separateOverlap(a, b);
+    resolveCollision(a, b);
   }
 
   // Remove off-screen asteroids
