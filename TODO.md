@@ -338,19 +338,19 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 **Modify**: `src/ship.js` (add `updateShip` with rotation only), `src/main.js`
 
 **Acceptance Criteria**:
-- [ ] `createInputState()` returns `{ thrust, rotateLeft, rotateRight, brake, fire }` all `false`
-- [ ] `handleKeyDown(state, key)` / `handleKeyUp(state, key)` map keys to flags:
+- [x] `createInputState()` returns `{ thrust, rotateLeft, rotateRight, brake, fire }` all `false`
+- [x] `handleKeyDown(state, key)` / `handleKeyUp(state, key)` map keys to flags:
   - `'w'`/`'W'`/`'ArrowUp'` → thrust, `'a'`/`'A'`/`'ArrowLeft'` → rotateLeft, `'d'`/`'D'`/`'ArrowRight'` → rotateRight, `'s'`/`'S'`/`'ArrowDown'` → brake, `' '` → fire
   - Case-insensitive, unknown keys ignored
-- [ ] `applyInput(inputState, ship)` copies input flags onto ship control booleans
-- [ ] `updateShip(ship, dt)` applies rotation:
+- [x] `applyInput(inputState, ship)` copies input flags onto ship control booleans
+- [x] `updateShip(ship, dt)` applies rotation:
   - `rotatingLeft` → heading decreases by `ROTATION_SPEED * dt`
   - `rotatingRight` → heading increases by `ROTATION_SPEED * dt`
   - Heading normalized to [-PI, PI]
-- [ ] `ROTATION_SPEED` constant exported from `ship.js`
-- [ ] `keydown`/`keyup` listeners registered in `startApp()`
-- [ ] Escape key still opens/closes settings (no conflict)
-- [ ] **Visible**: Pressing A/D or Left/Right makes the ship rotate in place at screen center. Asteroids keep drifting around it.
+- [x] `ROTATION_SPEED` constant exported from `ship.js`
+- [x] `keydown`/`keyup` listeners registered in `startApp()`
+- [x] Escape key still opens/closes settings (no conflict)
+- [x] **Visible**: Pressing A/D or Left/Right makes the ship rotate in place at screen center. Asteroids keep drifting around it.
 
 ---
 
