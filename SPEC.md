@@ -137,8 +137,10 @@ Distribution: ~20% large, ~40% medium, ~40% small.
 
 - Each star has a **base brightness** and a **twinkle phase** (random offset)
 - Brightness oscillates sinusoidally: `brightness = base + amplitude * sin(time * frequency + phase)`
-- Twinkle amplitude: 10–20% of base brightness
-- Twinkle frequency: 0.5–2.0 Hz (randomized per star)
+- Twinkle amplitude: 10–30% of base brightness (wider range for visual variety)
+- Twinkle frequency: 0.3–3.0 Hz (wide range so stars feel independent, not synchronized)
+- Phases must be well-distributed across the full cycle to avoid clusters of stars pulsing together
+- The overall effect should look organic and natural — like real stars — not like a synchronized Christmas tree
 - Only the far and mid layers twinkle; near-layer stars are steady
 
 ### 3.3 Star Recycling

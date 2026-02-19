@@ -315,8 +315,8 @@ function speedForRadius(radius) {
 
   if (options.twinkle) {
     star.twinklePhase = Math.random() * Math.PI * 2;
-    star.twinkleFreq = 0.5 + Math.random() * 1.5;           // 0.5–2.0 Hz
-    star.twinkleAmplitude = brightness * (0.1 + Math.random() * 0.1); // 10–20% of base
+    star.twinkleFreq = 0.3 + Math.random() * 2.7;           // 0.3–3.0 Hz
+    star.twinkleAmplitude = brightness * (0.1 + Math.random() * 0.2); // 10–30% of base
   }
 
   return star;

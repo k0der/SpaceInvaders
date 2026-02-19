@@ -151,7 +151,23 @@
 
 ---
 
-## Increment 9: Asteroids Bounce Off Each Other
+## Increment 9: Natural Starfield Twinkle
+
+**Goal**: Stars currently twinkle in near-unison, looking like a Christmas tree instead of a galaxy. Widen the frequency and amplitude ranges, and ensure phases are well-distributed so each star feels independent.
+
+**Module**: `src/starfield.js`
+
+**Acceptance Criteria**:
+- [ ] Twinkle frequency range widened to 0.3–3.0 Hz (was 0.5–2.0)
+- [ ] Twinkle amplitude range widened to 10–30% of base brightness (was 10–20%)
+- [ ] Phases are uniformly distributed across the full 0–2π range (no clustering)
+- [ ] At any given moment, some stars are bright, some dim, some in between — no visible synchronization
+- [ ] Existing twinkle tests still pass (clamping, near-layer exclusion, etc.)
+- [ ] **Visible result**: organic, natural shimmer — each star feels like it has its own rhythm
+
+---
+
+## Increment 10: Asteroids Bounce Off Each Other
 
 **Goal**: Collision detection and elastic response. The "wow" moment — asteroids interact.
 
@@ -173,7 +189,7 @@
 
 ---
 
-## Increment 10: Collision Cooldown
+## Increment 11: Collision Cooldown
 
 **Goal**: Prevent rapid re-collisions when asteroids separate slowly.
 
@@ -188,7 +204,7 @@
 
 ---
 
-## Increment 11: Settings Menu
+## Increment 12: Settings Menu
 
 **Goal**: A gear icon in the corner opens a settings panel with 3 sliders. The user can tune the experience.
 
@@ -208,7 +224,7 @@
 
 ---
 
-## Increment 12: Settings Persistence
+## Increment 13: Settings Persistence
 
 **Goal**: Settings survive page reload via localStorage.
 
@@ -224,7 +240,7 @@
 
 ---
 
-## Increment 13: HiDPI Support & Build
+## Increment 14: HiDPI Support & Build
 
 **Goal**: Crisp rendering on retina displays. Final single-file build.
 

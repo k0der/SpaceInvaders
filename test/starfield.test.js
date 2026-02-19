@@ -426,21 +426,41 @@ describe('Increment 4: Stars That Twinkle', () => {
       }
     });
 
-    it('twinkle frequency is between 0.5 and 2.0 Hz', () => {
+    it('twinkle frequency is between 0.3 and 3.0 Hz', () => {
       for (let i = 0; i < 50; i++) {
         const star = createStar(800, 600, { twinkle: true });
-        expect(star.twinkleFreq).toBeGreaterThanOrEqual(0.5);
-        expect(star.twinkleFreq).toBeLessThanOrEqual(2.0);
+        expect(star.twinkleFreq).toBeGreaterThanOrEqual(0.3);
+        expect(star.twinkleFreq).toBeLessThanOrEqual(3.0);
       }
     });
 
-    it('twinkle amplitude is between 10% and 20% of base brightness', () => {
+    it('twinkle frequency range spans beyond the old 0.5–2.0 range', () => {
+      let belowOldMin = false;
+      let aboveOldMax = false;
+      for (let i = 0; i < 200; i++) {
+        const star = createStar(800, 600, { twinkle: true });
+        if (star.twinkleFreq < 0.5) belowOldMin = true;
+        if (star.twinkleFreq > 2.0) aboveOldMax = true;
+      }
+      expect(belowOldMin).toBe(true);
+      expect(aboveOldMax).toBe(true);
+    });
+
+    it('twinkle amplitude is between 10% and 30% of base brightness', () => {
       for (let i = 0; i < 50; i++) {
         const star = createStar(800, 600, { twinkle: true, minBrightness: 0.5, maxBrightness: 0.5 });
-        // amplitude should be 10-20% of base (0.5), so 0.05–0.10
         expect(star.twinkleAmplitude).toBeGreaterThanOrEqual(star.brightness * 0.1);
-        expect(star.twinkleAmplitude).toBeLessThanOrEqual(star.brightness * 0.2);
+        expect(star.twinkleAmplitude).toBeLessThanOrEqual(star.brightness * 0.3);
       }
+    });
+
+    it('twinkle amplitude range spans beyond the old 10–20% range', () => {
+      let aboveOldMax = false;
+      for (let i = 0; i < 200; i++) {
+        const star = createStar(800, 600, { twinkle: true, minBrightness: 0.5, maxBrightness: 0.5 });
+        if (star.twinkleAmplitude > star.brightness * 0.2) aboveOldMax = true;
+      }
+      expect(aboveOldMax).toBe(true);
     });
 
     it('different stars have different twinkle phases (not synchronized)', () => {
@@ -454,6 +474,20 @@ describe('Increment 4: Stars That Twinkle', () => {
         }
       }
       expect(differ).toBe(true);
+    });
+
+    it('at any given time, stars have visibly different brightness levels (no sync)', () => {
+      // Create 50 twinkle stars with same base brightness
+      const stars = [];
+      for (let i = 0; i < 50; i++) {
+        stars.push(createStar(800, 600, { twinkle: true, minBrightness: 0.5, maxBrightness: 0.5 }));
+      }
+      // Sample at an arbitrary time — brightness values should have meaningful spread
+      const brightnesses = stars.map(s => applyTwinkle(s, 1.0));
+      const min = Math.min(...brightnesses);
+      const max = Math.max(...brightnesses);
+      // Spread should be significant (at least 0.1 range among 50 stars)
+      expect(max - min).toBeGreaterThan(0.1);
     });
   });
 
