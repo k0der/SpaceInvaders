@@ -348,14 +348,17 @@ describe('Increment 12: Energy-Sustaining Spawns — Simulation Integration', ()
 
   describe('updateSimulation — energy-sustaining spawns', () => {
     it('replacement spawns use speed boost from energy module', () => {
-      const sim = createSimulation(800, 600, 10);
-      // Drain energy by making all asteroids very slow
-      for (const a of sim.asteroids) {
-        a.vx = 1;
-        a.vy = 1;
-      }
-      // Remove most asteroids to trigger spawning
-      sim.asteroids = sim.asteroids.slice(0, 3);
+      // Build simulation with deterministic asteroid positions to avoid
+      // random collisions pushing asteroids off-screen during the test.
+      const sim = createSimulation(800, 600, 0);
+      sim.targetCount = 10;
+      sim.baselineKEPerAsteroid = 50000; // high baseline to guarantee boost > 1.0
+
+      // Place 3 slow asteroids well inside the canvas (no overlap, no off-screen risk)
+      const a1 = createAsteroid({ x: 200, y: 200, vx: 1, vy: 1, radius: 20 });
+      const a2 = createAsteroid({ x: 400, y: 300, vx: 1, vy: 1, radius: 20 });
+      const a3 = createAsteroid({ x: 600, y: 400, vx: 1, vy: 1, radius: 20 });
+      sim.asteroids = [a1, a2, a3];
       sim.spawnTimer = 0.3; // ready to spawn
 
       updateSimulation(sim, 0.016, 800, 600);
