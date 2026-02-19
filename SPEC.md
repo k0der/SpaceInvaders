@@ -13,6 +13,13 @@ colliding asteroids against a deep starfield. Designed to be mesmerizing and rel
 - **Zero dependencies** — vanilla JS, opens in any modern browser
 - **No build step** required
 
+## Development Process
+
+- **Trunk-based development**: all work lands on `main` — no long-lived feature branches
+- **TDD**: write failing tests (RED) → implement until green (GREEN) → refactor
+- **Coverage audit**: before committing each increment, explicitly map every acceptance criterion to its test(s) and fill gaps
+- **Build**: `node build.js` inlines ES modules from `src/` into a standalone `index.html`
+
 ## Visual Style
 
 - **Black background**, white vector-style line art

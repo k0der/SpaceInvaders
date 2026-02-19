@@ -65,13 +65,6 @@ export function startApp() {
 
     drawParallaxLayers(ctx, starLayers, elapsedTime);
 
-    // Debug: log once to verify rendering
-    if (loop.frameCount === 1) {
-      const totalStars = starLayers.reduce((sum, l) => sum + l.stars.length, 0);
-      console.log(`[starfield] canvas: ${canvas.width}x${canvas.height}, layers: ${starLayers.length}, stars: ${totalStars}`);
-      console.log(`[starfield] sample star:`, starLayers[2].stars[0]);
-    }
-
     requestAnimationFrame(frame);
   }
 

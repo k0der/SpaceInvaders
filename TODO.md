@@ -2,9 +2,11 @@
 
 ## Approach
 
+- **Trunk-based development**: all work lands on `main` — no long-lived feature branches
 - **Test framework**: Vitest + happy-dom
 - **Code structure**: ES modules in `src/` for testability, `build.js` merges into single `index.html`
 - **Workflow**: Write failing tests (RED) → implement until tests pass (GREEN) → refactor
+- **Coverage audit**: before committing each increment, explicitly map every acceptance criterion to its test(s) and fill gaps
 - **Philosophy**: Elephant carpaccio — every increment produces a running, visible result. The animation loop exists from the start; each slice adds something you can see.
 
 ---
