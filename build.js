@@ -15,6 +15,7 @@ for (const mod of modules) {
   // Strip import/export statements for single-file bundling
   const cleaned = content
     .replace(/^\s*import\s+.*?from\s+['"].*?['"];?\s*$/gm, '')
+    .replace(/^\s*import\s+\{[\s\S]*?\}\s+from\s+['"].*?['"];?\s*$/gm, '')
     .replace(/^\s*export\s+/gm, '');
   combinedJs += `// ===== ${mod} =====\n${cleaned}\n`;
 }

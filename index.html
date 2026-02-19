@@ -204,29 +204,6 @@ function applyInput(inputState, ship) {
 
 // ===== main.js =====
 
-import {
-  applyInput,
-  createInputState,
-  handleKeyDown,
-  handleKeyUp,
-} from './input.js';
-
-import {
-  createSettings,
-  createSettingsUI,
-  loadSettings,
-  saveSettings,
-  updateAutoHide,
-} from './settings.js';
-
-
-import {
-  createParallaxLayers,
-  drawParallaxLayers,
-  redistributeStars,
-  updateStarLayerDirectional,
-} from './starfield.js';
-
 /**
  * Calculate delta time in seconds between two timestamps (ms).
  * Caps at 0.1s to avoid spiral-of-death after tab backgrounding.
@@ -957,13 +934,6 @@ function drawShip(ctx, ship) {
 }
 
 // ===== simulation.js =====
-
-
-import {
-  detectCollisions,
-  resolveCollision,
-  separateOverlap,
-} from './physics.js';
 
 const SPAWN_STAGGER = 0.3; // seconds between spawns
 const MARGIN = 5; // px margin beyond radius for off-screen detection
