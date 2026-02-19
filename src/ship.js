@@ -8,7 +8,7 @@ const SHIP_SIZE = 15;
 export const ROTATION_SPEED = 4.0;
 
 /** Thrust acceleration in pixels/s². */
-export const THRUST_POWER = 450;
+export const THRUST_POWER = 900;
 
 /** Drag coefficient per second (mild friction). */
 export const DRAG = 0.5;
