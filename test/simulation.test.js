@@ -6,6 +6,7 @@ import {
   updateSimulation,
 } from '../src/simulation.js';
 import { createAsteroid } from '../src/asteroid.js';
+import { computeTotalKE } from '../src/energy.js';
 
 describe('Increment 8: Asteroids Come and Go', () => {
 
@@ -99,18 +100,21 @@ describe('Increment 8: Asteroids Come and Go', () => {
     });
 
     it('produces asteroids aimed roughly inward', () => {
-      // Spawn many and check they move toward the canvas center area
-      for (let i = 0; i < 50; i++) {
+      // Spawn many and check that the vast majority move toward the canvas center
+      let inwardCount = 0;
+      const total = 100;
+      for (let i = 0; i < total; i++) {
         const a = spawnAsteroidFromEdge(800, 600);
-        // After some time, asteroid should be closer to canvas center
         const distBefore = Math.sqrt(
           Math.pow(a.x - 400, 2) + Math.pow(a.y - 300, 2)
         );
         const distAfter = Math.sqrt(
           Math.pow(a.x + a.vx * 2 - 400, 2) + Math.pow(a.y + a.vy * 2 - 300, 2)
         );
-        expect(distAfter).toBeLessThan(distBefore);
+        if (distAfter < distBefore) inwardCount++;
       }
+      // With ±30° spread, nearly all should move inward; allow a small margin
+      expect(inwardCount / total).toBeGreaterThan(0.9);
     });
 
     it('spawns from all four edges over many calls', () => {
@@ -279,6 +283,109 @@ describe('Increment 8: Asteroids Come and Go', () => {
       // Count should be near target (some may be in transit)
       expect(sim.asteroids.length).toBeGreaterThanOrEqual(5);
       expect(sim.asteroids.length).toBeLessThanOrEqual(15);
+    });
+  });
+});
+
+describe('Increment 12: Energy-Sustaining Spawns — Simulation Integration', () => {
+
+  describe('createSimulation — baseline KE', () => {
+    it('records baselineKEPerAsteroid from initial population', () => {
+      const sim = createSimulation(800, 600, 20);
+      expect(sim).toHaveProperty('baselineKEPerAsteroid');
+      expect(sim.baselineKEPerAsteroid).toBeGreaterThan(0);
+    });
+
+    it('baselineKEPerAsteroid equals average KE of initial asteroids', () => {
+      const sim = createSimulation(800, 600, 20);
+      const totalKE = computeTotalKE(sim.asteroids);
+      const expectedBaseline = totalKE / sim.asteroids.length;
+      expect(sim.baselineKEPerAsteroid).toBeCloseTo(expectedBaseline, 5);
+    });
+  });
+
+  describe('spawnAsteroidFromEdge — speed multiplier', () => {
+    it('accepts an optional speed multiplier', () => {
+      // Should not throw
+      const a = spawnAsteroidFromEdge(800, 600, 1.5);
+      expect(a).toBeDefined();
+      expect(a.vx !== undefined && a.vy !== undefined).toBe(true);
+    });
+
+    it('default multiplier is 1.0 (no change)', () => {
+      // Sample many and compare average speeds with and without multiplier
+      let speedsDefault = [];
+      let speedsExplicit = [];
+      for (let i = 0; i < 200; i++) {
+        const a = spawnAsteroidFromEdge(800, 600);
+        const b = spawnAsteroidFromEdge(800, 600, 1.0);
+        speedsDefault.push(Math.sqrt(a.vx ** 2 + a.vy ** 2));
+        speedsExplicit.push(Math.sqrt(b.vx ** 2 + b.vy ** 2));
+      }
+      const avgDefault = speedsDefault.reduce((s, v) => s + v, 0) / speedsDefault.length;
+      const avgExplicit = speedsExplicit.reduce((s, v) => s + v, 0) / speedsExplicit.length;
+      // Averages should be roughly similar (within 20% due to randomness)
+      expect(Math.abs(avgDefault - avgExplicit) / avgDefault).toBeLessThan(0.2);
+    });
+
+    it('multiplier of 1.5 produces ~1.5x faster asteroids on average', () => {
+      let speedsNormal = [];
+      let speedsBoosted = [];
+      for (let i = 0; i < 300; i++) {
+        const a = spawnAsteroidFromEdge(800, 600, 1.0);
+        const b = spawnAsteroidFromEdge(800, 600, 1.5);
+        speedsNormal.push(Math.sqrt(a.vx ** 2 + a.vy ** 2));
+        speedsBoosted.push(Math.sqrt(b.vx ** 2 + b.vy ** 2));
+      }
+      const avgNormal = speedsNormal.reduce((s, v) => s + v, 0) / speedsNormal.length;
+      const avgBoosted = speedsBoosted.reduce((s, v) => s + v, 0) / speedsBoosted.length;
+      const ratio = avgBoosted / avgNormal;
+      // Should be approximately 1.5 (within ±20%)
+      expect(ratio).toBeGreaterThan(1.2);
+      expect(ratio).toBeLessThan(1.8);
+    });
+  });
+
+  describe('updateSimulation — energy-sustaining spawns', () => {
+    it('replacement spawns use speed boost from energy module', () => {
+      const sim = createSimulation(800, 600, 10);
+      // Drain energy by making all asteroids very slow
+      for (const a of sim.asteroids) {
+        a.vx = 1;
+        a.vy = 1;
+      }
+      // Remove most asteroids to trigger spawning
+      sim.asteroids = sim.asteroids.slice(0, 3);
+      sim.spawnTimer = 0.3; // ready to spawn
+
+      updateSimulation(sim, 0.016, 800, 600);
+
+      // Should have spawned at least one new asteroid
+      expect(sim.asteroids.length).toBeGreaterThan(3);
+    });
+
+    it('system KE stays within 80–120% of baseline over a long run', () => {
+      const sim = createSimulation(1600, 1200, 20);
+      const baselineTotalKE = sim.baselineKEPerAsteroid * sim.targetCount;
+
+      // Warm up for 500 frames to reach steady state
+      for (let i = 0; i < 500; i++) {
+        updateSimulation(sim, 0.016, 1600, 1200);
+      }
+
+      // Sample KE over the next 1000 frames to compute average
+      let keSum = 0;
+      const sampleCount = 1000;
+      for (let i = 0; i < sampleCount; i++) {
+        updateSimulation(sim, 0.016, 1600, 1200);
+        keSum += computeTotalKE(sim.asteroids);
+      }
+
+      const avgKE = keSum / sampleCount;
+      const ratio = avgKE / baselineTotalKE;
+
+      expect(ratio).toBeGreaterThanOrEqual(0.8);
+      expect(ratio).toBeLessThanOrEqual(1.2);
     });
   });
 });

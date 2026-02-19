@@ -16,15 +16,19 @@
 - `SPEC.md` — technical specification (the "what")
 - `TODO.md` — incremental build plan with acceptance criteria (the "how")
 
+## Iteration Checklist
+
+**Follow these steps in order for every iteration. Do not skip or reorder steps.**
+
+1. **RED** — Write failing tests for the increment's acceptance criteria. Run `npm test` to confirm they fail.
+2. **GREEN** — Write the minimum code to make all tests pass. Run `npm test` to confirm.
+3. **REFACTOR** — Clean up if needed (see Refactoring Rules below). Tests must pass after each refactoring step.
+4. **Coverage audit** — Review the entire codebase for missing test coverage related to this increment. Map every acceptance criterion to its test(s). Add tests for untested code paths, edge cases, and integration points. Run `npm test` to confirm.
+5. **Build** — Run `npm run build` and verify it completes without errors.
+6. **Commit & push** — Commit all changes and push to `main`.
+7. **STOP** — Present a summary of changes to the human developer and wait for review and manual testing. **Do not start the next iteration until the human gives explicit approval.** This is not optional.
+
 ## Workflow Rules
-
-### TDD Cycle
-
-Follow strict RED → GREEN → REFACTOR:
-1. Write a failing test for the next acceptance criterion
-2. Write the minimum code to make it pass
-3. Refactor if needed (see refactoring rules below)
-4. Repeat until all acceptance criteria for the increment are met
 
 ### Refactoring Rules (Kent Beck / Martin Fowler style)
 
@@ -41,12 +45,9 @@ Follow strict RED → GREEN → REFACTOR:
 - If a change is needed (e.g., a tolerance is unrealistic, an acceptance criterion needs adjustment), explain clearly what needs to change and why, then ask for approval before editing.
 - This applies to all changes: adding, removing, or modifying content in these files.
 
-### Iteration Discipline
+### Scope Discipline
 
 - **Only make changes required by the current increment's acceptance criteria.** Do not add features, abstractions, or "improvements" beyond what is specified.
-- At the end of every iteration, **STOP and wait for the human developer to review and manually test.** Do not start the next iteration until the human gives explicit approval. This is not optional.
-- When all tests pass for an iteration, review the codebase for missing test coverage and add needed tests.
-- Before presenting for review, run `npm run build` and verify it completes without errors.
 
 ### Code Conventions
 

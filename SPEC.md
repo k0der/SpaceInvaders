@@ -85,6 +85,22 @@ Distribution: ~20% large, ~40% medium, ~40% small.
 - Spawning is staggered — no more than 1 new asteroid per 0.3 seconds to avoid
   clusters appearing at edges
 
+### 1.6 Energy Homeostasis
+
+The open boundary preferentially removes fast, light asteroids (they exit the
+screen sooner after collisions), gradually draining the system's kinetic energy.
+To compensate, the spawner acts as a feedback-controlled energy pump:
+
+- At initialization, the average kinetic energy per asteroid is recorded as the
+  baseline (KE = 0.5 × collisionRadius² × speed²)
+- When spawning a replacement, the current total system KE is compared to the
+  target (baseline × target count)
+- If the system is below target, the spawn speed is boosted by
+  `sqrt(targetKE / actualKE)`, capped at 1.5×
+- If the system is at or above target, spawns use normal spec speeds
+- This keeps the asteroid field's energy level constant indefinitely, regardless
+  of collision history
+
 ---
 
 ## 2. Collision Physics

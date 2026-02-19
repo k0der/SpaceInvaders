@@ -101,6 +101,42 @@ function getStrokeWidth(radius) {
   ctx.restore();
 }
 
+// ===== energy.js =====
+/**
+ * Compute kinetic energy for a single asteroid.
+ * KE = 0.5 * mass * speed², where mass = collisionRadius²
+ */
+function computeKE(asteroid) {
+  const mass = asteroid.collisionRadius * asteroid.collisionRadius;
+  return 0.5 * mass * (asteroid.vx * asteroid.vx + asteroid.vy * asteroid.vy);
+}
+
+/**
+ * Sum kinetic energy across all asteroids.
+ */
+function computeTotalKE(asteroids) {
+  let total = 0;
+  for (const a of asteroids) {
+    total += computeKE(a);
+  }
+  return total;
+}
+
+/**
+ * Compute a speed multiplier for new spawns to sustain system energy.
+ * Returns clamp(sqrt(targetKE / actualKE), 1.0, 1.5).
+ */
+function computeSpeedBoost(baselineKEPerAsteroid, targetCount, asteroids) {
+  const targetKE = baselineKEPerAsteroid * targetCount;
+  if (targetKE <= 0) return 1.0;
+
+  const actualKE = computeTotalKE(asteroids);
+  if (actualKE <= 0) return 1.5;
+  if (actualKE >= targetKE) return 1.0;
+
+  return Math.min(Math.sqrt(targetKE / actualKE), 1.5);
+}
+
 // ===== main.js =====
 
 /**
@@ -330,9 +366,10 @@ function speedForRadius(radius) {
 
 /**
  * Spawn a new asteroid from a random screen edge, aimed roughly inward.
- */function spawnAsteroidFromEdge(canvasWidth, canvasHeight) {
+ * Optional speedMultiplier scales the base speed (default 1.0).
+ */function spawnAsteroidFromEdge(canvasWidth, canvasHeight, speedMultiplier = 1.0) {
   const radius = randomRadius();
-  const speed = speedForRadius(radius);
+  const speed = speedForRadius(radius) * speedMultiplier;
   const edge = Math.floor(Math.random() * 4); // 0=left, 1=right, 2=top, 3=bottom
 
   let x, y, baseAngle;
@@ -381,10 +418,13 @@ function speedForRadius(radius) {
     asteroids.push(spawnAsteroidFromEdge(canvasWidth, canvasHeight));
   }
 
+  const baselineKEPerAsteroid = computeTotalKE(asteroids) / asteroids.length;
+
   return {
     asteroids,
     targetCount,
     spawnTimer: 0,
+    baselineKEPerAsteroid,
   };
 }
 
@@ -406,10 +446,13 @@ function speedForRadius(radius) {
   // Remove off-screen asteroids
   sim.asteroids = sim.asteroids.filter(a => !isOffScreen(a, canvasWidth, canvasHeight));
 
-  // Spawn new asteroids if below target (staggered)
+  // Spawn new asteroids if below target (staggered), with energy-sustaining boost
   sim.spawnTimer += dt;
   if (sim.asteroids.length < sim.targetCount && sim.spawnTimer >= SPAWN_STAGGER) {
-    sim.asteroids.push(spawnAsteroidFromEdge(canvasWidth, canvasHeight));
+    const boost = computeSpeedBoost(
+      sim.baselineKEPerAsteroid, sim.targetCount, sim.asteroids
+    );
+    sim.asteroids.push(spawnAsteroidFromEdge(canvasWidth, canvasHeight, boost));
     sim.spawnTimer = 0;
   }
 }

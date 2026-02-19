@@ -1,5 +1,6 @@
 import { createAsteroid, updateAsteroid } from './asteroid.js';
 import { detectCollisions, resolveCollision, separateOverlap } from './physics.js';
+import { computeTotalKE, computeSpeedBoost } from './energy.js';
 
 const SPAWN_STAGGER = 0.3; // seconds between spawns
 const MARGIN = 5; // px margin beyond radius for off-screen detection
@@ -49,10 +50,11 @@ function speedForRadius(radius) {
 
 /**
  * Spawn a new asteroid from a random screen edge, aimed roughly inward.
+ * Optional speedMultiplier scales the base speed (default 1.0).
  */
-export function spawnAsteroidFromEdge(canvasWidth, canvasHeight) {
+export function spawnAsteroidFromEdge(canvasWidth, canvasHeight, speedMultiplier = 1.0) {
   const radius = randomRadius();
-  const speed = speedForRadius(radius);
+  const speed = speedForRadius(radius) * speedMultiplier;
   const edge = Math.floor(Math.random() * 4); // 0=left, 1=right, 2=top, 3=bottom
 
   let x, y, baseAngle;
@@ -102,10 +104,13 @@ export function createSimulation(canvasWidth, canvasHeight, targetCount = 20) {
     asteroids.push(spawnAsteroidFromEdge(canvasWidth, canvasHeight));
   }
 
+  const baselineKEPerAsteroid = computeTotalKE(asteroids) / asteroids.length;
+
   return {
     asteroids,
     targetCount,
     spawnTimer: 0,
+    baselineKEPerAsteroid,
   };
 }
 
@@ -128,10 +133,13 @@ export function updateSimulation(sim, dt, canvasWidth, canvasHeight) {
   // Remove off-screen asteroids
   sim.asteroids = sim.asteroids.filter(a => !isOffScreen(a, canvasWidth, canvasHeight));
 
-  // Spawn new asteroids if below target (staggered)
+  // Spawn new asteroids if below target (staggered), with energy-sustaining boost
   sim.spawnTimer += dt;
   if (sim.asteroids.length < sim.targetCount && sim.spawnTimer >= SPAWN_STAGGER) {
-    sim.asteroids.push(spawnAsteroidFromEdge(canvasWidth, canvasHeight));
+    const boost = computeSpeedBoost(
+      sim.baselineKEPerAsteroid, sim.targetCount, sim.asteroids
+    );
+    sim.asteroids.push(spawnAsteroidFromEdge(canvasWidth, canvasHeight, boost));
     sim.spawnTimer = 0;
   }
 }

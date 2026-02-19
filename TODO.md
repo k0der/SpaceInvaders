@@ -207,7 +207,27 @@
 
 ---
 
-## Increment 12: Collision Cooldown
+## Increment 12: Energy-Sustaining Spawns
+
+**Goal**: Maintain constant system energy by dynamically boosting spawn speeds when kinetic energy drops below baseline. The spawner acts as a thermostat — the open boundary drains energy by preferentially removing fast small asteroids, and the spawner compensates by injecting higher-energy replacements.
+
+**Module**: `src/energy.js`, `src/simulation.js`
+
+**Acceptance Criteria**:
+- [ ] `computeKE(asteroid)` returns `0.5 * collisionRadius² * (vx² + vy²)`
+- [ ] `computeTotalKE(asteroids)` sums KE across all asteroids
+- [ ] `computeSpeedBoost(baselineKEPerAsteroid, targetCount, asteroids)` returns `clamp(sqrt(targetKE / actualKE), 1.0, 1.5)`
+- [ ] Returns 1.0 when actual KE >= target KE (never spawns slower than spec)
+- [ ] Returns 1.5 when deficit is extreme (cap prevents absurd speeds)
+- [ ] Simulation records `baselineKEPerAsteroid` from initial population at creation
+- [ ] `spawnAsteroidFromEdge` accepts an optional speed multiplier, applied to the base speed
+- [ ] Replacement spawns use the computed speed boost
+- [ ] Over a long simulated run (1000+ frames), average system KE stays within 80–120% of baseline
+- [ ] **Visible result**: the asteroid field maintains consistent energy indefinitely — no gradual slowdown
+
+---
+
+## Increment 13: Collision Cooldown
 
 **Goal**: Prevent rapid re-collisions when asteroids separate slowly.
 
@@ -222,7 +242,7 @@
 
 ---
 
-## Increment 13: Settings Menu
+## Increment 14: Settings Menu
 
 **Goal**: A gear icon in the corner opens a settings panel with 3 sliders. The user can tune the experience.
 
@@ -242,7 +262,7 @@
 
 ---
 
-## Increment 14: Settings Persistence
+## Increment 15: Settings Persistence
 
 **Goal**: Settings survive page reload via localStorage.
 
@@ -258,7 +278,7 @@
 
 ---
 
-## Increment 15: HiDPI Support & Build
+## Increment 16: HiDPI Support & Build
 
 **Goal**: Crisp rendering on retina displays. Final single-file build.
 
