@@ -1,0 +1,52 @@
+/**
+ * Ship size constant (half-height of the chevron shape).
+ * Used for rendering and later for collision radius.
+ */
+const SHIP_SIZE = 15;
+
+/**
+ * Create a ship entity.
+ */
+export function createShip({ x, y, heading }) {
+  return {
+    x,
+    y,
+    vx: 0,
+    vy: 0,
+    heading,
+    alive: true,
+    thrust: false,
+    rotatingLeft: false,
+    rotatingRight: false,
+    braking: false,
+    fire: false,
+  };
+}
+
+/**
+ * Draw a classic Asteroids chevron/triangle at the ship's position,
+ * rotated by its heading. White wireframe, no fill.
+ */
+export function drawShip(ctx, ship) {
+  if (!ship.alive) return;
+
+  const s = SHIP_SIZE;
+
+  ctx.save();
+  ctx.translate(ship.x, ship.y);
+  ctx.rotate(ship.heading);
+
+  ctx.strokeStyle = '#FFFFFF';
+  ctx.lineWidth = 1.5;
+
+  // Chevron shape: nose at right (+x), two rear points, notch in back
+  ctx.beginPath();
+  ctx.moveTo(s, 0);                    // nose
+  ctx.lineTo(-s, -s * 0.7);            // top-left wing
+  ctx.lineTo(-s * 0.5, 0);             // rear notch
+  ctx.lineTo(-s, s * 0.7);             // bottom-left wing
+  ctx.closePath();
+  ctx.stroke();
+
+  ctx.restore();
+}

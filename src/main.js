@@ -3,6 +3,7 @@ import { drawAsteroid } from './asteroid.js';
 import { createSimulation, updateSimulation } from './simulation.js';
 import { createSettings, createSettingsUI, updateAutoHide, loadSettings, saveSettings } from './settings.js';
 import { setupHiDPICanvas } from './renderer.js';
+import { createShip, drawShip } from './ship.js';
 
 /**
  * Calculate delta time in seconds between two timestamps (ms).
@@ -53,6 +54,11 @@ export function startApp() {
   const loop = createLoop();
   let starLayers = createParallaxLayers(logicalSize.width, logicalSize.height);
   const sim = createSimulation(logicalSize.width, logicalSize.height);
+  const playerShip = createShip({
+    x: logicalSize.width / 2,
+    y: logicalSize.height / 2,
+    heading: -Math.PI / 2,
+  });
   const loaded = loadSettings();
   const settings = createSettings(loaded);
   let elapsedTime = 0;
@@ -131,6 +137,8 @@ export function startApp() {
     for (const asteroid of sim.asteroids) {
       drawAsteroid(ctx, asteroid);
     }
+
+    drawShip(ctx, playerShip);
 
     requestAnimationFrame(frame);
   }

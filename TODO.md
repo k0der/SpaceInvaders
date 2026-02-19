@@ -300,3 +300,292 @@
 - [x] `index.html` works with zero external dependencies
 - [x] No console errors or warnings
 - [x] **Visible result**: the final deliverable — one HTML file, opens in any browser, mesmerizing to watch
+
+---
+
+# Phase 2: Dogfighting Game
+
+Increments 17–30 transform the asteroid screensaver into a Star Wars-style dogfighting game. Two ships (player + AI enemy) fight among asteroids. The player ship is fixed at screen center with the world rotating around it.
+
+**Dependency chain**: 17 → 18 → 19 → 20 → 21 → 22 → 23 → 24 → 25 → 26 → 27 → 28 → 29 → 30
+
+---
+
+## Increment 17: Static Ship at Screen Center
+
+**Goal**: Create the ship module and render a static ship at the center of the asteroid field.
+
+**New modules**: `src/ship.js`, `test/ship.test.js`
+**Modify**: `src/main.js`
+
+**Acceptance Criteria**:
+- [ ] `createShip({ x, y, heading })` returns a ship object with: `x, y, vx, vy, heading, alive` and control booleans (`thrust, rotatingLeft, rotatingRight, braking, fire`), all defaulting to `0`/`false`
+- [ ] `drawShip(ctx, ship)` draws a classic Asteroids chevron/triangle at `(ship.x, ship.y)`, rotated by `ship.heading`
+  - White wireframe (`strokeStyle = '#FFFFFF'`), no fill, lineWidth ~1.5
+  - Canvas state saved/restored (no transform leak)
+- [ ] Ship created in `startApp()` at `(canvasWidth/2, canvasHeight/2)` with heading `-PI/2` (pointing up)
+- [ ] Ship drawn after asteroids in the render loop (on top)
+- [ ] Ship is static — no movement, no input
+- [ ] **Visible**: A white triangular ship sitting at the center of the asteroid field. Asteroids drift past it.
+
+---
+
+## Increment 18: Ship Rotates with Keyboard
+
+**Goal**: Add keyboard input and ship rotation. No thrust/position change yet — just turning in place.
+
+**New modules**: `src/input.js`, `test/input.test.js`
+**Modify**: `src/ship.js` (add `updateShip` with rotation only), `src/main.js`
+
+**Acceptance Criteria**:
+- [ ] `createInputState()` returns `{ thrust, rotateLeft, rotateRight, brake, fire }` all `false`
+- [ ] `handleKeyDown(state, key)` / `handleKeyUp(state, key)` map keys to flags:
+  - `'w'`/`'W'`/`'ArrowUp'` → thrust, `'a'`/`'A'`/`'ArrowLeft'` → rotateLeft, `'d'`/`'D'`/`'ArrowRight'` → rotateRight, `'s'`/`'S'`/`'ArrowDown'` → brake, `' '` → fire
+  - Case-insensitive, unknown keys ignored
+- [ ] `applyInput(inputState, ship)` copies input flags onto ship control booleans
+- [ ] `updateShip(ship, dt)` applies rotation:
+  - `rotatingLeft` → heading decreases by `ROTATION_SPEED * dt`
+  - `rotatingRight` → heading increases by `ROTATION_SPEED * dt`
+  - Heading normalized to [-PI, PI]
+- [ ] `ROTATION_SPEED` constant exported from `ship.js`
+- [ ] `keydown`/`keyup` listeners registered in `startApp()`
+- [ ] Escape key still opens/closes settings (no conflict)
+- [ ] **Visible**: Pressing A/D or Left/Right makes the ship rotate in place at screen center. Asteroids keep drifting around it.
+
+---
+
+## Increment 19: Ship Thrusts and Drifts (Newtonian Physics)
+
+**Goal**: Full Newtonian movement. Ship can fly off-screen (no camera yet).
+
+**Modify**: `src/ship.js`, `test/ship.test.js`
+
+**Acceptance Criteria**:
+- [ ] `updateShip(ship, dt)` now also applies:
+  - `thrust` → accelerate in heading direction: `vx += cos(heading) * THRUST_POWER * dt`, `vy += sin(heading) * THRUST_POWER * dt`
+  - `braking` → decelerate opposite to velocity direction (stronger than drag)
+  - Drag always applied: `vx *= (1 - DRAG * dt)`, `vy *= (1 - DRAG * dt)`
+  - Position updates: `x += vx * dt`, `y += vy * dt`
+  - Speed capped at `MAX_SPEED`
+- [ ] Constants exported: `THRUST_POWER`, `DRAG`, `BRAKE_POWER`, `MAX_SPEED`
+- [ ] With `dt=0`, no position/velocity changes
+- [ ] Ship drawn at its `(x, y)` which is now changing
+- [ ] Ship can fly off-screen (intentional — camera comes next)
+- [ ] Speed multiplier setting scales ship dt (same `scaledDt` as asteroids)
+- [ ] **Visible**: W/Up thrusts the ship forward. It drifts with momentum. S/Down brakes. Ship carves fluid arcs when combining rotation + thrust. Can fly off-screen.
+
+---
+
+## Increment 20: Camera Follows Ship (World Rotates Around It)
+
+**Goal**: Camera locks ship at screen center. World moves and rotates around the player.
+
+**New modules**: `src/camera.js`, `test/camera.test.js`
+**Modify**: `src/main.js`
+
+**Acceptance Criteria**:
+- [ ] `createCamera(x, y, rotation)` returns `{ x, y, rotation }`
+- [ ] `applyCameraTransform(ctx, camera, viewportW, viewportH)` saves context and applies: translate to screen center → rotate by `-camera.rotation` → translate by `(-camera.x, -camera.y)`
+- [ ] `resetCameraTransform(ctx)` restores context
+- [ ] `getViewportBounds(camera, viewportW, viewportH)` returns the AABB of the rotated viewport in world-space: `{ minX, maxX, minY, maxY }` with padding margin
+- [ ] Each frame: `camera.x = ship.x`, `camera.y = ship.y`, `camera.rotation = ship.heading`
+- [ ] Render pipeline becomes:
+  1. Clear canvas
+  2. Draw starfield (screen-space, before camera transform)
+  3. `applyCameraTransform(ctx, camera, ...)`
+  4. Draw asteroids (unchanged `drawAsteroid(ctx, asteroid)`)
+  5. Draw ship (at its world x,y — maps to screen center)
+  6. `resetCameraTransform(ctx)`
+- [ ] Ship always points "up" on screen (camera rotation cancels heading)
+- [ ] Ship can no longer fly off-screen (camera follows it)
+- [ ] Round-trip test: world → screen → world preserves coordinates
+- [ ] **Visible**: Ship locked at center pointing up. Rotating makes asteroids spin around you. Thrusting makes them scroll past. The "world rotates around you" effect.
+
+---
+
+## Increment 21: World-Relative Asteroid Spawning
+
+**Goal**: Asteroids spawn/despawn relative to the camera viewport, creating an infinite field.
+
+**Modify**: `src/simulation.js`, `test/simulation.test.js`, `src/main.js`
+
+**Acceptance Criteria**:
+- [ ] `spawnAsteroidFromEdge` accepts viewport bounds `{ minX, maxX, minY, maxY }` instead of `canvasWidth, canvasHeight`
+  - Asteroids spawn just outside the viewport bounds, aimed inward with ±30° spread
+- [ ] `isOffScreen` accepts viewport bounds — asteroids despawn when outside bounds + margin
+- [ ] `createSimulation` takes initial viewport bounds
+- [ ] `updateSimulation` receives current viewport bounds each frame (from `getViewportBounds`)
+- [ ] Energy homeostasis still works (unchanged — based on velocities)
+- [ ] Collision physics unchanged (all in world-space)
+- [ ] When ship flies in any direction, new asteroids appear from the edges
+- [ ] **Visible**: Infinite asteroid field. Fly anywhere — asteroids always populate the viewport. No more empty space at the edges.
+
+---
+
+## Increment 22: Starfield Responds to Camera
+
+**Goal**: Stars shift with parallax based on camera movement.
+
+**Modify**: `src/starfield.js`, `test/starfield.test.js`, `src/main.js`
+
+**Acceptance Criteria**:
+- [ ] New function `updateStarLayersCamera(layers, cameraDeltaX, cameraDeltaY, cameraDeltaRotation, viewportW, viewportH)` shifts stars based on camera position/rotation delta
+- [ ] Far layers shift less than near layers (parallax depth preserved)
+- [ ] Camera rotation rotates the shift direction (stars respond to turning)
+- [ ] Stars wrap when they exit viewport edges
+- [ ] When ships are active, starfield uses camera-relative mode instead of directional scroll
+- [ ] Existing direction modes (`left`/`right`/`up`/`down`/`radial`) remain available when ships are off
+- [ ] Star twinkling continues to work
+- [ ] `main.js` tracks `prevCamera` to compute deltas each frame
+- [ ] **Visible**: Full parallax scrolling tied to ship movement. Stars stream past when flying forward. Turning makes them wheel around the ship. Complete "flying through space" feel.
+
+---
+
+## Increment 23: Minimum Forward Velocity + Thrust Flame
+
+**Goal**: Ship always drifts forward and shows a flame when boosting.
+
+**Modify**: `src/ship.js`, `test/ship.test.js`
+
+**Acceptance Criteria**:
+- [ ] When ship speed drops below `MIN_SPEED`, a gentle forward push in the heading direction nudges velocity back up
+- [ ] `MIN_SPEED` exported — small fraction of `MAX_SPEED` (drift feel, not racing)
+- [ ] Push is smooth/gradual, not a hard clamp
+- [ ] When `ship.thrust` is true, `drawShip` renders a flickering flame behind the ship
+  - Randomized triangle size (varies frame-to-frame for flicker)
+  - White wireframe to match aesthetic
+  - Drawn before ship body (behind it visually)
+- [ ] With `dt=0`, no velocity push occurs
+- [ ] **Visible**: Ship always creeps forward even without pressing W. Thrusting shows engine flame flicker. The ship feels alive — always in motion, carving arcs.
+
+---
+
+## Increment 24: Bullets
+
+**Goal**: Player can fire bullets.
+
+**New modules**: `src/bullet.js`, `test/bullet.test.js`
+**Modify**: `src/main.js`
+
+**Acceptance Criteria**:
+- [ ] `createBullet(x, y, heading, shipVx, shipVy)` creates a bullet at given position, traveling at `BULLET_SPEED` in heading direction plus ship velocity (bullets inherit momentum)
+- [ ] `updateBullet(bullet, dt)` moves bullet linearly, increments `age`
+- [ ] `isBulletExpired(bullet)` returns true when `age >= BULLET_LIFETIME` (e.g., 2s)
+- [ ] `drawBullet(ctx, bullet)` draws a small bright dot or short line
+- [ ] Space key fires from ship nose position in heading direction
+- [ ] Fire rate limited by `FIRE_COOLDOWN` (~0.2s between shots)
+- [ ] Bullets rendered inside camera transform (world-space)
+- [ ] Expired bullets removed each frame
+- [ ] Bullets do NOT interact with asteroids (pass through)
+- [ ] `owner` field on bullet tracks which ship fired it (for later collision filtering)
+- [ ] **Visible**: Pressing Space fires white projectiles that streak forward from the ship and disappear after a distance.
+
+---
+
+## Increment 25: Enemy Ship + Basic AI
+
+**Goal**: Second ship appears, controlled by AI that chases the player.
+
+**New modules**: `src/ai.js`, `test/ai.test.js`
+**Modify**: `src/main.js`
+
+**Acceptance Criteria**:
+- [ ] `createAIState()` returns AI decision state object
+- [ ] `updateAI(aiState, aiShip, targetShip, asteroids, dt)` sets aiShip's control flags:
+  - Rotates toward target's predicted position (leads the target based on velocity)
+  - Thrusts when roughly facing target
+  - Brakes when overshooting
+- [ ] AI ship uses same `createShip` / `updateShip` physics as player (same thrust, drag, max speed)
+- [ ] Enemy visually distinguished (e.g., dashed lines, or slightly different shape/size)
+- [ ] Enemy spawns at a random world position offset from player (far enough to not immediately collide)
+- [ ] Both ships rendered inside camera transform
+- [ ] **Visible**: Two ships flying through the asteroid field. The enemy chases the player with fluid arcs. No shooting or collision yet — just the pursuit.
+
+---
+
+## Increment 26: AI Fires Bullets + Asteroid Avoidance
+
+**Goal**: AI shoots at player and steers around asteroids.
+
+**Modify**: `src/ai.js`, `test/ai.test.js`, `src/main.js`
+
+**Acceptance Criteria**:
+- [ ] `updateAI` also sets `aiShip.fire` when AI is aimed within angular threshold of target
+- [ ] AI respects same `FIRE_COOLDOWN` as player
+- [ ] AI bullets use same `createBullet` and physics
+- [ ] AI does not fire when target is too far away
+- [ ] AI avoids nearby asteroids: steers away when a collision course is detected
+- [ ] Avoidance and pursuit blend smoothly (no jittering between states)
+- [ ] **Visible**: Enemy shoots at the player and navigates around asteroids. Bullets fly between both ships. Dogfight feel emerges.
+
+---
+
+## Increment 27: Bullet-Ship Collision (One Kill)
+
+**Goal**: Bullets destroy ships. One bullet = one kill.
+
+**New modules**: `src/game.js`, `test/game.test.js`
+**Modify**: `src/main.js`
+
+**Acceptance Criteria**:
+- [ ] `checkBulletShipHit(bullet, ship)` returns true when bullet is within ship's `collisionRadius`
+- [ ] Ship `collisionRadius` defined at creation (based on ship size)
+- [ ] Player bullets hit enemy; enemy bullets hit player
+- [ ] Ship's own bullets cannot hit itself (filtered by `owner`)
+- [ ] One hit → `ship.alive = false`
+- [ ] Dead ship stops rendering and updating
+- [ ] Simple explosion effect on death (expanding wireframe circle or particle burst)
+- [ ] `createGameState()` tracks `{ phase }` — `'playing'`, `'playerWin'`, `'playerDead'`
+- [ ] Phase transitions on ship death
+- [ ] **Visible**: Ships can be destroyed by bullets. One shot = one kill. Explosion plays on death.
+
+---
+
+## Increment 28: Ship-Asteroid Collision
+
+**Goal**: Asteroids are lethal obstacles.
+
+**Modify**: `src/game.js`, `test/game.test.js`, `src/main.js`
+
+**Acceptance Criteria**:
+- [ ] `checkShipAsteroidCollision(ship, asteroids)` returns first overlapping asteroid (circle-circle using `collisionRadius`)
+- [ ] Ship dies on asteroid contact (same death + explosion as bullet death)
+- [ ] Applies to both player and enemy
+- [ ] Asteroids unaffected (keep drifting)
+- [ ] **Visible**: Flying into an asteroid kills the ship. Asteroids become environmental hazards during the dogfight.
+
+---
+
+## Increment 29: Game State, HUD, and Restart
+
+**Goal**: Complete game loop with win/lose/restart.
+
+**Modify**: `src/game.js`, `test/game.test.js`, `src/main.js`
+
+**Acceptance Criteria**:
+- [ ] Game phases: `'playing'` → `'playerWin'` (enemy dies) / `'playerDead'` (player dies)
+- [ ] HUD text displayed in screen-space (after camera reset): "YOU WIN" or "GAME OVER", centered on screen
+- [ ] "Press ENTER to restart" shown below the result text
+- [ ] Enter or R key restarts: both ships respawn, bullets cleared, phase resets to `'playing'`
+- [ ] On player death: camera freezes at death position (world stops rotating)
+- [ ] On enemy death: camera continues following player
+- [ ] Respawn positions offset from each other
+- [ ] **Visible**: Complete game loop. Fight the enemy, win or lose, see the result, restart and play again.
+
+---
+
+## Increment 30: AI-vs-AI Mode + Ship Mode Setting
+
+**Goal**: Three modes: play, watch, or classic screensaver.
+
+**Modify**: `src/settings.js`, `test/settings.test.js`, `src/main.js`, `src/ai.js`
+
+**Acceptance Criteria**:
+- [ ] `SETTINGS_CONFIG` gets `shipMode` with options: `'player-vs-ai'` (default), `'ai-vs-ai'`, `'off'`
+- [ ] Setting persisted to localStorage
+- [ ] `'player-vs-ai'`: Player controls one ship, AI controls enemy (current default)
+- [ ] `'ai-vs-ai'`: Both ships AI-controlled. Camera follows one ship. Auto-respawn after 3s when a ship dies (infinite dogfight loop for screensaver)
+- [ ] `'off'`: No ships, no bullets. Camera static at origin with no rotation. Starfield reverts to directional scroll mode. Pure asteroid screensaver (original behavior)
+- [ ] Mode switching works live in settings panel without page reload
+- [ ] Dropdown appears in the existing settings panel
+- [ ] **Visible**: Three modes — play the dogfight, watch an AI-vs-AI battle as a screensaver, or enjoy the classic asteroid screensaver.

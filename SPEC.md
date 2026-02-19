@@ -1,10 +1,12 @@
-# Asteroid Screensaver - Technical Specification
+# Space Dogfight — Technical Specification
 
 ## Overview
 
-A continuous, non-interactive animation inspired by the 1979 Atari Asteroids arcade game.
-No player, no score, no game-over — just an endless field of drifting, tumbling,
-colliding asteroids against a deep starfield. Designed to be mesmerizing and relaxing.
+A Star Wars-style dogfighting game built on top of a physics-driven asteroid field.
+Two ships (player + AI enemy) fight among drifting, colliding asteroids. The player
+ship is fixed at screen center with the world rotating around it — classic Asteroids
+controls with Newtonian physics. The same asteroid field serves triple duty: combat
+arena, AI-vs-AI screensaver, or classic asteroid screensaver (ships off).
 
 ## Technology
 
@@ -276,22 +278,39 @@ Each frame (`requestAnimationFrame` callback):
 
 ```
 1. Calculate deltaTime
-2. Update stars:
-   a. Move each star by its layer's scroll speed * dt
+2. Update input state
+3. Apply input to player ship (or AI input in ai-vs-ai mode)
+4. Update AI for enemy ship (and player ship in ai-vs-ai mode)
+5. Update ships (physics: thrust, drag, brake, rotation, position)
+6. Update camera (follow player ship)
+7. Update stars:
+   a. Camera-relative parallax shift (when ships active)
    b. Update twinkle phase
-   c. Recycle off-screen stars
-3. Update asteroids:
+   c. Wrap off-screen stars
+8. Update asteroids:
    a. Move each by velocity * dt
    b. Rotate each by angular velocity * dt
-   c. Remove off-screen asteroids
-   d. Spawn new asteroids if count < target (respecting stagger timer)
-4. Detect & resolve asteroid collisions
-5. Render:
-   a. Clear canvas
-   b. Draw star layers (far → near)
-   c. Draw asteroids
-   d. Draw settings menu icon (if visible)
+   c. Remove asteroids outside viewport bounds
+   d. Spawn new asteroids at viewport edges (respecting stagger timer)
+9. Detect & resolve asteroid collisions
+10. Update bullets (move, expire)
+11. Check bullet-ship collisions
+12. Check ship-asteroid collisions
+13. Update game state (phase transitions, explosions)
+14. Render:
+    a. Clear canvas
+    b. Draw star layers (screen-space)
+    c. Apply camera transform
+    d. Draw asteroids
+    e. Draw ships + flames
+    f. Draw bullets
+    g. Reset camera transform
+    h. Draw HUD (win/lose text)
+    i. Draw settings menu icon (if visible)
 ```
+
+When `shipMode = 'off'`, steps 2–6, 10–13 are skipped and the camera stays at origin
+with no rotation. The starfield uses directional scroll mode instead of camera-relative.
 
 ---
 
@@ -299,15 +318,175 @@ Each frame (`requestAnimationFrame` callback):
 
 ```
 SpaceInvaders/
-  src/            ← ES modules (production code)
-  test/           ← Vitest test files (one per module)
-  dev.html        ← development entry point (ES module imports)
-  index.html      ← production build (single file, all JS inlined)
-  build.js        ← custom bundler (strips imports, inlines into index.html)
-  SPEC.md         ← this specification
-  TODO.md         ← incremental build plan with acceptance criteria
-  CLAUDE.md       ← agent instructions and workflow rules
+  src/
+    main.js         ← entry point, integration, animation loop
+    asteroid.js     ← asteroid entity (shape, rendering, movement)
+    starfield.js    ← parallax star layers
+    simulation.js   ← asteroid spawn/despawn, population management
+    physics.js      ← collision detection and elastic response
+    energy.js       ← kinetic energy computation and homeostasis
+    settings.js     ← settings menu UI and persistence
+    renderer.js     ← HiDPI canvas setup
+    ship.js         ← ship entity: creation, Newtonian physics, rendering
+    input.js        ← keyboard state tracking (WASD + arrows + space)
+    camera.js       ← camera state, canvas transform, viewport bounds
+    bullet.js       ← bullet entity: creation, movement, lifetime
+    ai.js           ← AI steering, combat, and obstacle avoidance
+    game.js         ← game state: phases, collisions, HUD, restart
+  test/             ← Vitest test files (one per module)
+  dev.html          ← development entry point (ES module imports)
+  index.html        ← production build (single file, all JS inlined)
+  build.js          ← custom bundler (strips imports, inlines into index.html)
+  SPEC.md           ← this specification
+  TODO.md           ← incremental build plan with acceptance criteria
+  CLAUDE.md         ← agent instructions and workflow rules
 ```
 
 Development uses ES modules in `src/` for testability. `node build.js` (or `npm run build`)
 produces a standalone `index.html` with all modules inlined — zero external dependencies.
+
+---
+
+## 9. Ships
+
+### 9.1 Ship Entity
+
+- Ships are classic Asteroids chevron/triangle wireframes — white stroke, no fill
+- Each ship has: `x, y, vx, vy, heading, alive`, control booleans (`thrust, rotatingLeft, rotatingRight, braking, fire`), and a `collisionRadius`
+- Ships use **Newtonian physics**: thrust accelerates in heading direction, drag always applies, braking decelerates opposite to velocity
+- Speed capped at `MAX_SPEED`; a `MIN_SPEED` ensures the ship always drifts forward gently
+- Constants: `THRUST_POWER`, `DRAG`, `BRAKE_POWER`, `ROTATION_SPEED`, `MAX_SPEED`, `MIN_SPEED`
+
+### 9.2 Controls
+
+- **Classic Asteroids**: W/Up = thrust, A/Left = rotate left, D/Right = rotate right, S/Down = brake, Space = fire
+- Case-insensitive key mapping
+- Escape still opens/closes settings (no conflict)
+
+### 9.3 Ship Rendering
+
+- White wireframe chevron (`strokeStyle = '#FFFFFF'`), `lineWidth ~1.5`
+- Canvas state saved/restored (no transform leak)
+- When thrusting, a flickering engine flame (randomized triangle) drawn behind the ship
+- Enemy ship visually distinguished (e.g., dashed lines or different shape)
+
+---
+
+## 10. Camera
+
+### 10.1 Camera Transform
+
+The camera follows the player ship, locking it at screen center. The world rotates
+around the player — the ship always points "up" on screen.
+
+Applied as a **canvas context transform** (not per-entity coordinate conversion):
+
+```
+ctx.save();
+ctx.translate(viewportW / 2, viewportH / 2);  // screen center
+ctx.rotate(-camera.rotation);                   // world rotates opposite to camera
+ctx.translate(-camera.x, -camera.y);            // offset by camera world position
+// ... draw all world-space entities ...
+ctx.restore();
+```
+
+This means existing draw functions (e.g., `drawAsteroid`) work **unchanged** — they
+already translate to their entity's `(x, y)`, and the camera transform is already on
+the context.
+
+### 10.2 Render Pipeline (with camera)
+
+1. Clear canvas to black
+2. Draw starfield (screen-space, before camera transform)
+3. Apply camera transform
+4. Draw asteroids (world-space)
+5. Draw ships (world-space — player maps to screen center)
+6. Draw bullets (world-space)
+7. Reset camera transform
+8. Draw HUD text (screen-space)
+9. Draw settings menu icon
+
+### 10.3 Viewport Bounds
+
+`getViewportBounds(camera, viewportW, viewportH)` returns the axis-aligned bounding
+box (AABB) of the rotated viewport in world-space, with a padding margin. Used for
+asteroid spawn/despawn decisions.
+
+---
+
+## 11. Bullets
+
+- Created at ship's nose position, traveling at `BULLET_SPEED` in heading direction plus ship velocity (inherit momentum)
+- Move linearly, tracked by `age`; expire after `BULLET_LIFETIME` (~2s)
+- Rendered as small bright dots or short lines
+- Fire rate limited by `FIRE_COOLDOWN` (~0.2s between shots)
+- Bullets do **not** interact with asteroids (pass through — dogfight focus)
+- `owner` field tracks which ship fired the bullet (for collision filtering)
+- A ship's own bullets cannot hit itself
+
+---
+
+## 12. AI
+
+### 12.1 AI Steering
+
+- AI controls a ship using the same physics as the player (same thrust, drag, max speed)
+- Rotates toward target's **predicted position** (leads the target based on velocity)
+- Thrusts when roughly facing target
+- Brakes when overshooting
+
+### 12.2 AI Combat
+
+- Fires when aimed within an angular threshold of the target
+- Respects same `FIRE_COOLDOWN` as player
+- Does not fire when target is too far away
+
+### 12.3 AI Obstacle Avoidance
+
+- Steers away from nearby asteroids when a collision course is detected
+- Avoidance and pursuit blend smoothly (no jittering between states)
+
+---
+
+## 13. Game State
+
+### 13.1 Phases
+
+- `'playing'` → `'playerWin'` (enemy dies) / `'playerDead'` (player dies)
+- On player death: camera freezes at death position
+- On enemy death: camera continues following player
+
+### 13.2 Ship-Asteroid Collision
+
+- Circle-circle collision using ship's `collisionRadius`
+- Ship dies on asteroid contact (same death + explosion as bullet death)
+- Applies to both player and enemy
+- Asteroids are unaffected (keep drifting)
+
+### 13.3 Bullet-Ship Collision
+
+- Bullet within ship's `collisionRadius` = hit
+- One bullet = one kill → `ship.alive = false`
+- Explosion effect on death (expanding wireframe circle or particle burst)
+
+### 13.4 HUD
+
+- Screen-space text (drawn after camera reset)
+- "YOU WIN" or "GAME OVER" centered on screen
+- "Press ENTER to restart" below the result
+- Enter or R key restarts: ships respawn, bullets cleared, phase resets
+
+---
+
+## 14. Ship Mode Setting
+
+Three modes selectable from the settings panel:
+
+| Mode | Description |
+|------|-------------|
+| `'player-vs-ai'` (default) | Player controls one ship, AI controls enemy |
+| `'ai-vs-ai'` | Both ships AI-controlled. Camera follows one ship. Auto-respawn after 3s on death (infinite dogfight screensaver) |
+| `'off'` | No ships, no bullets. Camera static at origin. Starfield reverts to directional scroll. Pure asteroid screensaver (original behavior) |
+
+- Persisted to `localStorage`
+- Mode switching works live without page reload
