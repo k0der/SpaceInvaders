@@ -9,6 +9,7 @@ import {
   drawParallaxLayers,
   drawStarLayer,
   updateStarLayerDirectional,
+  redistributeStars,
 } from '../src/starfield.js';
 
 describe('Increment 2: A Single Star Drifts Across the Void', () => {
@@ -975,6 +976,119 @@ describe('Increment 15: Star Field Direction', () => {
       // Switch to left — should clear radialBrightness
       updateStarLayerDirectional(layer, 0.016, 800, 600, 'left');
       expect(layer.stars[0].radialBrightness).toBeUndefined();
+    });
+  });
+
+  describe('redistributeStars', () => {
+    it('for linear modes, distributes stars across the full canvas', () => {
+      const layers = [createStarLayer(50, 800, 600, { speed: 10 })];
+      // Cluster all stars near center (simulating a switch from radial)
+      for (const star of layers[0].stars) {
+        star.x = 400;
+        star.y = 300;
+      }
+
+      redistributeStars(layers, 800, 600, 'left');
+
+      // Stars should now be spread across the canvas, not all at center
+      const xs = layers[0].stars.map(s => s.x);
+      const minX = Math.min(...xs);
+      const maxX = Math.max(...xs);
+      expect(maxX - minX).toBeGreaterThan(200);
+    });
+
+    it('for linear modes, all stars remain within canvas bounds', () => {
+      const layers = [createStarLayer(50, 800, 600, { speed: 10 })];
+      redistributeStars(layers, 800, 600, 'right');
+
+      for (const star of layers[0].stars) {
+        expect(star.x).toBeGreaterThanOrEqual(0);
+        expect(star.x).toBeLessThanOrEqual(800);
+        expect(star.y).toBeGreaterThanOrEqual(0);
+        expect(star.y).toBeLessThanOrEqual(600);
+      }
+    });
+
+    it('for linear modes, clears radialBrightness', () => {
+      const layers = [createStarLayer(5, 800, 600, { speed: 10 })];
+      for (const star of layers[0].stars) {
+        star.radialBrightness = 0.5;
+      }
+
+      redistributeStars(layers, 800, 600, 'left');
+
+      for (const star of layers[0].stars) {
+        expect(star.radialBrightness).toBeUndefined();
+      }
+    });
+
+    it('for radial mode, distributes stars at various distances from center', () => {
+      const layers = [createStarLayer(50, 800, 600, { speed: 10 })];
+
+      redistributeStars(layers, 800, 600, 'radial');
+
+      const cx = 400, cy = 300;
+      const distances = layers[0].stars.map(s => Math.hypot(s.x - cx, s.y - cy));
+      const minDist = Math.min(...distances);
+      const maxDist = Math.max(...distances);
+      // Should have stars both near and far from center
+      expect(maxDist - minDist).toBeGreaterThan(100);
+    });
+
+    it('for radial mode, sets radialBrightness on each star', () => {
+      const layers = [createStarLayer(10, 800, 600, { speed: 10 })];
+
+      redistributeStars(layers, 800, 600, 'radial');
+
+      for (const star of layers[0].stars) {
+        expect(star.radialBrightness).toBeDefined();
+        expect(star.radialBrightness).toBeGreaterThanOrEqual(0);
+        expect(star.radialBrightness).toBeLessThanOrEqual(1);
+      }
+    });
+
+    it('for radial mode, stars closer to center are dimmer', () => {
+      const layers = [createStarLayer(50, 800, 600, { speed: 10 })];
+
+      redistributeStars(layers, 800, 600, 'radial');
+
+      const cx = 400, cy = 300;
+      // Sort stars by distance from center
+      const sorted = [...layers[0].stars].sort(
+        (a, b) => Math.hypot(a.x - cx, a.y - cy) - Math.hypot(b.x - cx, b.y - cy)
+      );
+      // The nearest quarter should on average be dimmer than the farthest quarter
+      const quarter = Math.floor(sorted.length / 4);
+      const nearAvg = sorted.slice(0, quarter).reduce((s, st) => s + st.radialBrightness, 0) / quarter;
+      const farAvg = sorted.slice(-quarter).reduce((s, st) => s + st.radialBrightness, 0) / quarter;
+      expect(farAvg).toBeGreaterThan(nearAvg);
+    });
+
+    it('redistributes all layers, not just the first', () => {
+      const layers = [
+        createStarLayer(10, 800, 600, { speed: 5 }),
+        createStarLayer(10, 800, 600, { speed: 20 }),
+      ];
+      // Cluster all stars
+      for (const layer of layers) {
+        for (const star of layer.stars) {
+          star.x = 400;
+          star.y = 300;
+        }
+      }
+
+      redistributeStars(layers, 800, 600, 'up');
+
+      for (const layer of layers) {
+        const xs = layer.stars.map(s => s.x);
+        expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(100);
+      }
+    });
+
+    it('preserves star count after redistribution', () => {
+      const layers = [createStarLayer(30, 800, 600, { speed: 10 })];
+      redistributeStars(layers, 800, 600, 'radial');
+      expect(layers[0].stars.length).toBe(30);
     });
   });
 });

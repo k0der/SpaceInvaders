@@ -1,4 +1,4 @@
-import { createParallaxLayers, updateStarLayerDirectional, drawParallaxLayers } from './starfield.js';
+import { createParallaxLayers, updateStarLayerDirectional, drawParallaxLayers, redistributeStars } from './starfield.js';
 import { drawAsteroid } from './asteroid.js';
 import { createSimulation, updateSimulation } from './simulation.js';
 import { createSettings, createSettingsUI, updateAutoHide, loadSettings, saveSettings } from './settings.js';
@@ -67,6 +67,9 @@ export function startApp() {
   if (settings.starLayers !== 3) {
     starLayers = createParallaxLayers(canvas.width, canvas.height, settings.starLayers);
   }
+  if (settings.starDirection !== 'left') {
+    redistributeStars(starLayers, canvas.width, canvas.height, settings.starDirection);
+  }
 
   ui.onChange = (name, value) => {
     settings[name] = value;
@@ -75,6 +78,9 @@ export function startApp() {
     }
     if (name === 'starLayers') {
       starLayers = createParallaxLayers(canvas.width, canvas.height, value);
+    }
+    if (name === 'starDirection') {
+      redistributeStars(starLayers, canvas.width, canvas.height, value);
     }
     saveSettings(settings);
   };

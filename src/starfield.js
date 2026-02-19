@@ -211,6 +211,34 @@ export function updateStarLayerDirectional(layer, dt, canvasWidth, canvasHeight,
 }
 
 /**
+ * Redistribute all stars across layers for a new direction mode.
+ * Call when the user switches direction to avoid visual artifacts
+ * (e.g. stars clustered at center after leaving radial mode).
+ */
+export function redistributeStars(layers, canvasWidth, canvasHeight, direction) {
+  const cx = canvasWidth / 2;
+  const cy = canvasHeight / 2;
+  const refDist = Math.min(canvasWidth, canvasHeight) / 2;
+
+  for (const layer of layers) {
+    for (const star of layer.stars) {
+      if (direction === 'radial') {
+        const angle = Math.random() * Math.PI * 2;
+        const maxDist = Math.hypot(cx, cy);
+        const dist = Math.random() * maxDist;
+        star.x = cx + Math.cos(angle) * dist;
+        star.y = cy + Math.sin(angle) * dist;
+        star.radialBrightness = Math.min(dist / refDist, 1.0);
+      } else {
+        star.x = Math.random() * canvasWidth;
+        star.y = Math.random() * canvasHeight;
+        delete star.radialBrightness;
+      }
+    }
+  }
+}
+
+/**
  * Update all parallax layers.
  */
 export function updateParallaxLayers(layers, dt, canvasWidth, canvasHeight) {

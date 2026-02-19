@@ -200,6 +200,9 @@ function computeSpeedBoost(baselineKEPerAsteroid, targetCount, asteroids) {
   if (settings.starLayers !== 3) {
     starLayers = createParallaxLayers(canvas.width, canvas.height, settings.starLayers);
   }
+  if (settings.starDirection !== 'left') {
+    redistributeStars(starLayers, canvas.width, canvas.height, settings.starDirection);
+  }
 
   ui.onChange = (name, value) => {
     settings[name] = value;
@@ -208,6 +211,9 @@ function computeSpeedBoost(baselineKEPerAsteroid, targetCount, asteroids) {
     }
     if (name === 'starLayers') {
       starLayers = createParallaxLayers(canvas.width, canvas.height, value);
+    }
+    if (name === 'starDirection') {
+      redistributeStars(starLayers, canvas.width, canvas.height, value);
     }
     saveSettings(settings);
   };
@@ -970,6 +976,33 @@ function lerp(a, b, t) {
           star.x = canvasWidth + star.x;
           star.y = Math.random() * canvasHeight;
         }
+      }
+    }
+  }
+}
+
+/**
+ * Redistribute all stars across layers for a new direction mode.
+ * Call when the user switches direction to avoid visual artifacts
+ * (e.g. stars clustered at center after leaving radial mode).
+ */function redistributeStars(layers, canvasWidth, canvasHeight, direction) {
+  const cx = canvasWidth / 2;
+  const cy = canvasHeight / 2;
+  const refDist = Math.min(canvasWidth, canvasHeight) / 2;
+
+  for (const layer of layers) {
+    for (const star of layer.stars) {
+      if (direction === 'radial') {
+        const angle = Math.random() * Math.PI * 2;
+        const maxDist = Math.hypot(cx, cy);
+        const dist = Math.random() * maxDist;
+        star.x = cx + Math.cos(angle) * dist;
+        star.y = cy + Math.sin(angle) * dist;
+        star.radialBrightness = Math.min(dist / refDist, 1.0);
+      } else {
+        star.x = Math.random() * canvasWidth;
+        star.y = Math.random() * canvasHeight;
+        delete star.radialBrightness;
       }
     }
   }
