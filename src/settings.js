@@ -7,20 +7,69 @@ export const SETTINGS_CONFIG = {
   starLayers: { min: 3, max: 6, step: 1, default: 3, label: 'Star Layers' },
 };
 
+const STORAGE_KEY = 'asteroidSettings';
+
 /**
- * Create settings state with defaults.
+ * Create settings state with defaults, optionally applying overrides.
  */
-export function createSettings() {
+export function createSettings(overrides = {}) {
   return {
-    asteroidCount: SETTINGS_CONFIG.asteroidCount.default,
-    speedMultiplier: SETTINGS_CONFIG.speedMultiplier.default,
-    starLayers: SETTINGS_CONFIG.starLayers.default,
+    asteroidCount: overrides.asteroidCount ?? SETTINGS_CONFIG.asteroidCount.default,
+    speedMultiplier: overrides.speedMultiplier ?? SETTINGS_CONFIG.speedMultiplier.default,
+    starLayers: overrides.starLayers ?? SETTINGS_CONFIG.starLayers.default,
     panelOpen: false,
     gearVisible: true,
     gearHovered: false,
     gearTimer: 0,
     panelTimer: 0,
   };
+}
+
+/**
+ * Save the 3 tunable settings to localStorage.
+ */
+export function saveSettings(settings) {
+  const data = {
+    asteroidCount: settings.asteroidCount,
+    speedMultiplier: settings.speedMultiplier,
+    starLayers: settings.starLayers,
+  };
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+}
+
+/**
+ * Load settings from localStorage. Returns an object with the 3 tunable values.
+ * Falls back to defaults if storage is empty, corrupt, or contains invalid values.
+ */
+export function loadSettings() {
+  const defaults = {
+    asteroidCount: SETTINGS_CONFIG.asteroidCount.default,
+    speedMultiplier: SETTINGS_CONFIG.speedMultiplier.default,
+    starLayers: SETTINGS_CONFIG.starLayers.default,
+  };
+
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw === null) return defaults;
+
+    const parsed = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      return defaults;
+    }
+
+    const result = {};
+    for (const name of Object.keys(defaults)) {
+      const val = parsed[name];
+      if (typeof val === 'number' && !isNaN(val)) {
+        result[name] = clampSetting(name, val);
+      } else {
+        result[name] = defaults[name];
+      }
+    }
+    return result;
+  } catch {
+    return defaults;
+  }
 }
 
 /**
@@ -115,7 +164,7 @@ export function createSettingsUI(container, settings) {
     labelText.textContent = config.label;
 
     const valueSpan = document.createElement('span');
-    valueSpan.textContent = formatValue(name, config.default);
+    valueSpan.textContent = formatValue(name, settings[name]);
     valueSpan.style.cssText = 'float:right;';
     valueDisplays[name] = valueSpan;
 
@@ -127,7 +176,7 @@ export function createSettingsUI(container, settings) {
     slider.min = String(config.min);
     slider.max = String(config.max);
     slider.step = String(config.step);
-    slider.value = String(config.default);
+    slider.value = String(settings[name]);
     slider.style.cssText = 'width:100%;';
     sliders[name] = slider;
 

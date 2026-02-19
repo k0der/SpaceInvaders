@@ -6,6 +6,8 @@ import {
   clampSetting,
   updateAutoHide,
   createSettingsUI,
+  saveSettings,
+  loadSettings,
 } from '../src/settings.js';
 
 describe('Increment 13: Settings Menu', () => {
@@ -491,6 +493,181 @@ describe('Increment 13: Settings Menu', () => {
       ui.gearButton.dispatchEvent(new Event('mouseenter'));
       simulateFrame(ui, 0.016);
       expect(ui.gearButton.style.opacity).toBe('0.8');
+    });
+  });
+});
+
+describe('Increment 14: Settings Persistence', () => {
+
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  describe('saveSettings', () => {
+    it('writes settings to localStorage as JSON', () => {
+      const s = createSettings();
+      saveSettings(s);
+      const stored = JSON.parse(localStorage.getItem('asteroidSettings'));
+      expect(stored.asteroidCount).toBe(20);
+      expect(stored.speedMultiplier).toBe(1.0);
+      expect(stored.starLayers).toBe(3);
+    });
+
+    it('only persists the 3 tunable values, not UI state', () => {
+      const s = createSettings();
+      s.panelOpen = true;
+      s.gearTimer = 2.5;
+      saveSettings(s);
+      const stored = JSON.parse(localStorage.getItem('asteroidSettings'));
+      expect(stored.panelOpen).toBeUndefined();
+      expect(stored.gearTimer).toBeUndefined();
+      expect(stored.gearVisible).toBeUndefined();
+    });
+
+    it('persists updated values after changes', () => {
+      const s = createSettings();
+      s.asteroidCount = 35;
+      s.speedMultiplier = 2.0;
+      s.starLayers = 5;
+      saveSettings(s);
+      const stored = JSON.parse(localStorage.getItem('asteroidSettings'));
+      expect(stored.asteroidCount).toBe(35);
+      expect(stored.speedMultiplier).toBe(2.0);
+      expect(stored.starLayers).toBe(5);
+    });
+  });
+
+  describe('loadSettings', () => {
+    it('returns saved values when localStorage has valid data', () => {
+      localStorage.setItem('asteroidSettings', JSON.stringify({
+        asteroidCount: 40,
+        speedMultiplier: 2.5,
+        starLayers: 5,
+      }));
+      const loaded = loadSettings();
+      expect(loaded.asteroidCount).toBe(40);
+      expect(loaded.speedMultiplier).toBe(2.5);
+      expect(loaded.starLayers).toBe(5);
+    });
+
+    it('returns defaults when localStorage is empty', () => {
+      const loaded = loadSettings();
+      expect(loaded.asteroidCount).toBe(20);
+      expect(loaded.speedMultiplier).toBe(1.0);
+      expect(loaded.starLayers).toBe(3);
+    });
+
+    it('returns defaults when localStorage contains invalid JSON', () => {
+      localStorage.setItem('asteroidSettings', 'not valid json{{{');
+      const loaded = loadSettings();
+      expect(loaded.asteroidCount).toBe(20);
+      expect(loaded.speedMultiplier).toBe(1.0);
+      expect(loaded.starLayers).toBe(3);
+    });
+
+    it('clamps out-of-range values to valid ranges', () => {
+      localStorage.setItem('asteroidSettings', JSON.stringify({
+        asteroidCount: 999,
+        speedMultiplier: -5,
+        starLayers: 0,
+      }));
+      const loaded = loadSettings();
+      expect(loaded.asteroidCount).toBe(50);
+      expect(loaded.speedMultiplier).toBe(0.2);
+      expect(loaded.starLayers).toBe(3);
+    });
+
+    it('uses defaults for missing keys in stored object', () => {
+      localStorage.setItem('asteroidSettings', JSON.stringify({
+        asteroidCount: 30,
+      }));
+      const loaded = loadSettings();
+      expect(loaded.asteroidCount).toBe(30);
+      expect(loaded.speedMultiplier).toBe(1.0);
+      expect(loaded.starLayers).toBe(3);
+    });
+
+    it('uses defaults when stored value is not an object', () => {
+      localStorage.setItem('asteroidSettings', JSON.stringify(42));
+      const loaded = loadSettings();
+      expect(loaded.asteroidCount).toBe(20);
+    });
+
+    it('uses defaults when stored value is an array', () => {
+      localStorage.setItem('asteroidSettings', JSON.stringify([1, 2, 3]));
+      const loaded = loadSettings();
+      expect(loaded.asteroidCount).toBe(20);
+      expect(loaded.speedMultiplier).toBe(1.0);
+      expect(loaded.starLayers).toBe(3);
+    });
+
+    it('uses defaults when stored values are non-numeric', () => {
+      localStorage.setItem('asteroidSettings', JSON.stringify({
+        asteroidCount: 'banana',
+        speedMultiplier: null,
+        starLayers: true,
+      }));
+      const loaded = loadSettings();
+      expect(loaded.asteroidCount).toBe(20);
+      expect(loaded.speedMultiplier).toBe(1.0);
+      expect(loaded.starLayers).toBe(3);
+    });
+  });
+
+  describe('save + load round-trip', () => {
+    it('loadSettings returns what saveSettings wrote', () => {
+      const s = createSettings({ asteroidCount: 42, speedMultiplier: 1.7, starLayers: 5 });
+      saveSettings(s);
+      const loaded = loadSettings();
+      expect(loaded.asteroidCount).toBe(42);
+      expect(loaded.speedMultiplier).toBe(1.7);
+      expect(loaded.starLayers).toBe(5);
+    });
+  });
+
+  describe('createSettings with overrides', () => {
+    it('applies loaded overrides to settings', () => {
+      const s = createSettings({ asteroidCount: 35, speedMultiplier: 2.0, starLayers: 5 });
+      expect(s.asteroidCount).toBe(35);
+      expect(s.speedMultiplier).toBe(2.0);
+      expect(s.starLayers).toBe(5);
+    });
+
+    it('partial overrides leave other settings at defaults', () => {
+      const s = createSettings({ asteroidCount: 10 });
+      expect(s.asteroidCount).toBe(10);
+      expect(s.speedMultiplier).toBe(1.0);
+      expect(s.starLayers).toBe(3);
+    });
+
+    it('UI state is always default regardless of overrides', () => {
+      const s = createSettings({ asteroidCount: 30 });
+      expect(s.panelOpen).toBe(false);
+      expect(s.gearVisible).toBe(true);
+      expect(s.gearHovered).toBe(false);
+      expect(s.gearTimer).toBe(0);
+    });
+  });
+
+  describe('createSettingsUI — slider initialization from settings', () => {
+    it('sliders reflect non-default settings values on creation', () => {
+      const container = document.createElement('div');
+      document.body.appendChild(container);
+      const s = createSettings({ asteroidCount: 35, speedMultiplier: 2.0, starLayers: 5 });
+      const ui = createSettingsUI(container, s);
+      expect(ui.sliders.asteroidCount.value).toBe('35');
+      expect(ui.sliders.speedMultiplier.value).toBe('2');
+      expect(ui.sliders.starLayers.value).toBe('5');
+    });
+
+    it('value displays reflect non-default settings on creation', () => {
+      const container = document.createElement('div');
+      document.body.appendChild(container);
+      const s = createSettings({ asteroidCount: 35, speedMultiplier: 2.0, starLayers: 5 });
+      const ui = createSettingsUI(container, s);
+      expect(ui.valueDisplays.asteroidCount.textContent).toContain('35');
+      expect(ui.valueDisplays.speedMultiplier.textContent).toContain('2.0');
+      expect(ui.valueDisplays.starLayers.textContent).toContain('5');
     });
   });
 });

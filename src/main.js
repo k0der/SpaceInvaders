@@ -1,7 +1,7 @@
 import { createParallaxLayers, updateParallaxLayers, drawParallaxLayers } from './starfield.js';
 import { drawAsteroid } from './asteroid.js';
 import { createSimulation, updateSimulation } from './simulation.js';
-import { createSettings, createSettingsUI, updateAutoHide } from './settings.js';
+import { createSettings, createSettingsUI, updateAutoHide, loadSettings, saveSettings } from './settings.js';
 
 /**
  * Calculate delta time in seconds between two timestamps (ms).
@@ -56,11 +56,18 @@ export function startApp() {
   const loop = createLoop();
   let starLayers = createParallaxLayers(canvas.width, canvas.height);
   const sim = createSimulation(canvas.width, canvas.height);
-  const settings = createSettings();
+  const loaded = loadSettings();
+  const settings = createSettings(loaded);
   let elapsedTime = 0;
 
   // Settings UI
   const ui = createSettingsUI(document.body, settings);
+  // Apply loaded settings to simulation and starfield
+  sim.targetCount = settings.asteroidCount;
+  if (settings.starLayers !== 3) {
+    starLayers = createParallaxLayers(canvas.width, canvas.height, settings.starLayers);
+  }
+
   ui.onChange = (name, value) => {
     settings[name] = value;
     if (name === 'asteroidCount') {
@@ -69,6 +76,7 @@ export function startApp() {
     if (name === 'starLayers') {
       starLayers = createParallaxLayers(canvas.width, canvas.height, value);
     }
+    saveSettings(settings);
   };
 
   // Auto-hide: reset gear timer on any mouse movement

@@ -254,12 +254,12 @@
 **Module**: `src/settings.js`
 
 **Acceptance Criteria**:
-- [ ] On slider change, value is written to `localStorage`
-- [ ] On page load, settings are read from `localStorage` if present
-- [ ] If `localStorage` is empty or corrupt, defaults are used without error
-- [ ] All 3 settings are persisted independently
-- [ ] Slider positions reflect loaded values on startup
-- [ ] **Visible result**: reload the page, settings are remembered
+- [x] On slider change, value is written to `localStorage`
+- [x] On page load, settings are read from `localStorage` if present
+- [x] If `localStorage` is empty or corrupt, defaults are used without error
+- [x] All 3 settings are persisted independently
+- [x] Slider positions reflect loaded values on startup
+- [x] **Visible result**: reload the page, settings are remembered
 
 ---
 
