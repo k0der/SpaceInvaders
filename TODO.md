@@ -158,12 +158,12 @@
 **Module**: `src/starfield.js`
 
 **Acceptance Criteria**:
-- [ ] Twinkle frequency range widened to 0.3–3.0 Hz (was 0.5–2.0)
-- [ ] Twinkle amplitude range widened to 10–30% of base brightness (was 10–20%)
-- [ ] Phases are uniformly distributed across the full 0–2π range (no clustering)
-- [ ] At any given moment, some stars are bright, some dim, some in between — no visible synchronization
-- [ ] Existing twinkle tests still pass (clamping, near-layer exclusion, etc.)
-- [ ] **Visible result**: organic, natural shimmer — each star feels like it has its own rhythm
+- [x] Twinkle frequency range widened to 0.3–3.0 Hz (was 0.5–2.0)
+- [x] Twinkle amplitude range widened to 10–30% of base brightness (was 10–20%)
+- [x] Phases are uniformly distributed across the full 0–2π range (no clustering)
+- [x] At any given moment, some stars are bright, some dim, some in between — no visible synchronization
+- [x] Existing twinkle tests still pass (clamping, near-layer exclusion, etc.)
+- [x] **Visible result**: organic, natural shimmer — each star feels like it has its own rhythm
 
 ---
 
@@ -174,18 +174,18 @@
 **Module**: `src/physics.js`
 
 **Acceptance Criteria**:
-- [ ] Circle-circle collision detection: collision when `distance(a, b) < radiusA + radiusB`
-- [ ] Exactly touching is NOT a collision
-- [ ] No duplicate pairs detected
-- [ ] Elastic collision conserves momentum exactly (mass = radius², shared impulse perturbation preserves momentum)
-- [ ] Elastic collision approximately conserves kinetic energy (within 5% tolerance — ±2% impulse perturbation can cause up to ~4% KE error on high-velocity collisions)
-- [ ] Large asteroid barely flinches; small one ricochets dramatically
-- [ ] Two equal asteroids in head-on collision approximately swap velocities
-- [ ] Overlapping asteroids are separated along collision normal after resolution
-- [ ] Lighter asteroid is pushed more during separation
-- [ ] Small random perturbation (±1% on impulse magnitude) prevents repeating loops
-- [ ] Angular velocity is nudged slightly on impact
-- [ ] **Visible result**: asteroids bump and bounce realistically
+- [x] Circle-circle collision detection: collision when `distance(a, b) < radiusA + radiusB`
+- [x] Exactly touching is NOT a collision
+- [x] No duplicate pairs detected
+- [x] Elastic collision conserves momentum exactly (mass = radius², shared impulse perturbation preserves momentum)
+- [x] Elastic collision approximately conserves kinetic energy (within 5% tolerance — ±2% impulse perturbation can cause up to ~4% KE error on high-velocity collisions)
+- [x] Large asteroid barely flinches; small one ricochets dramatically
+- [x] Two equal asteroids in head-on collision approximately swap velocities
+- [x] Overlapping asteroids are separated along collision normal after resolution
+- [x] Lighter asteroid is pushed more during separation
+- [x] Small random perturbation (±1% on impulse magnitude) prevents repeating loops
+- [x] Angular velocity is nudged slightly on impact
+- [x] **Visible result**: asteroids bump and bounce realistically
 
 ---
 
@@ -196,14 +196,14 @@
 **Module**: `src/asteroid.js`, `src/physics.js`
 
 **Acceptance Criteria**:
-- [ ] `createAsteroid` computes `collisionRadius` as the average vertex distance from center
-- [ ] `collisionRadius` is always less than or equal to `radius`
-- [ ] `collisionRadius` is stored on the asteroid object
-- [ ] `detectCollisions` uses `collisionRadius` instead of `radius`
-- [ ] `separateOverlap` uses `collisionRadius` instead of `radius`
-- [ ] `resolveCollision` uses `collisionRadius` for mass calculation (mass = collisionRadius²)
-- [ ] All existing collision tests still pass (updated to use collisionRadius)
-- [ ] **Visible result**: asteroids collide closer to their visible surfaces — no more bouncing off "empty space"
+- [x] `createAsteroid` computes `collisionRadius` as the average vertex distance from center
+- [x] `collisionRadius` is always less than or equal to `radius`
+- [x] `collisionRadius` is stored on the asteroid object
+- [x] `detectCollisions` uses `collisionRadius` instead of `radius`
+- [x] `separateOverlap` uses `collisionRadius` instead of `radius`
+- [x] `resolveCollision` uses `collisionRadius` for mass calculation (mass = collisionRadius²)
+- [x] All existing collision tests still pass (updated to use collisionRadius)
+- [x] **Visible result**: asteroids collide closer to their visible surfaces — no more bouncing off "empty space"
 
 ---
 
@@ -214,16 +214,16 @@
 **Module**: `src/energy.js`, `src/simulation.js`
 
 **Acceptance Criteria**:
-- [ ] `computeKE(asteroid)` returns `0.5 * collisionRadius² * (vx² + vy²)`
-- [ ] `computeTotalKE(asteroids)` sums KE across all asteroids
-- [ ] `computeSpeedBoost(baselineKEPerAsteroid, targetCount, asteroids)` returns `clamp(sqrt(targetKE / actualKE), 1.0, 1.5)`
-- [ ] Returns 1.0 when actual KE >= target KE (never spawns slower than spec)
-- [ ] Returns 1.5 when deficit is extreme (cap prevents absurd speeds)
-- [ ] Simulation records `baselineKEPerAsteroid` from initial population at creation
-- [ ] `spawnAsteroidFromEdge` accepts an optional speed multiplier, applied to the base speed
-- [ ] Replacement spawns use the computed speed boost
-- [ ] Over a long simulated run (1000+ frames), average system KE stays within 80–120% of baseline
-- [ ] **Visible result**: the asteroid field maintains consistent energy indefinitely — no gradual slowdown
+- [x] `computeKE(asteroid)` returns `0.5 * collisionRadius² * (vx² + vy²)`
+- [x] `computeTotalKE(asteroids)` sums KE across all asteroids
+- [x] `computeSpeedBoost(baselineKEPerAsteroid, targetCount, asteroids)` returns `clamp(sqrt(targetKE / actualKE), 1.0, 1.5)`
+- [x] Returns 1.0 when actual KE >= target KE (never spawns slower than spec)
+- [x] Returns 1.5 when deficit is extreme (cap prevents absurd speeds)
+- [x] Simulation records `baselineKEPerAsteroid` from initial population at creation
+- [x] `spawnAsteroidFromEdge` accepts an optional speed multiplier, applied to the base speed
+- [x] Replacement spawns use the computed speed boost
+- [x] Over a long simulated run (1000+ frames), average system KE stays within 80–120% of baseline
+- [x] **Visible result**: the asteroid field maintains consistent energy indefinitely — no gradual slowdown
 
 ---
 
@@ -292,11 +292,11 @@
 **Module**: `src/renderer.js`, `build.js`
 
 **Acceptance Criteria**:
-- [ ] Canvas internal resolution = CSS size × `devicePixelRatio`
-- [ ] Canvas CSS size remains `100vw × 100vh`
-- [ ] Context is scaled by `devicePixelRatio`
-- [ ] Lines appear crisp on 2x displays
-- [ ] `node build.js` produces a standalone `index.html` with all modules inlined
-- [ ] `index.html` works with zero external dependencies
-- [ ] No console errors or warnings
-- [ ] **Visible result**: the final deliverable — one HTML file, opens in any browser, mesmerizing to watch
+- [x] Canvas internal resolution = CSS size × `devicePixelRatio`
+- [x] Canvas CSS size remains `100vw × 100vh`
+- [x] Context is scaled by `devicePixelRatio`
+- [x] Lines appear crisp on 2x displays
+- [x] `node build.js` produces a standalone `index.html` with all modules inlined
+- [x] `index.html` works with zero external dependencies
+- [x] No console errors or warnings
+- [x] **Visible result**: the final deliverable — one HTML file, opens in any browser, mesmerizing to watch
