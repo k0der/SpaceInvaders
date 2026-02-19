@@ -263,7 +263,28 @@
 
 ---
 
-## Increment 15: HiDPI Support & Build
+## Increment 15: Star Field Direction Setting
+
+**Goal**: Add a direction control for the star field: left, right, up, down, or radial (hyperspace). Persisted to localStorage.
+
+**Module**: `src/starfield.js`, `src/settings.js`, `src/main.js`
+
+**Acceptance Criteria**:
+- [ ] `SETTINGS_CONFIG` includes `starDirection` with options: `'left'`, `'right'`, `'up'`, `'down'`, `'radial'`; default `'left'`
+- [ ] Settings panel shows a direction selector (dropdown or button group)
+- [ ] Selecting a direction changes star movement in real-time
+- [ ] Left/right: stars scroll horizontally; recycled at exit edge, respawn at entry edge with random perpendicular position
+- [ ] Up/down: stars scroll vertically; recycled at exit edge, respawn at entry edge with random perpendicular position
+- [ ] Radial: stars emanate from screen center outward; recycled when exiting any edge, respawn near center with random angle
+- [ ] Radial mode: near-layer stars move faster outward than far-layer stars (parallax preserved)
+- [ ] Direction setting is persisted to localStorage
+- [ ] Loaded direction is applied on startup
+- [ ] Changing direction does not lose existing stars (they continue from current positions with new velocity)
+- [ ] **Visible result**: switching to radial produces a "traveling through space" effect
+
+---
+
+## Increment 16: HiDPI Support & Build
 
 **Goal**: Crisp rendering on retina displays. Final single-file build.
 

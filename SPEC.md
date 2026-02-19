@@ -144,8 +144,22 @@ To compensate, the spawner acts as a feedback-controlled energy pump:
 | Near  | 2–3 px    | 70–100% white| 20–35 px/s       | ~30 stars    |
 
 - Intermediate layers (if user adds more) interpolate between these values
-- Stars scroll in a consistent direction (slowly drifting left by default,
-  suggesting the "camera" is panning right through space)
+- Stars scroll in a configurable direction (default: left, suggesting the
+  "camera" is panning right through space)
+
+#### Direction Modes
+
+The star field direction is user-configurable with 5 modes:
+
+- **left** (default): Stars drift leftward. Camera pans right through space.
+- **right**: Stars drift rightward. Camera pans left.
+- **up**: Stars drift upward. Camera descends.
+- **down**: Stars drift downward. Camera ascends.
+- **radial**: Stars emanate from the screen center outward in all directions,
+  creating a "traveling through hyperspace" effect (like the Star Wars jump to
+  lightspeed). Each star has a random angle from center; speed determines how
+  fast it flies outward. Parallax is preserved — near-layer stars fly outward
+  faster than far-layer stars.
 
 ### 3.2 Twinkling
 
@@ -159,9 +173,14 @@ To compensate, the spawner acts as a feedback-controlled energy pump:
 
 ### 3.3 Star Recycling
 
-- Stars that scroll off one edge are repositioned at the opposite edge with
-  a new random vertical position
+- **Linear modes** (left/right/up/down): Stars that scroll off the exit edge
+  are repositioned at the opposite (entry) edge with a new random position on
+  the perpendicular axis
+- **Radial mode**: Stars that exit any screen edge respawn near the center
+  with a new random outward angle
 - Star positions are initialized randomly across the full canvas at startup
+- Changing direction does not remove existing stars — they continue from their
+  current positions with updated velocities
 
 ---
 
@@ -206,11 +225,12 @@ To compensate, the spawner acts as a feedback-controlled energy pump:
 
 ### 5.2 Controls
 
-| Setting              | Control  | Range     | Default | Step |
-|----------------------|----------|-----------|---------|------|
-| Asteroid Count       | Slider   | 5 – 50   | 20      | 1    |
-| Speed Multiplier     | Slider   | 0.2 – 3.0| 1.0     | 0.1  |
-| Star Parallax Layers | Slider   | 3 – 6    | 3       | 1    |
+| Setting              | Control  | Range                          | Default | Step |
+|----------------------|----------|--------------------------------|---------|------|
+| Asteroid Count       | Slider   | 5 – 50                        | 20      | 1    |
+| Speed Multiplier     | Slider   | 0.2 – 3.0                     | 1.0     | 0.1  |
+| Star Parallax Layers | Slider   | 3 – 6                         | 3       | 1    |
+| Star Field Direction | Select   | left / right / up / down / radial | left    | —    |
 
 - Each slider shows its **current value** as a label
 - Changes are applied **immediately** (live preview)
