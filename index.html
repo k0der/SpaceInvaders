@@ -19,8 +19,7 @@
  * Generate an irregular polygon shape for an asteroid.
  * Returns an array of [x, y] vertex pairs centered at origin.
  * Vertices are ordered by increasing angle (no crossed edges).
- */
-function generateShape(radius) {
+ */function generateShape(radius) {
   const vertexCount = 8 + Math.floor(Math.random() * 7); // 8–14
   const step = (Math.PI * 2) / vertexCount;
   const vertices = [];
@@ -45,8 +44,7 @@ function getStrokeWidth(radius) {
 
 /**
  * Create an asteroid object.
- */
-function createAsteroid({ x, y, vx, vy, radius }) {
+ */function createAsteroid({ x, y, vx, vy, radius }) {
   // Angular velocity scaled inversely to radius: smaller = faster spin
   const maxAngVel = 0.5 * (20 / Math.max(radius, 10));
   const angularVelocity = (Math.random() * 2 - 1) * Math.min(maxAngVel, 0.5);
@@ -66,8 +64,7 @@ function createAsteroid({ x, y, vx, vy, radius }) {
 
 /**
  * Update asteroid position and rotation by delta time.
- */
-function updateAsteroid(asteroid, dt) {
+ */function updateAsteroid(asteroid, dt) {
   asteroid.x += asteroid.vx * dt;
   asteroid.y += asteroid.vy * dt;
   asteroid.rotation += asteroid.angularVelocity * dt;
@@ -75,8 +72,7 @@ function updateAsteroid(asteroid, dt) {
 
 /**
  * Draw an asteroid as a white wireframe polygon on a canvas 2D context.
- */
-function drawAsteroid(ctx, asteroid) {
+ */function drawAsteroid(ctx, asteroid) {
   const { x, y, rotation, shape, strokeWidth } = asteroid;
 
   ctx.save();
@@ -99,14 +95,11 @@ function drawAsteroid(ctx, asteroid) {
 
 // ===== main.js =====
 
-
-
 /**
  * Calculate delta time in seconds between two timestamps (ms).
  * Caps at 0.1s to avoid spiral-of-death after tab backgrounding.
  * Never returns negative values.
- */
-function calculateDeltaTime(currentTimestamp, previousTimestamp) {
+ */function calculateDeltaTime(currentTimestamp, previousTimestamp) {
   const dtSeconds = (currentTimestamp - previousTimestamp) / 1000;
   return Math.min(Math.max(dtSeconds, 0), 0.1);
 }
@@ -115,8 +108,7 @@ function calculateDeltaTime(currentTimestamp, previousTimestamp) {
  * Create an animation loop state object.
  * Call loop.tick(timestamp) each frame from requestAnimationFrame.
  * First tick returns dt=0 (no previous frame to diff against).
- */
-function createLoop() {
+ */function createLoop() {
   let started = false;
 
   const state = {
@@ -139,8 +131,7 @@ function createLoop() {
 
 /**
  * Bootstrap the application: set up canvas, resize handling, and start the loop.
- */
-function startApp() {
+ */function startApp() {
   const canvas = document.getElementById('canvas');
   const ctx = canvas.getContext('2d');
 
@@ -185,8 +176,7 @@ const MARGIN = 5; // px margin beyond radius for off-screen detection
 
 /**
  * Check if an asteroid is fully off-screen (center + radius + margin past all edges).
- */
-function isOffScreen(asteroid, canvasWidth, canvasHeight) {
+ */function isOffScreen(asteroid, canvasWidth, canvasHeight) {
   const { x, y, radius } = asteroid;
   return (
     x + radius + MARGIN < 0 ||
@@ -228,8 +218,7 @@ function speedForRadius(radius) {
 
 /**
  * Spawn a new asteroid from a random screen edge, aimed roughly inward.
- */
-function spawnAsteroidFromEdge(canvasWidth, canvasHeight) {
+ */function spawnAsteroidFromEdge(canvasWidth, canvasHeight) {
   const radius = randomRadius();
   const speed = speedForRadius(radius);
   const edge = Math.floor(Math.random() * 4); // 0=left, 1=right, 2=top, 3=bottom
@@ -274,8 +263,7 @@ function spawnAsteroidFromEdge(canvasWidth, canvasHeight) {
 
 /**
  * Create the simulation state with an initial population of asteroids.
- */
-function createSimulation(canvasWidth, canvasHeight, targetCount = 20) {
+ */function createSimulation(canvasWidth, canvasHeight, targetCount = 20) {
   const asteroids = [];
   for (let i = 0; i < targetCount; i++) {
     asteroids.push(spawnAsteroidFromEdge(canvasWidth, canvasHeight));
@@ -290,8 +278,7 @@ function createSimulation(canvasWidth, canvasHeight, targetCount = 20) {
 
 /**
  * Update the simulation: move asteroids, remove off-screen ones, spawn replacements.
- */
-function updateSimulation(sim, dt, canvasWidth, canvasHeight) {
+ */function updateSimulation(sim, dt, canvasWidth, canvasHeight) {
   // Update all asteroids
   for (const a of sim.asteroids) {
     updateAsteroid(a, dt);
@@ -311,8 +298,7 @@ function updateSimulation(sim, dt, canvasWidth, canvasHeight) {
 // ===== starfield.js =====
 /**
  * Create a single star with random position, size, and brightness.
- */
-function createStar(canvasWidth, canvasHeight, options = {}) {
+ */function createStar(canvasWidth, canvasHeight, options = {}) {
   const minSize = options.minSize ?? 1;
   const maxSize = options.maxSize ?? 2;
   const minBrightness = options.minBrightness ?? 0.3;
@@ -338,8 +324,7 @@ function createStar(canvasWidth, canvasHeight, options = {}) {
 
 /**
  * Create a star layer: a collection of stars that scroll together at a given speed.
- */
-function createStarLayer(count, canvasWidth, canvasHeight, options = {}) {
+ */function createStarLayer(count, canvasWidth, canvasHeight, options = {}) {
   const stars = [];
   for (let i = 0; i < count; i++) {
     stars.push(createStar(canvasWidth, canvasHeight, options));
@@ -353,8 +338,7 @@ function createStarLayer(count, canvasWidth, canvasHeight, options = {}) {
 /**
  * Update a star layer: move all stars leftward by speed * dt.
  * Stars that exit the left edge wrap to the right edge with a new random y.
- */
-function updateStarLayer(layer, dt, canvasWidth, canvasHeight) {
+ */function updateStarLayer(layer, dt, canvasWidth, canvasHeight) {
   const dx = layer.speed * dt;
   for (const star of layer.stars) {
     star.x -= dx;
@@ -369,8 +353,7 @@ function updateStarLayer(layer, dt, canvasWidth, canvasHeight) {
  * Compute the effective brightness of a star at a given elapsed time.
  * Stars without twinkle properties return their base brightness.
  * Formula: base + amplitude * sin(time * freq * 2π + phase), clamped to [0, 1].
- */
-function applyTwinkle(star, elapsedTime) {
+ */function applyTwinkle(star, elapsedTime) {
   if (star.twinklePhase == null) return star.brightness;
   const value = star.brightness + star.twinkleAmplitude * Math.sin(elapsedTime * star.twinkleFreq * Math.PI * 2 + star.twinklePhase);
   return Math.min(1.0, Math.max(0, value));
@@ -394,8 +377,7 @@ function lerp(a, b, t) {
 /**
  * Create parallax star layers. Default is 3 (far, mid, near).
  * Extra layers interpolate properties between far and near presets.
- */
-function createParallaxLayers(canvasWidth, canvasHeight, layerCount = 3) {
+ */function createParallaxLayers(canvasWidth, canvasHeight, layerCount = 3) {
   const baseArea = 1920 * 1080;
   const areaRatio = (canvasWidth * canvasHeight) / baseArea;
   const far = LAYER_PRESETS[0];
@@ -443,8 +425,7 @@ function createParallaxLayers(canvasWidth, canvasHeight, layerCount = 3) {
 
 /**
  * Update all parallax layers.
- */
-function updateParallaxLayers(layers, dt, canvasWidth, canvasHeight) {
+ */function updateParallaxLayers(layers, dt, canvasWidth, canvasHeight) {
   for (const layer of layers) {
     updateStarLayer(layer, dt, canvasWidth, canvasHeight);
   }
@@ -452,8 +433,7 @@ function updateParallaxLayers(layers, dt, canvasWidth, canvasHeight) {
 
 /**
  * Draw all parallax layers (far to near, back to front).
- */
-function drawParallaxLayers(ctx, layers, elapsedTime = 0) {
+ */function drawParallaxLayers(ctx, layers, elapsedTime = 0) {
   for (const layer of layers) {
     drawStarLayer(ctx, layer, elapsedTime);
   }
@@ -461,8 +441,7 @@ function drawParallaxLayers(ctx, layers, elapsedTime = 0) {
 
 /**
  * Draw a star layer onto a canvas 2D context.
- */
-function drawStarLayer(ctx, layer, elapsedTime = 0) {
+ */function drawStarLayer(ctx, layer, elapsedTime = 0) {
   for (const star of layer.stars) {
     const brightness = applyTwinkle(star, elapsedTime);
     ctx.fillStyle = `rgba(255, 255, 255, ${brightness})`;

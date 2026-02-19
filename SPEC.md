@@ -19,6 +19,7 @@ colliding asteroids against a deep starfield. Designed to be mesmerizing and rel
 - **TDD**: write failing tests (RED) → implement until green (GREEN) → refactor
 - **Coverage audit**: before committing each increment, explicitly map every acceptance criterion to its test(s) and fill gaps
 - **Build**: `node build.js` inlines ES modules from `src/` into a standalone `index.html`
+- **Code quality**: follow SOLID principles and clean-code style — small focused functions, single responsibility, descriptive names, no magic numbers, code that is highly maintainable and testable
 - **Mandatory human review**: At the end of every iteration, **stop and wait for the human developer to review and manually test** the implementation before proceeding. Do not start the next iteration until the human gives explicit approval. This is not optional.
 - **Final test coverage review**: When development of an iteration is complete and all tests are passing, review the code for missing test coverage and add any needed tests before presenting the iteration for human review.
 
@@ -251,9 +252,15 @@ Each frame (`requestAnimationFrame` callback):
 
 ```
 SpaceInvaders/
-  index.html    ← single file containing everything
-  SPEC.md       ← this specification
+  src/            ← ES modules (production code)
+  test/           ← Vitest test files (one per module)
+  dev.html        ← development entry point (ES module imports)
+  index.html      ← production build (single file, all JS inlined)
+  build.js        ← custom bundler (strips imports, inlines into index.html)
+  SPEC.md         ← this specification
+  TODO.md         ← incremental build plan with acceptance criteria
+  CLAUDE.md       ← agent instructions and workflow rules
 ```
 
-Everything lives in `index.html` — HTML structure, CSS in a `<style>` block,
-and all JavaScript in a `<script>` block. No external files.
+Development uses ES modules in `src/` for testability. `node build.js` (or `npm run build`)
+produces a standalone `index.html` with all modules inlined — zero external dependencies.
