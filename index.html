@@ -242,7 +242,9 @@ function computeSpeedBoost(baselineKEPerAsteroid, targetCount, asteroids) {
     ui.panel.style.display = settings.panelOpen ? 'block' : 'none';
     ui.gearButton.textContent = settings.panelOpen ? '\u2715' : '\u2630';
 
-    updateParallaxLayers(starLayers, scaledDt, canvas.width, canvas.height);
+    for (const layer of starLayers) {
+      updateStarLayerDirectional(layer, scaledDt, canvas.width, canvas.height, settings.starDirection);
+    }
     updateSimulation(sim, scaledDt, canvas.width, canvas.height);
 
     ctx.fillStyle = '#000000';
@@ -371,6 +373,7 @@ function computeSpeedBoost(baselineKEPerAsteroid, targetCount, asteroids) {
   asteroidCount: { min: 5, max: 50, step: 1, default: 20, label: 'Asteroids' },
   speedMultiplier: { min: 0.2, max: 3.0, step: 0.1, default: 1.0, label: 'Speed' },
   starLayers: { min: 3, max: 6, step: 1, default: 3, label: 'Star Layers' },
+  starDirection: { options: ['left', 'right', 'up', 'down', 'radial'], default: 'left', label: 'Direction' },
 };
 
 const STORAGE_KEY = 'asteroidSettings';
@@ -382,6 +385,7 @@ const STORAGE_KEY = 'asteroidSettings';
     asteroidCount: overrides.asteroidCount ?? SETTINGS_CONFIG.asteroidCount.default,
     speedMultiplier: overrides.speedMultiplier ?? SETTINGS_CONFIG.speedMultiplier.default,
     starLayers: overrides.starLayers ?? SETTINGS_CONFIG.starLayers.default,
+    starDirection: overrides.starDirection ?? SETTINGS_CONFIG.starDirection.default,
     panelOpen: false,
     gearVisible: true,
     gearHovered: false,
@@ -397,18 +401,20 @@ const STORAGE_KEY = 'asteroidSettings';
     asteroidCount: settings.asteroidCount,
     speedMultiplier: settings.speedMultiplier,
     starLayers: settings.starLayers,
+    starDirection: settings.starDirection,
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
 
 /**
- * Load settings from localStorage. Returns an object with the 3 tunable values.
+ * Load settings from localStorage. Returns an object with tunable values.
  * Falls back to defaults if storage is empty, corrupt, or contains invalid values.
  */function loadSettings() {
   const defaults = {
     asteroidCount: SETTINGS_CONFIG.asteroidCount.default,
     speedMultiplier: SETTINGS_CONFIG.speedMultiplier.default,
     starLayers: SETTINGS_CONFIG.starLayers.default,
+    starDirection: SETTINGS_CONFIG.starDirection.default,
   };
 
   try {
@@ -422,8 +428,13 @@ const STORAGE_KEY = 'asteroidSettings';
 
     const result = {};
     for (const name of Object.keys(defaults)) {
+      const config = SETTINGS_CONFIG[name];
       const val = parsed[name];
-      if (typeof val === 'number' && !isNaN(val)) {
+
+      if (config.options) {
+        // String enum setting (e.g. starDirection)
+        result[name] = config.options.includes(val) ? val : defaults[name];
+      } else if (typeof val === 'number' && !isNaN(val)) {
         result[name] = clampSetting(name, val);
       } else {
         result[name] = defaults[name];
@@ -513,7 +524,41 @@ function formatValue(name, value) {
   const sliders = {};
   const valueDisplays = {};
 
+  let directionSelect;
+
   for (const [name, config] of Object.entries(SETTINGS_CONFIG)) {
+    if (config.options) {
+      // Enum setting — render as a <select> dropdown
+      const row = document.createElement('div');
+      row.style.cssText = 'margin-bottom:20px;';
+
+      const label = document.createElement('label');
+      label.style.cssText = 'display:block;margin-bottom:6px;';
+      label.textContent = config.label;
+
+      const select = document.createElement('select');
+      select.style.cssText = 'width:100%;background:#222;color:#fff;border:1px solid #555;' +
+        'padding:4px;font-family:"Courier New",monospace;font-size:14px;';
+      for (const opt of config.options) {
+        const option = document.createElement('option');
+        option.value = opt;
+        option.textContent = opt;
+        select.appendChild(option);
+      }
+      select.value = settings[name];
+      directionSelect = select;
+
+      select.addEventListener('change', () => {
+        _onChange(name, select.value);
+      });
+
+      row.appendChild(label);
+      row.appendChild(select);
+      panel.appendChild(row);
+      continue;
+    }
+
+    // Numeric setting — render as a slider
     const row = document.createElement('div');
     row.style.cssText = 'margin-bottom:20px;';
 
@@ -574,6 +619,7 @@ function formatValue(name, value) {
     panel,
     sliders,
     valueDisplays,
+    directionSelect,
     set onChange(fn) { _onChange = fn; },
     get onChange() { return _onChange; },
     destroy() {
@@ -848,6 +894,71 @@ function lerp(a, b, t) {
     }));
   }
   return layers;
+}
+
+/**
+ * Update a star layer with a configurable direction.
+ * Directions: 'left', 'right', 'up', 'down', 'radial'.
+ */function updateStarLayerDirectional(layer, dt, canvasWidth, canvasHeight, direction) {
+  const delta = layer.speed * dt;
+  if (delta === 0) return;
+
+  const cx = canvasWidth / 2;
+  const cy = canvasHeight / 2;
+
+  for (const star of layer.stars) {
+    if (direction === 'radial') {
+      let dx = star.x - cx;
+      let dy = star.y - cy;
+      const dist = Math.hypot(dx, dy);
+
+      if (dist < 0.01) {
+        // Star at exact center — assign a random angle to push it outward
+        const angle = Math.random() * Math.PI * 2;
+        dx = Math.cos(angle);
+        dy = Math.sin(angle);
+      } else {
+        dx /= dist;
+        dy /= dist;
+      }
+
+      star.x += dx * delta;
+      star.y += dy * delta;
+
+      // Recycle if outside canvas
+      if (star.x < 0 || star.x > canvasWidth || star.y < 0 || star.y > canvasHeight) {
+        const angle = Math.random() * Math.PI * 2;
+        const spawnDist = Math.random() * 50;
+        star.x = cx + Math.cos(angle) * spawnDist;
+        star.y = cy + Math.sin(angle) * spawnDist;
+      }
+    } else if (direction === 'right') {
+      star.x += delta;
+      if (star.x > canvasWidth) {
+        star.x = star.x - canvasWidth;
+        star.y = Math.random() * canvasHeight;
+      }
+    } else if (direction === 'up') {
+      star.y -= delta;
+      if (star.y < 0) {
+        star.y = canvasHeight + star.y;
+        star.x = Math.random() * canvasWidth;
+      }
+    } else if (direction === 'down') {
+      star.y += delta;
+      if (star.y > canvasHeight) {
+        star.y = star.y - canvasHeight;
+        star.x = Math.random() * canvasWidth;
+      }
+    } else {
+      // 'left' (default)
+      star.x -= delta;
+      if (star.x < 0) {
+        star.x = canvasWidth + star.x;
+        star.y = Math.random() * canvasHeight;
+      }
+    }
+  }
 }
 
 /**

@@ -671,3 +671,125 @@ describe('Increment 14: Settings Persistence', () => {
     });
   });
 });
+
+describe('Increment 15: Star Field Direction Setting', () => {
+
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  describe('SETTINGS_CONFIG — starDirection', () => {
+    it('defines starDirection with options array containing all 5 directions', () => {
+      const c = SETTINGS_CONFIG.starDirection;
+      expect(c).toBeDefined();
+      expect(c.options).toEqual(['left', 'right', 'up', 'down', 'radial']);
+    });
+
+    it('starDirection default is "left"', () => {
+      expect(SETTINGS_CONFIG.starDirection.default).toBe('left');
+    });
+
+    it('starDirection has a label', () => {
+      expect(typeof SETTINGS_CONFIG.starDirection.label).toBe('string');
+    });
+  });
+
+  describe('createSettings — starDirection', () => {
+    it('defaults starDirection to "left"', () => {
+      const s = createSettings();
+      expect(s.starDirection).toBe('left');
+    });
+
+    it('accepts starDirection override', () => {
+      const s = createSettings({ starDirection: 'radial' });
+      expect(s.starDirection).toBe('radial');
+    });
+  });
+
+  describe('persistence — starDirection', () => {
+    it('saveSettings persists starDirection', () => {
+      const s = createSettings({ starDirection: 'up' });
+      saveSettings(s);
+      const stored = JSON.parse(localStorage.getItem('asteroidSettings'));
+      expect(stored.starDirection).toBe('up');
+    });
+
+    it('loadSettings restores starDirection', () => {
+      localStorage.setItem('asteroidSettings', JSON.stringify({
+        asteroidCount: 20, speedMultiplier: 1.0, starLayers: 3, starDirection: 'radial',
+      }));
+      const loaded = loadSettings();
+      expect(loaded.starDirection).toBe('radial');
+    });
+
+    it('loadSettings defaults starDirection when missing from storage', () => {
+      localStorage.setItem('asteroidSettings', JSON.stringify({
+        asteroidCount: 20, speedMultiplier: 1.0, starLayers: 3,
+      }));
+      const loaded = loadSettings();
+      expect(loaded.starDirection).toBe('left');
+    });
+
+    it('loadSettings defaults starDirection when stored value is invalid', () => {
+      localStorage.setItem('asteroidSettings', JSON.stringify({
+        asteroidCount: 20, speedMultiplier: 1.0, starLayers: 3, starDirection: 'diagonal',
+      }));
+      const loaded = loadSettings();
+      expect(loaded.starDirection).toBe('left');
+    });
+
+    it('round-trip: save then load preserves starDirection', () => {
+      const s = createSettings({ starDirection: 'down' });
+      saveSettings(s);
+      const loaded = loadSettings();
+      expect(loaded.starDirection).toBe('down');
+    });
+  });
+
+  describe('createSettingsUI — direction selector', () => {
+    let container;
+    let settings;
+
+    beforeEach(() => {
+      container = document.createElement('div');
+      document.body.appendChild(container);
+      settings = createSettings();
+    });
+
+    it('creates a direction selector element', () => {
+      const ui = createSettingsUI(container, settings);
+      expect(ui.directionSelect).toBeDefined();
+    });
+
+    it('direction selector has all 5 options', () => {
+      const ui = createSettingsUI(container, settings);
+      const options = ui.directionSelect.querySelectorAll('option');
+      const values = Array.from(options).map(o => o.value);
+      expect(values).toEqual(['left', 'right', 'up', 'down', 'radial']);
+    });
+
+    it('direction selector defaults to "left"', () => {
+      const ui = createSettingsUI(container, settings);
+      expect(ui.directionSelect.value).toBe('left');
+    });
+
+    it('direction selector reflects non-default settings on creation', () => {
+      const s = createSettings({ starDirection: 'radial' });
+      const ui = createSettingsUI(container, s);
+      expect(ui.directionSelect.value).toBe('radial');
+    });
+
+    it('changing direction fires onChange with name and value', () => {
+      const ui = createSettingsUI(container, settings);
+      const changes = [];
+      ui.onChange = (name, value) => changes.push({ name, value });
+
+      ui.directionSelect.value = 'radial';
+      ui.directionSelect.dispatchEvent(new Event('change'));
+
+      expect(changes.length).toBe(1);
+      expect(changes[0].name).toBe('starDirection');
+      expect(changes[0].value).toBe('radial');
+    });
+  });
+});

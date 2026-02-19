@@ -5,6 +5,7 @@ export const SETTINGS_CONFIG = {
   asteroidCount: { min: 5, max: 50, step: 1, default: 20, label: 'Asteroids' },
   speedMultiplier: { min: 0.2, max: 3.0, step: 0.1, default: 1.0, label: 'Speed' },
   starLayers: { min: 3, max: 6, step: 1, default: 3, label: 'Star Layers' },
+  starDirection: { options: ['left', 'right', 'up', 'down', 'radial'], default: 'left', label: 'Direction' },
 };
 
 const STORAGE_KEY = 'asteroidSettings';
@@ -17,6 +18,7 @@ export function createSettings(overrides = {}) {
     asteroidCount: overrides.asteroidCount ?? SETTINGS_CONFIG.asteroidCount.default,
     speedMultiplier: overrides.speedMultiplier ?? SETTINGS_CONFIG.speedMultiplier.default,
     starLayers: overrides.starLayers ?? SETTINGS_CONFIG.starLayers.default,
+    starDirection: overrides.starDirection ?? SETTINGS_CONFIG.starDirection.default,
     panelOpen: false,
     gearVisible: true,
     gearHovered: false,
@@ -33,12 +35,13 @@ export function saveSettings(settings) {
     asteroidCount: settings.asteroidCount,
     speedMultiplier: settings.speedMultiplier,
     starLayers: settings.starLayers,
+    starDirection: settings.starDirection,
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
 
 /**
- * Load settings from localStorage. Returns an object with the 3 tunable values.
+ * Load settings from localStorage. Returns an object with tunable values.
  * Falls back to defaults if storage is empty, corrupt, or contains invalid values.
  */
 export function loadSettings() {
@@ -46,6 +49,7 @@ export function loadSettings() {
     asteroidCount: SETTINGS_CONFIG.asteroidCount.default,
     speedMultiplier: SETTINGS_CONFIG.speedMultiplier.default,
     starLayers: SETTINGS_CONFIG.starLayers.default,
+    starDirection: SETTINGS_CONFIG.starDirection.default,
   };
 
   try {
@@ -59,8 +63,13 @@ export function loadSettings() {
 
     const result = {};
     for (const name of Object.keys(defaults)) {
+      const config = SETTINGS_CONFIG[name];
       const val = parsed[name];
-      if (typeof val === 'number' && !isNaN(val)) {
+
+      if (config.options) {
+        // String enum setting (e.g. starDirection)
+        result[name] = config.options.includes(val) ? val : defaults[name];
+      } else if (typeof val === 'number' && !isNaN(val)) {
         result[name] = clampSetting(name, val);
       } else {
         result[name] = defaults[name];
@@ -153,7 +162,41 @@ export function createSettingsUI(container, settings) {
   const sliders = {};
   const valueDisplays = {};
 
+  let directionSelect;
+
   for (const [name, config] of Object.entries(SETTINGS_CONFIG)) {
+    if (config.options) {
+      // Enum setting — render as a <select> dropdown
+      const row = document.createElement('div');
+      row.style.cssText = 'margin-bottom:20px;';
+
+      const label = document.createElement('label');
+      label.style.cssText = 'display:block;margin-bottom:6px;';
+      label.textContent = config.label;
+
+      const select = document.createElement('select');
+      select.style.cssText = 'width:100%;background:#222;color:#fff;border:1px solid #555;' +
+        'padding:4px;font-family:"Courier New",monospace;font-size:14px;';
+      for (const opt of config.options) {
+        const option = document.createElement('option');
+        option.value = opt;
+        option.textContent = opt;
+        select.appendChild(option);
+      }
+      select.value = settings[name];
+      directionSelect = select;
+
+      select.addEventListener('change', () => {
+        _onChange(name, select.value);
+      });
+
+      row.appendChild(label);
+      row.appendChild(select);
+      panel.appendChild(row);
+      continue;
+    }
+
+    // Numeric setting — render as a slider
     const row = document.createElement('div');
     row.style.cssText = 'margin-bottom:20px;';
 
@@ -214,6 +257,7 @@ export function createSettingsUI(container, settings) {
     panel,
     sliders,
     valueDisplays,
+    directionSelect,
     set onChange(fn) { _onChange = fn; },
     get onChange() { return _onChange; },
     destroy() {

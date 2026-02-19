@@ -8,6 +8,7 @@ import {
   applyTwinkle,
   drawParallaxLayers,
   drawStarLayer,
+  updateStarLayerDirectional,
 } from '../src/starfield.js';
 
 describe('Increment 2: A Single Star Drifts Across the Void', () => {
@@ -644,6 +645,221 @@ describe('Increment 4: Stars That Twinkle', () => {
       // All renders should use the same base brightness
       expect(fillStyles[0]).toBe(fillStyles[1]);
       expect(fillStyles[1]).toBe(fillStyles[2]);
+    });
+  });
+});
+
+describe('Increment 15: Star Field Direction', () => {
+
+  describe('updateStarLayerDirectional — left (default)', () => {
+    it('moves stars leftward by speed * dt', () => {
+      const layer = createStarLayer(1, 800, 600, { speed: 100 });
+      layer.stars[0].x = 400;
+      layer.stars[0].y = 300;
+      updateStarLayerDirectional(layer, 0.1, 800, 600, 'left');
+      expect(layer.stars[0].x).toBeCloseTo(390, 1);
+      expect(layer.stars[0].y).toBe(300);
+    });
+
+    it('wraps stars exiting left edge to right edge', () => {
+      const layer = createStarLayer(1, 800, 600, { speed: 100 });
+      layer.stars[0].x = 5;
+      updateStarLayerDirectional(layer, 0.1, 800, 600, 'left');
+      expect(layer.stars[0].x).toBeGreaterThan(790);
+    });
+  });
+
+  describe('updateStarLayerDirectional — right', () => {
+    it('moves stars rightward by speed * dt', () => {
+      const layer = createStarLayer(1, 800, 600, { speed: 100 });
+      layer.stars[0].x = 400;
+      layer.stars[0].y = 300;
+      updateStarLayerDirectional(layer, 0.1, 800, 600, 'right');
+      expect(layer.stars[0].x).toBeCloseTo(410, 1);
+      expect(layer.stars[0].y).toBe(300);
+    });
+
+    it('wraps stars exiting right edge to left edge', () => {
+      const layer = createStarLayer(1, 800, 600, { speed: 100 });
+      layer.stars[0].x = 795;
+      updateStarLayerDirectional(layer, 0.1, 800, 600, 'right');
+      expect(layer.stars[0].x).toBeLessThan(10);
+    });
+
+    it('assigns new random y when wrapping', () => {
+      const layer = createStarLayer(1, 800, 600, { speed: 100 });
+      let yChanged = false;
+      for (let i = 0; i < 20; i++) {
+        layer.stars[0].x = 799;
+        const oldY = layer.stars[0].y;
+        updateStarLayerDirectional(layer, 0.1, 800, 600, 'right');
+        if (layer.stars[0].y !== oldY) yChanged = true;
+      }
+      expect(yChanged).toBe(true);
+    });
+  });
+
+  describe('updateStarLayerDirectional — up', () => {
+    it('moves stars upward by speed * dt', () => {
+      const layer = createStarLayer(1, 800, 600, { speed: 100 });
+      layer.stars[0].x = 400;
+      layer.stars[0].y = 300;
+      updateStarLayerDirectional(layer, 0.1, 800, 600, 'up');
+      expect(layer.stars[0].y).toBeCloseTo(290, 1);
+      expect(layer.stars[0].x).toBe(400);
+    });
+
+    it('wraps stars exiting top edge to bottom edge', () => {
+      const layer = createStarLayer(1, 800, 600, { speed: 100 });
+      layer.stars[0].y = 5;
+      updateStarLayerDirectional(layer, 0.1, 800, 600, 'up');
+      expect(layer.stars[0].y).toBeGreaterThan(590);
+    });
+
+    it('assigns new random x when wrapping', () => {
+      const layer = createStarLayer(1, 800, 600, { speed: 100 });
+      let xChanged = false;
+      for (let i = 0; i < 20; i++) {
+        layer.stars[0].y = 1;
+        const oldX = layer.stars[0].x;
+        updateStarLayerDirectional(layer, 0.1, 800, 600, 'up');
+        if (layer.stars[0].x !== oldX) xChanged = true;
+      }
+      expect(xChanged).toBe(true);
+    });
+  });
+
+  describe('updateStarLayerDirectional — down', () => {
+    it('moves stars downward by speed * dt', () => {
+      const layer = createStarLayer(1, 800, 600, { speed: 100 });
+      layer.stars[0].x = 400;
+      layer.stars[0].y = 300;
+      updateStarLayerDirectional(layer, 0.1, 800, 600, 'down');
+      expect(layer.stars[0].y).toBeCloseTo(310, 1);
+      expect(layer.stars[0].x).toBe(400);
+    });
+
+    it('wraps stars exiting bottom edge to top edge', () => {
+      const layer = createStarLayer(1, 800, 600, { speed: 100 });
+      layer.stars[0].y = 595;
+      updateStarLayerDirectional(layer, 0.1, 800, 600, 'down');
+      expect(layer.stars[0].y).toBeLessThan(10);
+    });
+  });
+
+  describe('updateStarLayerDirectional — radial', () => {
+    it('moves stars outward from center', () => {
+      const layer = createStarLayer(1, 800, 600, { speed: 100 });
+      // Place star to the right of center
+      layer.stars[0].x = 500;
+      layer.stars[0].y = 300;
+      const cx = 400, cy = 300;
+      const distBefore = Math.hypot(layer.stars[0].x - cx, layer.stars[0].y - cy);
+
+      updateStarLayerDirectional(layer, 0.1, 800, 600, 'radial');
+
+      const distAfter = Math.hypot(layer.stars[0].x - cx, layer.stars[0].y - cy);
+      expect(distAfter).toBeGreaterThan(distBefore);
+    });
+
+    it('preserves the angle from center as star moves outward', () => {
+      const layer = createStarLayer(1, 800, 600, { speed: 100 });
+      layer.stars[0].x = 500;
+      layer.stars[0].y = 400;
+      const cx = 400, cy = 300;
+      const angleBefore = Math.atan2(layer.stars[0].y - cy, layer.stars[0].x - cx);
+
+      updateStarLayerDirectional(layer, 0.1, 800, 600, 'radial');
+
+      const angleAfter = Math.atan2(layer.stars[0].y - cy, layer.stars[0].x - cx);
+      expect(angleAfter).toBeCloseTo(angleBefore, 3);
+    });
+
+    it('respawns near center when star exits any edge', () => {
+      const layer = createStarLayer(1, 800, 600, { speed: 100 });
+      // Place star outside right edge
+      layer.stars[0].x = 810;
+      layer.stars[0].y = 300;
+
+      updateStarLayerDirectional(layer, 0.01, 800, 600, 'radial');
+
+      const cx = 400, cy = 300;
+      const dist = Math.hypot(layer.stars[0].x - cx, layer.stars[0].y - cy);
+      // Should have respawned near center (within some small radius)
+      expect(dist).toBeLessThan(100);
+    });
+
+    it('respawns near center when star exits top edge', () => {
+      const layer = createStarLayer(1, 800, 600, { speed: 100 });
+      layer.stars[0].x = 400;
+      layer.stars[0].y = -10;
+
+      updateStarLayerDirectional(layer, 0.01, 800, 600, 'radial');
+
+      const cx = 400, cy = 300;
+      const dist = Math.hypot(layer.stars[0].x - cx, layer.stars[0].y - cy);
+      expect(dist).toBeLessThan(100);
+    });
+
+    it('star at exact center still moves outward (no stuck stars)', () => {
+      const layer = createStarLayer(1, 800, 600, { speed: 100 });
+      layer.stars[0].x = 400;
+      layer.stars[0].y = 300;
+
+      updateStarLayerDirectional(layer, 0.1, 800, 600, 'radial');
+
+      // Star should have moved from center
+      const dist = Math.hypot(layer.stars[0].x - 400, layer.stars[0].y - 300);
+      expect(dist).toBeGreaterThan(0);
+    });
+  });
+
+  describe('updateStarLayerDirectional — radial parallax', () => {
+    it('near-layer stars move faster outward than far-layer stars', () => {
+      const farLayer = createStarLayer(1, 800, 600, { speed: 5 });
+      const nearLayer = createStarLayer(1, 800, 600, { speed: 30 });
+      // Place both at same offset from center
+      farLayer.stars[0].x = 500;
+      farLayer.stars[0].y = 300;
+      nearLayer.stars[0].x = 500;
+      nearLayer.stars[0].y = 300;
+      const cx = 400;
+
+      updateStarLayerDirectional(farLayer, 1.0, 800, 600, 'radial');
+      updateStarLayerDirectional(nearLayer, 1.0, 800, 600, 'radial');
+
+      const farDist = farLayer.stars[0].x - cx;
+      const nearDist = nearLayer.stars[0].x - cx;
+      expect(nearDist).toBeGreaterThan(farDist);
+    });
+  });
+
+  describe('updateStarLayerDirectional — dt=0', () => {
+    it('does not move stars for any direction when dt=0', () => {
+      for (const dir of ['left', 'right', 'up', 'down', 'radial']) {
+        const layer = createStarLayer(1, 800, 600, { speed: 100 });
+        layer.stars[0].x = 400;
+        layer.stars[0].y = 300;
+        updateStarLayerDirectional(layer, 0, 800, 600, dir);
+        expect(layer.stars[0].x).toBe(400);
+        expect(layer.stars[0].y).toBe(300);
+      }
+    });
+  });
+
+  describe('existing stars preserved on direction change', () => {
+    it('stars are not recreated — same array reference after direction switch', () => {
+      const layer = createStarLayer(5, 800, 600, { speed: 10 });
+      const starRefs = layer.stars.map(s => s);
+
+      // Update with one direction, then another — stars should be same objects
+      updateStarLayerDirectional(layer, 0.016, 800, 600, 'left');
+      updateStarLayerDirectional(layer, 0.016, 800, 600, 'radial');
+
+      expect(layer.stars.length).toBe(5);
+      for (let i = 0; i < 5; i++) {
+        expect(layer.stars[i]).toBe(starRefs[i]);
+      }
     });
   });
 });

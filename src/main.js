@@ -1,4 +1,4 @@
-import { createParallaxLayers, updateParallaxLayers, drawParallaxLayers } from './starfield.js';
+import { createParallaxLayers, updateStarLayerDirectional, drawParallaxLayers } from './starfield.js';
 import { drawAsteroid } from './asteroid.js';
 import { createSimulation, updateSimulation } from './simulation.js';
 import { createSettings, createSettingsUI, updateAutoHide, loadSettings, saveSettings } from './settings.js';
@@ -109,7 +109,9 @@ export function startApp() {
     ui.panel.style.display = settings.panelOpen ? 'block' : 'none';
     ui.gearButton.textContent = settings.panelOpen ? '\u2715' : '\u2630';
 
-    updateParallaxLayers(starLayers, scaledDt, canvas.width, canvas.height);
+    for (const layer of starLayers) {
+      updateStarLayerDirectional(layer, scaledDt, canvas.width, canvas.height, settings.starDirection);
+    }
     updateSimulation(sim, scaledDt, canvas.width, canvas.height);
 
     ctx.fillStyle = '#000000';

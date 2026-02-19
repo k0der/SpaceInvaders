@@ -131,6 +131,72 @@ export function createParallaxLayers(canvasWidth, canvasHeight, layerCount = 3) 
 }
 
 /**
+ * Update a star layer with a configurable direction.
+ * Directions: 'left', 'right', 'up', 'down', 'radial'.
+ */
+export function updateStarLayerDirectional(layer, dt, canvasWidth, canvasHeight, direction) {
+  const delta = layer.speed * dt;
+  if (delta === 0) return;
+
+  const cx = canvasWidth / 2;
+  const cy = canvasHeight / 2;
+
+  for (const star of layer.stars) {
+    if (direction === 'radial') {
+      let dx = star.x - cx;
+      let dy = star.y - cy;
+      const dist = Math.hypot(dx, dy);
+
+      if (dist < 0.01) {
+        // Star at exact center — assign a random angle to push it outward
+        const angle = Math.random() * Math.PI * 2;
+        dx = Math.cos(angle);
+        dy = Math.sin(angle);
+      } else {
+        dx /= dist;
+        dy /= dist;
+      }
+
+      star.x += dx * delta;
+      star.y += dy * delta;
+
+      // Recycle if outside canvas
+      if (star.x < 0 || star.x > canvasWidth || star.y < 0 || star.y > canvasHeight) {
+        const angle = Math.random() * Math.PI * 2;
+        const spawnDist = Math.random() * 50;
+        star.x = cx + Math.cos(angle) * spawnDist;
+        star.y = cy + Math.sin(angle) * spawnDist;
+      }
+    } else if (direction === 'right') {
+      star.x += delta;
+      if (star.x > canvasWidth) {
+        star.x = star.x - canvasWidth;
+        star.y = Math.random() * canvasHeight;
+      }
+    } else if (direction === 'up') {
+      star.y -= delta;
+      if (star.y < 0) {
+        star.y = canvasHeight + star.y;
+        star.x = Math.random() * canvasWidth;
+      }
+    } else if (direction === 'down') {
+      star.y += delta;
+      if (star.y > canvasHeight) {
+        star.y = star.y - canvasHeight;
+        star.x = Math.random() * canvasWidth;
+      }
+    } else {
+      // 'left' (default)
+      star.x -= delta;
+      if (star.x < 0) {
+        star.x = canvasWidth + star.x;
+        star.y = Math.random() * canvasHeight;
+      }
+    }
+  }
+}
+
+/**
  * Update all parallax layers.
  */
 export function updateParallaxLayers(layers, dt, canvasWidth, canvasHeight) {
