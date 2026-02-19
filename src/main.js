@@ -60,7 +60,7 @@ export function startApp() {
   let elapsedTime = 0;
 
   // Settings UI
-  const ui = createSettingsUI(document.body);
+  const ui = createSettingsUI(document.body, settings);
   ui.onChange = (name, value) => {
     settings[name] = value;
     if (name === 'asteroidCount') {
@@ -89,9 +89,7 @@ export function startApp() {
     updateAutoHide(settings, dt);
     ui.gearButton.style.opacity = settings.gearVisible ? '0.3' : '0';
     ui.gearButton.style.pointerEvents = settings.gearVisible ? 'auto' : 'none';
-    if (!settings.panelOpen) {
-      ui.panel.style.display = 'none';
-    }
+    ui.panel.style.display = settings.panelOpen ? 'block' : 'none';
 
     updateParallaxLayers(starLayers, scaledDt, canvas.width, canvas.height);
     updateSimulation(sim, scaledDt, canvas.width, canvas.height);

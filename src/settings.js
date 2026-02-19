@@ -66,7 +66,7 @@ function formatValue(name, value) {
  * Create the settings UI: gear button, panel with sliders.
  * Returns { gearButton, panel, sliders, valueDisplays, onChange }.
  */
-export function createSettingsUI(container) {
+export function createSettingsUI(container, settings) {
   // Gear button
   const gearButton = document.createElement('button');
   gearButton.textContent = '\u2699';
@@ -137,12 +137,15 @@ export function createSettingsUI(container) {
 
   // Gear click toggles panel
   gearButton.addEventListener('click', () => {
-    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+    settings.panelOpen = !settings.panelOpen;
+    settings.panelTimer = 0;
+    panel.style.display = settings.panelOpen ? 'block' : 'none';
   });
 
   // Escape closes panel
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
+      settings.panelOpen = false;
       panel.style.display = 'none';
     }
   });

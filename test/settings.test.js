@@ -159,37 +159,39 @@ describe('Increment 13: Settings Menu', () => {
 
   describe('createSettingsUI — DOM', () => {
     let container;
+    let settings;
 
     beforeEach(() => {
       container = document.createElement('div');
       document.body.appendChild(container);
+      settings = createSettings();
     });
 
     it('creates a gear button element', () => {
-      const ui = createSettingsUI(container);
+      const ui = createSettingsUI(container, settings);
       expect(ui.gearButton).toBeDefined();
       expect(container.contains(ui.gearButton)).toBe(true);
     });
 
     it('creates a panel element', () => {
-      const ui = createSettingsUI(container);
+      const ui = createSettingsUI(container, settings);
       expect(ui.panel).toBeDefined();
       expect(container.contains(ui.panel)).toBe(true);
     });
 
     it('panel starts hidden', () => {
-      const ui = createSettingsUI(container);
+      const ui = createSettingsUI(container, settings);
       expect(ui.panel.style.display).toBe('none');
     });
 
     it('creates 3 slider inputs with correct attributes', () => {
-      const ui = createSettingsUI(container);
+      const ui = createSettingsUI(container, settings);
       const sliders = ui.panel.querySelectorAll('input[type="range"]');
       expect(sliders.length).toBe(3);
     });
 
     it('asteroid count slider has correct min/max/step/value', () => {
-      const ui = createSettingsUI(container);
+      const ui = createSettingsUI(container, settings);
       const slider = ui.sliders.asteroidCount;
       expect(slider.min).toBe('5');
       expect(slider.max).toBe('50');
@@ -198,7 +200,7 @@ describe('Increment 13: Settings Menu', () => {
     });
 
     it('speed multiplier slider has correct min/max/step/value', () => {
-      const ui = createSettingsUI(container);
+      const ui = createSettingsUI(container, settings);
       const slider = ui.sliders.speedMultiplier;
       expect(slider.min).toBe('0.2');
       expect(slider.max).toBe('3');
@@ -207,7 +209,7 @@ describe('Increment 13: Settings Menu', () => {
     });
 
     it('star layers slider has correct min/max/step/value', () => {
-      const ui = createSettingsUI(container);
+      const ui = createSettingsUI(container, settings);
       const slider = ui.sliders.starLayers;
       expect(slider.min).toBe('3');
       expect(slider.max).toBe('6');
@@ -216,59 +218,80 @@ describe('Increment 13: Settings Menu', () => {
     });
 
     it('each slider has a visible label', () => {
-      const ui = createSettingsUI(container);
+      const ui = createSettingsUI(container, settings);
       const labels = ui.panel.querySelectorAll('label');
       expect(labels.length).toBeGreaterThanOrEqual(3);
     });
 
     it('each slider shows its current value', () => {
-      const ui = createSettingsUI(container);
+      const ui = createSettingsUI(container, settings);
       // Value displays should contain the default values
       expect(ui.valueDisplays.asteroidCount.textContent).toContain('20');
       expect(ui.valueDisplays.speedMultiplier.textContent).toContain('1');
       expect(ui.valueDisplays.starLayers.textContent).toContain('3');
     });
 
-    it('clicking gear button opens panel', () => {
-      const ui = createSettingsUI(container);
+    it('clicking gear button opens panel and sets panelOpen', () => {
+      const ui = createSettingsUI(container, settings);
       ui.gearButton.click();
       expect(ui.panel.style.display).not.toBe('none');
+      expect(settings.panelOpen).toBe(true);
     });
 
-    it('pressing Escape closes the panel', () => {
-      const ui = createSettingsUI(container);
+    it('clicking gear button again closes panel', () => {
+      const ui = createSettingsUI(container, settings);
       ui.gearButton.click(); // open
-      expect(ui.panel.style.display).not.toBe('none');
+      ui.gearButton.click(); // close
+      expect(ui.panel.style.display).toBe('none');
+      expect(settings.panelOpen).toBe(false);
+    });
+
+    it('pressing Escape closes the panel and clears panelOpen', () => {
+      const ui = createSettingsUI(container, settings);
+      ui.gearButton.click(); // open
+      expect(settings.panelOpen).toBe(true);
 
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
       expect(ui.panel.style.display).toBe('none');
+      expect(settings.panelOpen).toBe(false);
+    });
+
+    it('panel stays open across simulated frame-loop sync', () => {
+      const ui = createSettingsUI(container, settings);
+      ui.gearButton.click(); // open
+
+      // Simulate what main.js does each frame
+      ui.panel.style.display = settings.panelOpen ? 'block' : 'none';
+
+      expect(ui.panel.style.display).toBe('block');
+      expect(settings.panelOpen).toBe(true);
     });
 
     it('gear button has low opacity styling', () => {
-      const ui = createSettingsUI(container);
+      const ui = createSettingsUI(container, settings);
       expect(ui.gearButton.style.opacity).toBe('0.3');
     });
 
     it('returns an onChange callback hook', () => {
-      const ui = createSettingsUI(container);
+      const ui = createSettingsUI(container, settings);
       expect(typeof ui.onChange).toBe('function');
     });
 
     it('gear button brightens to 80% opacity on hover', () => {
-      const ui = createSettingsUI(container);
+      const ui = createSettingsUI(container, settings);
       ui.gearButton.dispatchEvent(new Event('mouseenter'));
       expect(ui.gearButton.style.opacity).toBe('0.8');
     });
 
     it('gear button returns to 30% opacity on mouse leave', () => {
-      const ui = createSettingsUI(container);
+      const ui = createSettingsUI(container, settings);
       ui.gearButton.dispatchEvent(new Event('mouseenter'));
       ui.gearButton.dispatchEvent(new Event('mouseleave'));
       expect(ui.gearButton.style.opacity).toBe('0.3');
     });
 
     it('onChange fires with correct name and value when slider moves', () => {
-      const ui = createSettingsUI(container);
+      const ui = createSettingsUI(container, settings);
       const changes = [];
       ui.onChange = (name, value) => changes.push({ name, value });
 
@@ -281,7 +304,7 @@ describe('Increment 13: Settings Menu', () => {
     });
 
     it('value display updates when slider moves', () => {
-      const ui = createSettingsUI(container);
+      const ui = createSettingsUI(container, settings);
       ui.onChange = () => {}; // no-op
 
       ui.sliders.speedMultiplier.value = '2.5';
