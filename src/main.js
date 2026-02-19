@@ -1,4 +1,6 @@
 import { createParallaxLayers, updateParallaxLayers, drawParallaxLayers } from './starfield.js';
+import { drawAsteroid } from './asteroid.js';
+import { createSimulation, updateSimulation } from './simulation.js';
 
 /**
  * Calculate delta time in seconds between two timestamps (ms).
@@ -52,6 +54,7 @@ export function startApp() {
 
   const loop = createLoop();
   const starLayers = createParallaxLayers(canvas.width, canvas.height);
+  const sim = createSimulation(canvas.width, canvas.height);
   let elapsedTime = 0;
 
   function frame(timestamp) {
@@ -59,11 +62,16 @@ export function startApp() {
     elapsedTime += dt;
 
     updateParallaxLayers(starLayers, dt, canvas.width, canvas.height);
+    updateSimulation(sim, dt, canvas.width, canvas.height);
 
     ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     drawParallaxLayers(ctx, starLayers, elapsedTime);
+
+    for (const asteroid of sim.asteroids) {
+      drawAsteroid(ctx, asteroid);
+    }
 
     requestAnimationFrame(frame);
   }

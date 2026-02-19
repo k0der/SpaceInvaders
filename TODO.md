@@ -80,71 +80,71 @@
 
 ---
 
-## Increment 5: One Asteroid Floats Through
+## Increment 5: One Asteroid Floats Through ✅
 
 **Goal**: A single asteroid appears, drifts across the screen as a white wireframe polygon, and disappears off the other side. The first "actor" on stage.
 
-**Modules**: `src/asteroid.js`, `src/renderer.js`
+**Modules**: `src/asteroid.js`
 
 **Acceptance Criteria**:
-- [ ] `generateShape(radius)` produces 8–14 vertices in an irregular polygon
-- [ ] Every vertex is within `[radius * 0.6, radius * 1.0]` from origin
-- [ ] Vertices are ordered angularly (no crossed edges)
-- [ ] Two calls produce different shapes (randomness)
-- [ ] Asteroid is rendered as a closed white stroked polygon (no fill)
-- [ ] Asteroid moves in a straight line at constant speed each frame (`x += vx*dt, y += vy*dt`)
-- [ ] Asteroid spawns outside one edge and drifts across to the other
-- [ ] **Visible result**: a jagged white shape glides across the star field
+- [x] `generateShape(radius)` produces 8–14 vertices in an irregular polygon
+- [x] Every vertex is within `[radius * 0.6, radius * 1.0]` from origin
+- [x] Vertices are ordered angularly (no crossed edges)
+- [x] Two calls produce different shapes (randomness)
+- [x] Asteroid is rendered as a closed white stroked polygon (no fill)
+- [x] Asteroid moves in a straight line at constant speed each frame (`x += vx*dt, y += vy*dt`)
+- [x] Asteroid spawns outside one edge and drifts across to the other
+- [x] **Visible result**: a jagged white shape glides across the star field
 
 ---
 
-## Increment 6: The Asteroid Tumbles
+## Increment 6: The Asteroid Tumbles ✅
 
 **Goal**: The asteroid rotates as it drifts, just like in the original game.
 
 **Module**: `src/asteroid.js`
 
 **Acceptance Criteria**:
-- [ ] Each asteroid has an `angularVelocity` (rad/s) assigned at creation
-- [ ] Rotation updates each frame: `rotation += angularVelocity * dt`
-- [ ] Renderer applies rotation transform before drawing the shape
-- [ ] Canvas state is saved/restored around each asteroid draw (no transform leaking)
-- [ ] With `dt=0`, rotation is unchanged
-- [ ] **Visible result**: the asteroid slowly spins as it floats across
+- [x] Each asteroid has an `angularVelocity` (rad/s) assigned at creation
+- [x] Rotation updates each frame: `rotation += angularVelocity * dt`
+- [x] Renderer applies rotation transform before drawing the shape
+- [x] Canvas state is saved/restored around each asteroid draw (no transform leaking)
+- [x] With `dt=0`, rotation is unchanged
+- [x] **Visible result**: the asteroid slowly spins as it floats across
 
 ---
 
-## Increment 7: A Field of Asteroids
+## Increment 7: A Field of Asteroids ✅
 
 **Goal**: Multiple asteroids of varying sizes populate the screen. Bigger ones drift slowly, smaller ones zip past. The scene gets interesting.
 
-**Module**: `src/asteroid.js`
+**Module**: `src/asteroid.js`, `src/simulation.js`
 
 **Acceptance Criteria**:
-- [ ] Three size classes: large (r 50–80px, speed 15–30), medium (r 25–49, speed 30–60), small (r 10–24, speed 60–120)
-- [ ] Stroke width varies: 2.0px large, 1.5px medium, 1.0px small
-- [ ] Larger asteroids rotate more slowly than smaller ones (on average)
-- [ ] ~20 asteroids on screen (hardcoded target for now)
-- [ ] Size distribution: ~20% large, ~40% medium, ~40% small
-- [ ] **Visible result**: a bustling asteroid field with large slow boulders and fast small rocks
+- [x] Three size classes: large (r 50–80px, speed 15–30), medium (r 25–49, speed 30–60), small (r 10–24, speed 60–120)
+- [x] Stroke width varies: 2.0px large, 1.5px medium, 1.0px small
+- [x] Larger asteroids rotate more slowly than smaller ones (on average)
+- [x] ~20 asteroids on screen (hardcoded target for now)
+- [x] Size distribution: ~20% large, ~40% medium, ~40% small
+- [x] **Visible result**: a bustling asteroid field with large slow boulders and fast small rocks
 
 ---
 
-## Increment 8: Asteroids Come and Go
+## Increment 8: Asteroids Come and Go ✅
 
 **Goal**: Asteroids that drift off-screen are removed. New ones spawn from edges to replace them. The scene is self-sustaining.
 
 **Module**: `src/asteroid.js`, `src/simulation.js`
 
 **Acceptance Criteria**:
-- [ ] `isOffScreen(asteroid, w, h)` returns `true` when asteroid is fully outside canvas + margin
-- [ ] Works correctly for all four edges
-- [ ] Off-screen asteroids are removed each frame
-- [ ] New asteroids spawn just outside a random edge, aimed inward with ±30° spread
-- [ ] Spawning is staggered: max 1 new asteroid per 0.3s (no edge clusters)
-- [ ] Asteroid count stays near target (~20) over time
-- [ ] Spawns from all four edges (not biased)
-- [ ] **Visible result**: endless flow of asteroids — leave one side, new ones appear from another
+- [x] `isOffScreen(asteroid, w, h)` returns `true` when asteroid is fully outside canvas + margin
+- [x] Works correctly for all four edges
+- [x] Off-screen asteroids are removed each frame
+- [x] New asteroids spawn just outside a random edge, aimed inward with ±30° spread
+- [x] Spawning is staggered: max 1 new asteroid per 0.3s (no edge clusters)
+- [x] Asteroid count stays near target (~20) over time
+- [x] Spawns from all four edges (not biased)
+- [x] **Visible result**: endless flow of asteroids — leave one side, new ones appear from another
 
 ---
 
