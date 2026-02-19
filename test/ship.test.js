@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { createShip, drawShip } from '../src/ship.js';
+import { createShip, drawShip, updateShip, ROTATION_SPEED } from '../src/ship.js';
 
 describe('Increment 17: Static Ship at Screen Center', () => {
 
@@ -128,20 +128,91 @@ describe('Increment 17: Static Ship at Screen Center', () => {
   });
 
   describe('ship is static (no movement)', () => {
-    it('ship has no update mechanism — position stays constant', () => {
-      const ship = createShip({ x: 400, y: 300, heading: -Math.PI / 2 });
-      // No updateShip exists yet — position cannot change
-      expect(ship.x).toBe(400);
-      expect(ship.y).toBe(300);
-      expect(ship.heading).toBe(-Math.PI / 2);
-    });
-
     it('ship created at screen center with heading -PI/2 points up', () => {
       const w = 800, h = 600;
       const ship = createShip({ x: w / 2, y: h / 2, heading: -Math.PI / 2 });
       expect(ship.x).toBe(400);
       expect(ship.y).toBe(300);
       expect(ship.heading).toBe(-Math.PI / 2);
+    });
+  });
+});
+
+describe('Increment 18: Ship Rotates with Keyboard', () => {
+
+  describe('ROTATION_SPEED constant', () => {
+    it('is exported and is a positive number', () => {
+      expect(typeof ROTATION_SPEED).toBe('number');
+      expect(ROTATION_SPEED).toBeGreaterThan(0);
+    });
+  });
+
+  describe('updateShip — rotation only', () => {
+    it('rotatingLeft decreases heading by ROTATION_SPEED * dt', () => {
+      const ship = createShip({ x: 0, y: 0, heading: 0 });
+      ship.rotatingLeft = true;
+      updateShip(ship, 0.1);
+      expect(ship.heading).toBeCloseTo(-ROTATION_SPEED * 0.1, 5);
+    });
+
+    it('rotatingRight increases heading by ROTATION_SPEED * dt', () => {
+      const ship = createShip({ x: 0, y: 0, heading: 0 });
+      ship.rotatingRight = true;
+      updateShip(ship, 0.1);
+      expect(ship.heading).toBeCloseTo(ROTATION_SPEED * 0.1, 5);
+    });
+
+    it('no rotation when neither flag is set', () => {
+      const ship = createShip({ x: 0, y: 0, heading: 1.0 });
+      updateShip(ship, 1.0);
+      expect(ship.heading).toBe(1.0);
+    });
+
+    it('rotation scales with dt', () => {
+      const ship = createShip({ x: 0, y: 0, heading: 0 });
+      ship.rotatingRight = true;
+      updateShip(ship, 0.5);
+      expect(ship.heading).toBeCloseTo(ROTATION_SPEED * 0.5, 5);
+    });
+
+    it('with dt=0, heading does not change', () => {
+      const ship = createShip({ x: 0, y: 0, heading: 1.0 });
+      ship.rotatingLeft = true;
+      updateShip(ship, 0);
+      expect(ship.heading).toBe(1.0);
+    });
+
+    it('heading normalizes to [-PI, PI] when rotating past PI', () => {
+      const ship = createShip({ x: 0, y: 0, heading: Math.PI - 0.1 });
+      ship.rotatingRight = true;
+      // Large dt to push past PI
+      updateShip(ship, 10.0);
+      expect(ship.heading).toBeGreaterThanOrEqual(-Math.PI);
+      expect(ship.heading).toBeLessThanOrEqual(Math.PI);
+    });
+
+    it('heading normalizes to [-PI, PI] when rotating past -PI', () => {
+      const ship = createShip({ x: 0, y: 0, heading: -Math.PI + 0.1 });
+      ship.rotatingLeft = true;
+      updateShip(ship, 10.0);
+      expect(ship.heading).toBeGreaterThanOrEqual(-Math.PI);
+      expect(ship.heading).toBeLessThanOrEqual(Math.PI);
+    });
+
+    it('both rotateLeft and rotateRight cancel out', () => {
+      const ship = createShip({ x: 0, y: 0, heading: 0.5 });
+      ship.rotatingLeft = true;
+      ship.rotatingRight = true;
+      updateShip(ship, 1.0);
+      expect(ship.heading).toBeCloseTo(0.5, 5);
+    });
+
+    it('position does not change (rotation only, no thrust)', () => {
+      const ship = createShip({ x: 100, y: 200, heading: 0 });
+      ship.rotatingRight = true;
+      updateShip(ship, 1.0);
+      expect(ship.x).toBe(100);
+      expect(ship.y).toBe(200);
     });
   });
 });

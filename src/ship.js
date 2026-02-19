@@ -4,6 +4,18 @@
  */
 const SHIP_SIZE = 15;
 
+/** Rotation speed in radians per second. */
+export const ROTATION_SPEED = 4.0;
+
+/**
+ * Normalize an angle to the range [-PI, PI].
+ */
+function normalizeAngle(angle) {
+  while (angle > Math.PI) angle -= 2 * Math.PI;
+  while (angle < -Math.PI) angle += 2 * Math.PI;
+  return angle;
+}
+
 /**
  * Create a ship entity.
  */
@@ -21,6 +33,17 @@ export function createShip({ x, y, heading }) {
     braking: false,
     fire: false,
   };
+}
+
+/**
+ * Update ship state for one frame.
+ * Currently handles rotation only; thrust/physics added in Increment 19.
+ */
+export function updateShip(ship, dt) {
+  // Rotation
+  if (ship.rotatingLeft) ship.heading -= ROTATION_SPEED * dt;
+  if (ship.rotatingRight) ship.heading += ROTATION_SPEED * dt;
+  ship.heading = normalizeAngle(ship.heading);
 }
 
 /**

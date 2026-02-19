@@ -3,7 +3,8 @@ import { drawAsteroid } from './asteroid.js';
 import { createSimulation, updateSimulation } from './simulation.js';
 import { createSettings, createSettingsUI, updateAutoHide, loadSettings, saveSettings } from './settings.js';
 import { setupHiDPICanvas } from './renderer.js';
-import { createShip, drawShip } from './ship.js';
+import { createShip, updateShip, drawShip } from './ship.js';
+import { createInputState, handleKeyDown, handleKeyUp, applyInput } from './input.js';
 
 /**
  * Calculate delta time in seconds between two timestamps (ms).
@@ -59,6 +60,7 @@ export function startApp() {
     y: logicalSize.height / 2,
     heading: -Math.PI / 2,
   });
+  const inputState = createInputState();
   const loaded = loadSettings();
   const settings = createSettings(loaded);
   let elapsedTime = 0;
@@ -102,6 +104,10 @@ export function startApp() {
     }
   });
 
+  // Keyboard input for ship controls
+  window.addEventListener('keydown', (e) => handleKeyDown(inputState, e.key));
+  window.addEventListener('keyup', (e) => handleKeyUp(inputState, e.key));
+
   function frame(timestamp) {
     const dt = loop.tick(timestamp);
     elapsedTime += dt;
@@ -123,6 +129,10 @@ export function startApp() {
     }
     ui.panel.style.display = settings.panelOpen ? 'block' : 'none';
     ui.gearButton.textContent = settings.panelOpen ? '\u2715' : '\u2630';
+
+    // Ship input + update
+    applyInput(inputState, playerShip);
+    updateShip(playerShip, scaledDt);
 
     for (const layer of starLayers) {
       updateStarLayerDirectional(layer, scaledDt, logicalSize.width, logicalSize.height, settings.starDirection);

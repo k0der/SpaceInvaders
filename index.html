@@ -137,6 +137,59 @@ function computeSpeedBoost(baselineKEPerAsteroid, targetCount, asteroids) {
   return Math.min(Math.sqrt(targetKE / actualKE), 1.5);
 }
 
+// ===== input.js =====
+/**
+ * Create a fresh input state with all flags false.
+ */function createInputState() {
+  return {
+    thrust: false,
+    rotateLeft: false,
+    rotateRight: false,
+    brake: false,
+    fire: false,
+  };
+}
+
+const KEY_MAP = {
+  'w':          'thrust',
+  'arrowup':    'thrust',
+  'a':          'rotateLeft',
+  'arrowleft':  'rotateLeft',
+  'd':          'rotateRight',
+  'arrowright':  'rotateRight',
+  's':          'brake',
+  'arrowdown':  'brake',
+  ' ':          'fire',
+};
+
+function resolveKey(key) {
+  return KEY_MAP[key.toLowerCase()] || null;
+}
+
+/**
+ * Handle a keydown event — set the corresponding input flag to true.
+ */function handleKeyDown(state, key) {
+  const flag = resolveKey(key);
+  if (flag) state[flag] = true;
+}
+
+/**
+ * Handle a keyup event — clear the corresponding input flag.
+ */function handleKeyUp(state, key) {
+  const flag = resolveKey(key);
+  if (flag) state[flag] = false;
+}
+
+/**
+ * Copy input flags onto ship control booleans.
+ */function applyInput(inputState, ship) {
+  ship.thrust = inputState.thrust;
+  ship.rotatingLeft = inputState.rotateLeft;
+  ship.rotatingRight = inputState.rotateRight;
+  ship.braking = inputState.brake;
+  ship.fire = inputState.fire;
+}
+
 // ===== main.js =====
 
 /**
@@ -190,6 +243,7 @@ function computeSpeedBoost(baselineKEPerAsteroid, targetCount, asteroids) {
     y: logicalSize.height / 2,
     heading: -Math.PI / 2,
   });
+  const inputState = createInputState();
   const loaded = loadSettings();
   const settings = createSettings(loaded);
   let elapsedTime = 0;
@@ -233,6 +287,10 @@ function computeSpeedBoost(baselineKEPerAsteroid, targetCount, asteroids) {
     }
   });
 
+  // Keyboard input for ship controls
+  window.addEventListener('keydown', (e) => handleKeyDown(inputState, e.key));
+  window.addEventListener('keyup', (e) => handleKeyUp(inputState, e.key));
+
   function frame(timestamp) {
     const dt = loop.tick(timestamp);
     elapsedTime += dt;
@@ -254,6 +312,10 @@ function computeSpeedBoost(baselineKEPerAsteroid, targetCount, asteroids) {
     }
     ui.panel.style.display = settings.panelOpen ? 'block' : 'none';
     ui.gearButton.textContent = settings.panelOpen ? '\u2715' : '\u2630';
+
+    // Ship input + update
+    applyInput(inputState, playerShip);
+    updateShip(playerShip, scaledDt);
 
     for (const layer of starLayers) {
       updateStarLayerDirectional(layer, scaledDt, logicalSize.width, logicalSize.height, settings.starDirection);
@@ -665,6 +727,17 @@ function formatValue(name, value) {
  */
 const SHIP_SIZE = 15;
 
+/** Rotation speed in radians per second. */const ROTATION_SPEED = 4.0;
+
+/**
+ * Normalize an angle to the range [-PI, PI].
+ */
+function normalizeAngle(angle) {
+  while (angle > Math.PI) angle -= 2 * Math.PI;
+  while (angle < -Math.PI) angle += 2 * Math.PI;
+  return angle;
+}
+
 /**
  * Create a ship entity.
  */function createShip({ x, y, heading }) {
@@ -681,6 +754,16 @@ const SHIP_SIZE = 15;
     braking: false,
     fire: false,
   };
+}
+
+/**
+ * Update ship state for one frame.
+ * Currently handles rotation only; thrust/physics added in Increment 19.
+ */function updateShip(ship, dt) {
+  // Rotation
+  if (ship.rotatingLeft) ship.heading -= ROTATION_SPEED * dt;
+  if (ship.rotatingRight) ship.heading += ROTATION_SPEED * dt;
+  ship.heading = normalizeAngle(ship.heading);
 }
 
 /**
