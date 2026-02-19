@@ -17,6 +17,7 @@ export function createSettings() {
     starLayers: SETTINGS_CONFIG.starLayers.default,
     panelOpen: false,
     gearVisible: true,
+    gearHovered: false,
     gearTimer: 0,
     panelTimer: 0,
   };
@@ -74,8 +75,14 @@ export function createSettingsUI(container, settings) {
     'position:fixed;bottom:20px;right:20px;background:none;border:none;' +
     'color:#fff;font-size:28px;cursor:pointer;opacity:0.3;z-index:1001;' +
     'padding:8px;line-height:1;transition:opacity 0.2s;';
-  gearButton.addEventListener('mouseenter', () => { gearButton.style.opacity = '0.8'; });
-  gearButton.addEventListener('mouseleave', () => { gearButton.style.opacity = '0.3'; });
+  gearButton.addEventListener('mouseenter', () => {
+    settings.gearHovered = true;
+    gearButton.style.opacity = '0.8';
+  });
+  gearButton.addEventListener('mouseleave', () => {
+    settings.gearHovered = false;
+    gearButton.style.opacity = '0.3';
+  });
   container.appendChild(gearButton);
 
   // Panel

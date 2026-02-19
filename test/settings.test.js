@@ -60,6 +60,11 @@ describe('Increment 13: Settings Menu', () => {
       expect(s.gearVisible).toBe(true);
     });
 
+    it('gear starts not hovered', () => {
+      const s = createSettings();
+      expect(s.gearHovered).toBe(false);
+    });
+
     it('auto-hide timers start at 0', () => {
       const s = createSettings();
       expect(s.gearTimer).toBe(0);
@@ -290,6 +295,19 @@ describe('Increment 13: Settings Menu', () => {
       expect(ui.gearButton.style.opacity).toBe('0.3');
     });
 
+    it('mouseenter sets gearHovered true on settings', () => {
+      const ui = createSettingsUI(container, settings);
+      ui.gearButton.dispatchEvent(new Event('mouseenter'));
+      expect(settings.gearHovered).toBe(true);
+    });
+
+    it('mouseleave sets gearHovered false on settings', () => {
+      const ui = createSettingsUI(container, settings);
+      ui.gearButton.dispatchEvent(new Event('mouseenter'));
+      ui.gearButton.dispatchEvent(new Event('mouseleave'));
+      expect(settings.gearHovered).toBe(false);
+    });
+
     it('onChange fires with correct name and value when slider moves', () => {
       const ui = createSettingsUI(container, settings);
       const changes = [];
@@ -311,6 +329,120 @@ describe('Increment 13: Settings Menu', () => {
       ui.sliders.speedMultiplier.dispatchEvent(new Event('input'));
 
       expect(ui.valueDisplays.speedMultiplier.textContent).toContain('2.5');
+    });
+  });
+
+  describe('frame loop + settings integration', () => {
+    let container;
+    let settings;
+
+    beforeEach(() => {
+      container = document.createElement('div');
+      document.body.appendChild(container);
+      settings = createSettings();
+    });
+
+    /**
+     * Simulate what main.js frame() does each tick:
+     * updateAutoHide, then sync DOM from settings state.
+     */
+    function simulateFrame(ui, dt) {
+      updateAutoHide(settings, dt);
+      ui.gearButton.style.opacity = settings.gearVisible
+        ? (settings.gearHovered ? '0.8' : '0.3')
+        : '0';
+      ui.gearButton.style.pointerEvents = settings.gearVisible ? 'auto' : 'none';
+      ui.panel.style.display = settings.panelOpen ? 'block' : 'none';
+    }
+
+    it('hover opacity survives a frame-loop tick', () => {
+      const ui = createSettingsUI(container, settings);
+      ui.gearButton.dispatchEvent(new Event('mouseenter'));
+
+      // Simulate a frame tick — hover should NOT be overridden
+      simulateFrame(ui, 0.016);
+      expect(ui.gearButton.style.opacity).toBe('0.8');
+    });
+
+    it('hover opacity resets after mouseleave + frame tick', () => {
+      const ui = createSettingsUI(container, settings);
+      ui.gearButton.dispatchEvent(new Event('mouseenter'));
+      ui.gearButton.dispatchEvent(new Event('mouseleave'));
+
+      simulateFrame(ui, 0.016);
+      expect(ui.gearButton.style.opacity).toBe('0.3');
+    });
+
+    it('gear becomes invisible after 3s of no mouse movement', () => {
+      const ui = createSettingsUI(container, settings);
+
+      // Simulate 3.1 seconds of frames
+      for (let i = 0; i < 186; i++) {
+        simulateFrame(ui, 1 / 60);
+      }
+      expect(ui.gearButton.style.opacity).toBe('0');
+      expect(ui.gearButton.style.pointerEvents).toBe('none');
+    });
+
+    it('gear reappears after mouse movement resets timer', () => {
+      const ui = createSettingsUI(container, settings);
+
+      // Hide the gear
+      for (let i = 0; i < 186; i++) {
+        simulateFrame(ui, 1 / 60);
+      }
+      expect(ui.gearButton.style.opacity).toBe('0');
+
+      // Mouse moves — caller resets gearTimer
+      settings.gearTimer = 0;
+      simulateFrame(ui, 0.016);
+      expect(ui.gearButton.style.opacity).toBe('0.3');
+      expect(ui.gearButton.style.pointerEvents).toBe('auto');
+    });
+
+    it('panel stays open across multiple frame ticks', () => {
+      const ui = createSettingsUI(container, settings);
+      ui.gearButton.click(); // open panel
+
+      // Simulate 2 seconds of frames with mouse activity (panelTimer reset)
+      for (let i = 0; i < 120; i++) {
+        settings.panelTimer = 0; // mouse over panel
+        simulateFrame(ui, 1 / 60);
+      }
+      expect(ui.panel.style.display).toBe('block');
+      expect(settings.panelOpen).toBe(true);
+    });
+
+    it('panel auto-closes after 4s of no mouse activity', () => {
+      const ui = createSettingsUI(container, settings);
+      ui.gearButton.click(); // open panel
+
+      // Simulate 4.1 seconds with no mouse activity
+      for (let i = 0; i < 246; i++) {
+        simulateFrame(ui, 1 / 60);
+      }
+      expect(ui.panel.style.display).toBe('none');
+      expect(settings.panelOpen).toBe(false);
+    });
+
+    it('gear hover works even when gear was previously hidden and reappeared', () => {
+      const ui = createSettingsUI(container, settings);
+
+      // Hide gear
+      for (let i = 0; i < 186; i++) {
+        simulateFrame(ui, 1 / 60);
+      }
+      expect(ui.gearButton.style.opacity).toBe('0');
+
+      // Mouse moves, gear reappears
+      settings.gearTimer = 0;
+      simulateFrame(ui, 0.016);
+      expect(ui.gearButton.style.opacity).toBe('0.3');
+
+      // Hover over gear
+      ui.gearButton.dispatchEvent(new Event('mouseenter'));
+      simulateFrame(ui, 0.016);
+      expect(ui.gearButton.style.opacity).toBe('0.8');
     });
   });
 });

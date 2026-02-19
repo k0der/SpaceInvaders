@@ -220,7 +220,9 @@ function computeSpeedBoost(baselineKEPerAsteroid, targetCount, asteroids) {
     const scaledDt = dt * settings.speedMultiplier;
 
     updateAutoHide(settings, dt);
-    ui.gearButton.style.opacity = settings.gearVisible ? '0.3' : '0';
+    ui.gearButton.style.opacity = settings.gearVisible
+      ? (settings.gearHovered ? '0.8' : '0.3')
+      : '0';
     ui.gearButton.style.pointerEvents = settings.gearVisible ? 'auto' : 'none';
     ui.panel.style.display = settings.panelOpen ? 'block' : 'none';
 
@@ -364,6 +366,7 @@ function computeSpeedBoost(baselineKEPerAsteroid, targetCount, asteroids) {
     starLayers: SETTINGS_CONFIG.starLayers.default,
     panelOpen: false,
     gearVisible: true,
+    gearHovered: false,
     gearTimer: 0,
     panelTimer: 0,
   };
@@ -418,8 +421,14 @@ function formatValue(name, value) {
     'position:fixed;bottom:20px;right:20px;background:none;border:none;' +
     'color:#fff;font-size:28px;cursor:pointer;opacity:0.3;z-index:1001;' +
     'padding:8px;line-height:1;transition:opacity 0.2s;';
-  gearButton.addEventListener('mouseenter', () => { gearButton.style.opacity = '0.8'; });
-  gearButton.addEventListener('mouseleave', () => { gearButton.style.opacity = '0.3'; });
+  gearButton.addEventListener('mouseenter', () => {
+    settings.gearHovered = true;
+    gearButton.style.opacity = '0.8';
+  });
+  gearButton.addEventListener('mouseleave', () => {
+    settings.gearHovered = false;
+    gearButton.style.opacity = '0.3';
+  });
   container.appendChild(gearButton);
 
   // Panel

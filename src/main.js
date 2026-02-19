@@ -87,7 +87,9 @@ export function startApp() {
     const scaledDt = dt * settings.speedMultiplier;
 
     updateAutoHide(settings, dt);
-    ui.gearButton.style.opacity = settings.gearVisible ? '0.3' : '0';
+    ui.gearButton.style.opacity = settings.gearVisible
+      ? (settings.gearHovered ? '0.8' : '0.3')
+      : '0';
     ui.gearButton.style.pointerEvents = settings.gearVisible ? 'auto' : 'none';
     ui.panel.style.display = settings.panelOpen ? 'block' : 'none';
 
