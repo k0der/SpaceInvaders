@@ -68,11 +68,11 @@ function formatValue(name, value) {
  * Returns { gearButton, panel, sliders, valueDisplays, onChange }.
  */
 export function createSettingsUI(container, settings) {
-  // Gear button
+  // Hamburger menu button
   const gearButton = document.createElement('button');
-  gearButton.textContent = '\u2699';
+  gearButton.textContent = '\u2630';
   gearButton.style.cssText =
-    'position:fixed;bottom:20px;right:20px;background:none;border:none;' +
+    'position:fixed;top:20px;left:20px;background:none;border:none;' +
     'color:#fff;font-size:28px;cursor:pointer;opacity:0.3;z-index:1001;' +
     'padding:8px;line-height:1;transition:opacity 0.2s;';
   gearButton.addEventListener('mouseenter', () => {
@@ -88,7 +88,7 @@ export function createSettingsUI(container, settings) {
   // Panel
   const panel = document.createElement('div');
   panel.style.cssText =
-    'position:fixed;top:0;right:0;width:260px;height:100%;' +
+    'position:fixed;top:0;left:0;width:260px;height:100%;' +
     'background:rgba(0,0,0,0.85);color:#fff;font-family:"Courier New",monospace;' +
     'font-size:14px;padding:24px 20px;box-sizing:border-box;z-index:1000;' +
     'display:none;';
