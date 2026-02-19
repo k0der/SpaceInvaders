@@ -625,6 +625,43 @@ describe('Increment 4: Stars That Twinkle', () => {
       expect(coords[0].y).toBe(200.3);
     });
 
+    it('applies radialBrightness as multiplier when present on star', () => {
+      const layer = createStarLayer(1, 800, 600, {
+        speed: 10,
+        minBrightness: 0.8,
+        maxBrightness: 0.8,
+      });
+      layer.stars[0].radialBrightness = 0.5;
+
+      const fillStyles = [];
+      const fakeCtx = {
+        fillStyle: '',
+        fillRect: vi.fn(() => { fillStyles.push(fakeCtx.fillStyle); }),
+      };
+
+      drawStarLayer(fakeCtx, layer, 0);
+      // 0.8 * 0.5 = 0.4
+      expect(fillStyles[0]).toBe('rgba(255, 255, 255, 0.4)');
+    });
+
+    it('does not affect brightness when radialBrightness is absent', () => {
+      const layer = createStarLayer(1, 800, 600, {
+        speed: 10,
+        minBrightness: 0.8,
+        maxBrightness: 0.8,
+      });
+      // No radialBrightness set
+
+      const fillStyles = [];
+      const fakeCtx = {
+        fillStyle: '',
+        fillRect: vi.fn(() => { fillStyles.push(fakeCtx.fillStyle); }),
+      };
+
+      drawStarLayer(fakeCtx, layer, 0);
+      expect(fillStyles[0]).toBe('rgba(255, 255, 255, 0.8)');
+    });
+
     it('renders non-twinkle stars with constant base brightness regardless of elapsed time', () => {
       const layer = createStarLayer(1, 800, 600, {
         speed: 10,
@@ -775,9 +812,8 @@ describe('Increment 15: Star Field Direction', () => {
       expect(angleAfter).toBeCloseTo(angleBefore, 3);
     });
 
-    it('respawns near center when star exits any edge', () => {
+    it('respawns near center (with small offset, not at exact center) when star exits any edge', () => {
       const layer = createStarLayer(1, 800, 600, { speed: 100 });
-      // Place star outside right edge
       layer.stars[0].x = 810;
       layer.stars[0].y = 300;
 
@@ -785,8 +821,9 @@ describe('Increment 15: Star Field Direction', () => {
 
       const cx = 400, cy = 300;
       const dist = Math.hypot(layer.stars[0].x - cx, layer.stars[0].y - cy);
-      // Should have respawned near center (within some small radius)
-      expect(dist).toBeLessThan(100);
+      // Should have respawned near center but not at exact center
+      expect(dist).toBeGreaterThan(3);
+      expect(dist).toBeLessThan(40);
     });
 
     it('respawns near center when star exits top edge', () => {
@@ -798,7 +835,8 @@ describe('Increment 15: Star Field Direction', () => {
 
       const cx = 400, cy = 300;
       const dist = Math.hypot(layer.stars[0].x - cx, layer.stars[0].y - cy);
-      expect(dist).toBeLessThan(100);
+      expect(dist).toBeGreaterThan(3);
+      expect(dist).toBeLessThan(40);
     });
 
     it('star at exact center still moves outward (no stuck stars)', () => {
@@ -811,6 +849,69 @@ describe('Increment 15: Star Field Direction', () => {
       // Star should have moved from center
       const dist = Math.hypot(layer.stars[0].x - 400, layer.stars[0].y - 300);
       expect(dist).toBeGreaterThan(0);
+    });
+
+    it('stars far from center move faster than stars near center (perspective acceleration)', () => {
+      const nearCenter = createStarLayer(1, 800, 600, { speed: 100 });
+      const farFromCenter = createStarLayer(1, 800, 600, { speed: 100 });
+
+      // Place one star 30px from center, another 200px from center
+      nearCenter.stars[0].x = 430;
+      nearCenter.stars[0].y = 300;
+      farFromCenter.stars[0].x = 600;
+      farFromCenter.stars[0].y = 300;
+
+      const nearDistBefore = nearCenter.stars[0].x - 400;
+      const farDistBefore = farFromCenter.stars[0].x - 400;
+
+      updateStarLayerDirectional(nearCenter, 0.1, 800, 600, 'radial');
+      updateStarLayerDirectional(farFromCenter, 0.1, 800, 600, 'radial');
+
+      const nearMoved = (nearCenter.stars[0].x - 400) - nearDistBefore;
+      const farMoved = (farFromCenter.stars[0].x - 400) - farDistBefore;
+
+      // Far star should have moved more pixels than near star
+      expect(farMoved).toBeGreaterThan(nearMoved);
+    });
+
+    it('sets radialBrightness on stars based on distance from center', () => {
+      const layer = createStarLayer(1, 800, 600, { speed: 100 });
+      // Place star close to center
+      layer.stars[0].x = 410;
+      layer.stars[0].y = 300;
+
+      updateStarLayerDirectional(layer, 0.01, 800, 600, 'radial');
+
+      expect(layer.stars[0].radialBrightness).toBeDefined();
+      expect(layer.stars[0].radialBrightness).toBeGreaterThanOrEqual(0);
+      expect(layer.stars[0].radialBrightness).toBeLessThanOrEqual(1);
+    });
+
+    it('radialBrightness is low near center and high near edge', () => {
+      const nearCenter = createStarLayer(1, 800, 600, { speed: 100 });
+      const nearEdge = createStarLayer(1, 800, 600, { speed: 100 });
+
+      nearCenter.stars[0].x = 410;
+      nearCenter.stars[0].y = 300;
+      nearEdge.stars[0].x = 750;
+      nearEdge.stars[0].y = 300;
+
+      updateStarLayerDirectional(nearCenter, 0.01, 800, 600, 'radial');
+      updateStarLayerDirectional(nearEdge, 0.01, 800, 600, 'radial');
+
+      expect(nearEdge.stars[0].radialBrightness).toBeGreaterThan(nearCenter.stars[0].radialBrightness);
+    });
+
+    it('respawned stars have low radialBrightness', () => {
+      const layer = createStarLayer(1, 800, 600, { speed: 100 });
+      // Place star outside screen to force respawn
+      layer.stars[0].x = 810;
+      layer.stars[0].y = 300;
+
+      updateStarLayerDirectional(layer, 0.01, 800, 600, 'radial');
+
+      // Just respawned near center — should be dim
+      expect(layer.stars[0].radialBrightness).toBeLessThan(0.3);
     });
   });
 
@@ -860,6 +961,20 @@ describe('Increment 15: Star Field Direction', () => {
       for (let i = 0; i < 5; i++) {
         expect(layer.stars[i]).toBe(starRefs[i]);
       }
+    });
+
+    it('radialBrightness is cleared when switching away from radial mode', () => {
+      const layer = createStarLayer(1, 800, 600, { speed: 10 });
+      layer.stars[0].x = 500;
+      layer.stars[0].y = 300;
+
+      // Enter radial — should set radialBrightness
+      updateStarLayerDirectional(layer, 0.016, 800, 600, 'radial');
+      expect(layer.stars[0].radialBrightness).toBeDefined();
+
+      // Switch to left — should clear radialBrightness
+      updateStarLayerDirectional(layer, 0.016, 800, 600, 'left');
+      expect(layer.stars[0].radialBrightness).toBeUndefined();
     });
   });
 });

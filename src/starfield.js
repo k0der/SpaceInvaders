@@ -135,11 +135,13 @@ export function createParallaxLayers(canvasWidth, canvasHeight, layerCount = 3) 
  * Directions: 'left', 'right', 'up', 'down', 'radial'.
  */
 export function updateStarLayerDirectional(layer, dt, canvasWidth, canvasHeight, direction) {
-  const delta = layer.speed * dt;
-  if (delta === 0) return;
+  const baseDelta = layer.speed * dt;
+  if (baseDelta === 0) return;
 
   const cx = canvasWidth / 2;
   const cy = canvasHeight / 2;
+  // Reference distance for perspective scaling (half the shorter dimension)
+  const refDist = Math.min(canvasWidth, canvasHeight) / 2;
 
   for (const star of layer.stars) {
     if (direction === 'radial') {
@@ -157,40 +159,52 @@ export function updateStarLayerDirectional(layer, dt, canvasWidth, canvasHeight,
         dy /= dist;
       }
 
-      star.x += dx * delta;
-      star.y += dy * delta;
+      // Perspective acceleration: speed scales with distance from center
+      const speedFactor = Math.max(dist / refDist, 0.05);
+      star.x += dx * baseDelta * speedFactor;
+      star.y += dy * baseDelta * speedFactor;
+
+      // Brightness fades in with distance from center
+      const newDist = Math.hypot(star.x - cx, star.y - cy);
+      star.radialBrightness = Math.min(newDist / refDist, 1.0);
 
       // Recycle if outside canvas
       if (star.x < 0 || star.x > canvasWidth || star.y < 0 || star.y > canvasHeight) {
         const angle = Math.random() * Math.PI * 2;
-        const spawnDist = Math.random() * 50;
+        const spawnDist = 5 + Math.random() * 25;
         star.x = cx + Math.cos(angle) * spawnDist;
         star.y = cy + Math.sin(angle) * spawnDist;
-      }
-    } else if (direction === 'right') {
-      star.x += delta;
-      if (star.x > canvasWidth) {
-        star.x = star.x - canvasWidth;
-        star.y = Math.random() * canvasHeight;
-      }
-    } else if (direction === 'up') {
-      star.y -= delta;
-      if (star.y < 0) {
-        star.y = canvasHeight + star.y;
-        star.x = Math.random() * canvasWidth;
-      }
-    } else if (direction === 'down') {
-      star.y += delta;
-      if (star.y > canvasHeight) {
-        star.y = star.y - canvasHeight;
-        star.x = Math.random() * canvasWidth;
+        star.radialBrightness = spawnDist / refDist;
       }
     } else {
-      // 'left' (default)
-      star.x -= delta;
-      if (star.x < 0) {
-        star.x = canvasWidth + star.x;
-        star.y = Math.random() * canvasHeight;
+      // Clear radialBrightness when not in radial mode
+      delete star.radialBrightness;
+
+      if (direction === 'right') {
+        star.x += baseDelta;
+        if (star.x > canvasWidth) {
+          star.x = star.x - canvasWidth;
+          star.y = Math.random() * canvasHeight;
+        }
+      } else if (direction === 'up') {
+        star.y -= baseDelta;
+        if (star.y < 0) {
+          star.y = canvasHeight + star.y;
+          star.x = Math.random() * canvasWidth;
+        }
+      } else if (direction === 'down') {
+        star.y += baseDelta;
+        if (star.y > canvasHeight) {
+          star.y = star.y - canvasHeight;
+          star.x = Math.random() * canvasWidth;
+        }
+      } else {
+        // 'left' (default)
+        star.x -= baseDelta;
+        if (star.x < 0) {
+          star.x = canvasWidth + star.x;
+          star.y = Math.random() * canvasHeight;
+        }
       }
     }
   }
@@ -219,7 +233,10 @@ export function drawParallaxLayers(ctx, layers, elapsedTime = 0) {
  */
 export function drawStarLayer(ctx, layer, elapsedTime = 0) {
   for (const star of layer.stars) {
-    const brightness = applyTwinkle(star, elapsedTime);
+    let brightness = applyTwinkle(star, elapsedTime);
+    if (star.radialBrightness != null) {
+      brightness *= star.radialBrightness;
+    }
     ctx.fillStyle = `rgba(255, 255, 255, ${brightness})`;
     ctx.fillRect(
       star.x,
