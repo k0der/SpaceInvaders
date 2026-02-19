@@ -270,17 +270,18 @@
 **Module**: `src/starfield.js`, `src/settings.js`, `src/main.js`
 
 **Acceptance Criteria**:
-- [ ] `SETTINGS_CONFIG` includes `starDirection` with options: `'left'`, `'right'`, `'up'`, `'down'`, `'radial'`; default `'left'`
-- [ ] Settings panel shows a direction selector (dropdown or button group)
-- [ ] Selecting a direction changes star movement in real-time
-- [ ] Left/right: stars scroll horizontally; recycled at exit edge, respawn at entry edge with random perpendicular position
-- [ ] Up/down: stars scroll vertically; recycled at exit edge, respawn at entry edge with random perpendicular position
-- [ ] Radial: stars emanate from screen center outward; recycled when exiting any edge, respawn near center with random angle
-- [ ] Radial mode: near-layer stars move faster outward than far-layer stars (parallax preserved)
-- [ ] Direction setting is persisted to localStorage
-- [ ] Loaded direction is applied on startup
-- [ ] Changing direction does not lose existing stars (they continue from current positions with new velocity)
-- [ ] **Visible result**: switching to radial produces a "traveling through space" effect
+- [x] `SETTINGS_CONFIG` includes `starDirection` with options: `'left'`, `'right'`, `'up'`, `'down'`, `'radial'`; default `'left'`
+- [x] Settings panel shows a direction selector (dropdown or button group)
+- [x] Selecting a direction changes star movement in real-time
+- [x] Left/right: stars scroll horizontally; recycled at exit edge, respawn at entry edge with random perpendicular position
+- [x] Up/down: stars scroll vertically; recycled at exit edge, respawn at entry edge with random perpendicular position
+- [x] Radial: stars emanate from screen center outward with perspective acceleration and brightness fade-in; recycled when exiting any edge, respawn at small offset from center
+- [x] Radial mode: near-layer stars move faster outward than far-layer stars (parallax preserved)
+- [x] Direction setting is persisted to localStorage
+- [x] Loaded direction is applied on startup
+- [x] Changing direction redistributes stars randomly for the new mode (avoids visual artifacts like center-clustered stars drifting sideways)
+- [x] Stars redistribute on window resize (mobile screen rotation)
+- [x] **Visible result**: switching to radial produces a "traveling through space" effect
 
 ---
 

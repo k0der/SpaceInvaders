@@ -157,9 +157,15 @@ The star field direction is user-configurable with 5 modes:
 - **down**: Stars drift downward. Camera ascends.
 - **radial**: Stars emanate from the screen center outward in all directions,
   creating a "traveling through hyperspace" effect (like the Star Wars jump to
-  lightspeed). Each star has a random angle from center; speed determines how
-  fast it flies outward. Parallax is preserved — near-layer stars fly outward
-  faster than far-layer stars.
+  lightspeed). Key properties:
+  - **Perspective acceleration**: speed scales with distance from center —
+    stars creep slowly near the center and accelerate toward the edges
+  - **Brightness fade-in**: stars are dim near the center (far away) and
+    brighten as they fly outward (closer to the viewer)
+  - Stars respawn at a small offset from center (5–30px), not at the exact
+    center point, so they emerge subtly rather than popping into view
+  - Parallax is preserved — near-layer stars fly outward faster than far-layer
+    stars
 
 ### 3.2 Twinkling
 
@@ -176,11 +182,13 @@ The star field direction is user-configurable with 5 modes:
 - **Linear modes** (left/right/up/down): Stars that scroll off the exit edge
   are repositioned at the opposite (entry) edge with a new random position on
   the perpendicular axis
-- **Radial mode**: Stars that exit any screen edge respawn near the center
-  with a new random outward angle
+- **Radial mode**: Stars that exit any screen edge respawn at a small offset
+  from center (5–30px) with a new random outward angle and dim brightness
 - Star positions are initialized randomly across the full canvas at startup
-- Changing direction does not remove existing stars — they continue from their
-  current positions with updated velocities
+- **Direction change**: When the user switches direction, all stars are
+  redistributed randomly for the new mode — linear modes scatter across
+  the full canvas, radial mode distributes at various distances from center
+  with brightness matching distance
 
 ---
 
@@ -252,8 +260,10 @@ The star field direction is user-configurable with 5 modes:
 - Canvas fills the **entire browser viewport** (`100vw x 100vh`)
 - On window resize:
   - Canvas dimensions update immediately
-  - Existing asteroids and stars are NOT repositioned — they continue on their
-    current trajectories
+  - Existing asteroids continue on their current trajectories
+  - **Stars are redistributed** across the new canvas dimensions for the
+    current direction mode (prevents clustering or off-screen stars after
+    mobile screen rotation)
   - Star counts adjust proportionally to new area on next recycle
 - No scrollbars, no overflow — `body { margin: 0; overflow: hidden; }`
 - Works on both desktop and mobile (touch triggers gear icon visibility)
