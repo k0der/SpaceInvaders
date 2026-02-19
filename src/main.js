@@ -1,3 +1,5 @@
+import { createStarLayer, updateStarLayer, drawStarLayer } from './starfield.js';
+
 /**
  * Calculate delta time in seconds between two timestamps (ms).
  * Caps at 0.1s to avoid spiral-of-death after tab backgrounding.
@@ -49,12 +51,23 @@ export function startApp() {
   resize();
 
   const loop = createLoop();
+  const starLayer = createStarLayer(80, canvas.width, canvas.height, {
+    speed: 15,
+    minSize: 1,
+    maxSize: 2,
+    minBrightness: 0.3,
+    maxBrightness: 1.0,
+  });
 
   function frame(timestamp) {
     const dt = loop.tick(timestamp);
 
+    updateStarLayer(starLayer, dt, canvas.width, canvas.height);
+
     ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    drawStarLayer(ctx, starLayer);
 
     requestAnimationFrame(frame);
   }
