@@ -179,8 +179,8 @@ describe('Increment 18: Ship Rotates with Keyboard', () => {
     it('rotation scales with dt', () => {
       const ship = createShip({ x: 0, y: 0, heading: 0 });
       ship.rotatingRight = true;
-      updateShip(ship, 0.5);
-      expect(ship.heading).toBeCloseTo(ROTATION_SPEED * 0.5, 5);
+      updateShip(ship, 0.1);
+      expect(ship.heading).toBeCloseTo(ROTATION_SPEED * 0.1, 5);
     });
 
     it('with dt=0, heading does not change', () => {

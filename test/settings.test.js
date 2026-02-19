@@ -708,13 +708,13 @@ describe('Increment 19: Thrust Power Setting', () => {
   });
 
   describe('SETTINGS_CONFIG — thrustPower', () => {
-    it('defines thrustPower with min 100, max 2000, step 50, default 900', () => {
+    it('defines thrustPower with min 1000, max 5000, step 50, default 2000', () => {
       const c = SETTINGS_CONFIG.thrustPower;
       expect(c).toBeDefined();
-      expect(c.min).toBe(100);
-      expect(c.max).toBe(2000);
+      expect(c.min).toBe(1000);
+      expect(c.max).toBe(5000);
       expect(c.step).toBe(50);
-      expect(c.default).toBe(900);
+      expect(c.default).toBe(2000);
     });
 
     it('has a label string', () => {
@@ -723,9 +723,9 @@ describe('Increment 19: Thrust Power Setting', () => {
   });
 
   describe('createSettings — thrustPower', () => {
-    it('defaults thrustPower to 900', () => {
+    it('defaults thrustPower to 2000', () => {
       const s = createSettings();
-      expect(s.thrustPower).toBe(900);
+      expect(s.thrustPower).toBe(2000);
     });
 
     it('accepts thrustPower override', () => {
@@ -768,7 +768,7 @@ describe('Increment 19: Thrust Power Setting', () => {
         }),
       );
       const loaded = loadSettings();
-      expect(loaded.thrustPower).toBe(900);
+      expect(loaded.thrustPower).toBe(2000);
     });
 
     it('loadSettings clamps out-of-range thrustPower', () => {
@@ -783,14 +783,14 @@ describe('Increment 19: Thrust Power Setting', () => {
         }),
       );
       const loaded = loadSettings();
-      expect(loaded.thrustPower).toBe(2000);
+      expect(loaded.thrustPower).toBe(5000);
     });
 
     it('round-trip: save then load preserves thrustPower', () => {
-      const s = createSettings({ thrustPower: 700 });
+      const s = createSettings({ thrustPower: 2500 });
       saveSettings(s);
       const loaded = loadSettings();
-      expect(loaded.thrustPower).toBe(700);
+      expect(loaded.thrustPower).toBe(2500);
     });
   });
 
@@ -812,16 +812,16 @@ describe('Increment 19: Thrust Power Setting', () => {
     it('thrustPower slider has correct min/max/step/value', () => {
       const ui = createSettingsUI(container, settings);
       const slider = ui.sliders.thrustPower;
-      expect(slider.min).toBe('100');
-      expect(slider.max).toBe('2000');
+      expect(slider.min).toBe('1000');
+      expect(slider.max).toBe('5000');
       expect(slider.step).toBe('50');
-      expect(slider.value).toBe('900');
+      expect(slider.value).toBe('2000');
     });
 
     it('thrustPower slider reflects non-default settings on creation', () => {
-      const s = createSettings({ thrustPower: 1400 });
+      const s = createSettings({ thrustPower: 3000 });
       const ui = createSettingsUI(container, s);
-      expect(ui.sliders.thrustPower.value).toBe('1400');
+      expect(ui.sliders.thrustPower.value).toBe('3000');
     });
 
     it('onChange fires with correct name and value when thrustPower slider moves', () => {
