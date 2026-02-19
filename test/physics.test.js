@@ -16,40 +16,45 @@ describe('Increment 10: Asteroids Bounce Off Each Other', () => {
     return a;
   }
 
-  // Helper: compute total momentum (mass = radius²)
+  // Helper: compute total momentum (mass = collisionRadius²)
   function totalMomentum(asteroids) {
     let px = 0, py = 0;
     for (const a of asteroids) {
-      const mass = a.radius * a.radius;
+      const mass = a.collisionRadius * a.collisionRadius;
       px += mass * a.vx;
       py += mass * a.vy;
     }
     return { px, py };
   }
 
-  // Helper: compute total kinetic energy (mass = radius²)
+  // Helper: compute total kinetic energy (mass = collisionRadius²)
   function totalKE(asteroids) {
     let ke = 0;
     for (const a of asteroids) {
-      const mass = a.radius * a.radius;
+      const mass = a.collisionRadius * a.collisionRadius;
       ke += 0.5 * mass * (a.vx * a.vx + a.vy * a.vy);
     }
     return ke;
   }
 
   describe('detectCollisions', () => {
-    it('detects a collision when distance < radiusA + radiusB', () => {
+    it('detects a collision when distance < sum of collisionRadii', () => {
       const a = asteroid(100, 100, 0, 0, 30);
-      const b = asteroid(150, 100, 0, 0, 30);
-      // distance = 50, radii sum = 60 → collision
+      const b = asteroid(100, 100, 0, 0, 30);
+      // Place b so distance is less than sum of collisionRadii
+      b.x = 100 + a.collisionRadius + b.collisionRadius - 5;
       const pairs = detectCollisions([a, b]);
       expect(pairs.length).toBe(1);
     });
 
-    it('does NOT detect collision when exactly touching (distance == radiusA + radiusB)', () => {
+    it('does NOT detect collision when exactly touching (distance == sum of collisionRadii)', () => {
       const a = asteroid(100, 100, 0, 0, 30);
-      const b = asteroid(160, 100, 0, 0, 30);
-      // distance = 60, radii sum = 60 → exactly touching, NOT a collision
+      const b = asteroid(100, 100, 0, 0, 30);
+      // Use exact collisionRadius values to avoid floating-point sqrt imprecision
+      a.collisionRadius = 24;
+      b.collisionRadius = 24;
+      // Place b so distance exactly equals sum of collisionRadii (48)
+      b.x = 100 + 48;
       const pairs = detectCollisions([a, b]);
       expect(pairs.length).toBe(0);
     });
@@ -63,31 +68,42 @@ describe('Increment 10: Asteroids Bounce Off Each Other', () => {
 
     it('returns no duplicate pairs', () => {
       const a = asteroid(100, 100, 0, 0, 30);
-      const b = asteroid(120, 100, 0, 0, 30);
+      const b = asteroid(100, 100, 0, 0, 30);
+      b.x = 100 + a.collisionRadius + b.collisionRadius - 5;
       const pairs = detectCollisions([a, b]);
-      // Should be exactly 1 pair, not 2
       expect(pairs.length).toBe(1);
     });
 
     it('detects multiple pairs in a group', () => {
-      // Three asteroids all overlapping each other
+      // Three asteroids placed very close so all overlap
       const a = asteroid(100, 100, 0, 0, 30);
-      const b = asteroid(120, 100, 0, 0, 30);
-      const c = asteroid(110, 115, 0, 0, 30);
+      const b = asteroid(110, 100, 0, 0, 30);
+      const c = asteroid(105, 108, 0, 0, 30);
       const pairs = detectCollisions([a, b, c]);
-      expect(pairs.length).toBe(3); // a-b, a-c, b-c
+      expect(pairs.length).toBe(3);
     });
 
     it('returns empty array when given 0 or 1 asteroids', () => {
       expect(detectCollisions([]).length).toBe(0);
       expect(detectCollisions([asteroid(0, 0, 0, 0, 10)]).length).toBe(0);
     });
+
+    it('uses collisionRadius (not full radius) for detection', () => {
+      // Two asteroids with radius 30 but collisionRadius ~24 (avg of 0.6–1.0 range)
+      const a = asteroid(100, 100, 0, 0, 30);
+      const b = asteroid(100 + 50, 100, 0, 0, 30);
+      // distance = 50. Full radius sum = 60 → would collide with full radius.
+      // But collisionRadius sum ≈ 48 → should NOT collide with effective radius.
+      const pairs = detectCollisions([a, b]);
+      expect(pairs.length).toBe(0);
+    });
   });
 
   describe('resolveCollision', () => {
     it('conserves momentum (within 1% tolerance)', () => {
       const a = asteroid(100, 100, 50, 0, 30);
-      const b = asteroid(140, 100, -30, 0, 30);
+      const b = asteroid(100, 100, -30, 0, 30);
+      b.x = 100 + a.collisionRadius + b.collisionRadius - 2;
       const before = totalMomentum([a, b]);
 
       resolveCollision(a, b);
@@ -134,11 +150,15 @@ describe('Increment 10: Asteroids Bounce Off Each Other', () => {
     it('two equal asteroids in head-on collision approximately swap velocities', () => {
       const a = asteroid(100, 100, 50, 0, 30);
       const b = asteroid(150, 100, -50, 0, 30);
+      // Equalize collisionRadius so masses are equal (test is about equal-mass swap)
+      const cr = (a.collisionRadius + b.collisionRadius) / 2;
+      a.collisionRadius = cr;
+      b.collisionRadius = cr;
 
       resolveCollision(a, b);
 
       // After elastic head-on with equal masses, velocities should roughly swap
-      // ±2% impulse perturbation can shift result by up to ±2 px/s
+      // ±1% impulse perturbation can shift result by up to ±1 px/s
       expect(a.vx).toBeGreaterThan(-53);
       expect(a.vx).toBeLessThan(-47);
       expect(b.vx).toBeGreaterThan(47);
@@ -181,7 +201,8 @@ describe('Increment 10: Asteroids Bounce Off Each Other', () => {
       const dx = b.x - a.x;
       const dy = b.y - a.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      expect(dist).toBeGreaterThanOrEqual(a.radius + b.radius);
+      // Allow tiny floating-point tolerance (1e-10) on the sqrt result
+      expect(dist).toBeGreaterThanOrEqual(a.collisionRadius + b.collisionRadius - 1e-10);
     });
 
     it('lighter asteroid is pushed more during separation', () => {

@@ -1,7 +1,7 @@
 /**
  * Detect all colliding asteroid pairs using circle-circle collision.
  * Returns an array of [asteroidA, asteroidB] pairs.
- * A collision occurs when distance between centers < sum of radii.
+ * A collision occurs when distance between centers < sum of collision radii.
  * Exactly touching (distance === sum) is NOT a collision.
  */
 export function detectCollisions(asteroids) {
@@ -13,7 +13,7 @@ export function detectCollisions(asteroids) {
       const dx = b.x - a.x;
       const dy = b.y - a.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      const radiiSum = a.radius + b.radius;
+      const radiiSum = a.collisionRadius + b.collisionRadius;
       if (dist < radiiSum) {
         pairs.push([a, b]);
       }
@@ -24,7 +24,7 @@ export function detectCollisions(asteroids) {
 
 /**
  * Separate two overlapping asteroids along the collision normal.
- * Lighter asteroid (smaller radius²) is pushed proportionally more.
+ * Lighter asteroid (smaller collisionRadius²) is pushed proportionally more.
  */
 export function separateOverlap(a, b) {
   const dx = b.x - a.x;
@@ -33,18 +33,18 @@ export function separateOverlap(a, b) {
 
   if (dist === 0) {
     // Perfectly coincident — push apart along arbitrary axis
-    b.x += a.radius + b.radius;
+    b.x += a.collisionRadius + b.collisionRadius;
     return;
   }
 
-  const overlap = (a.radius + b.radius) - dist;
+  const overlap = (a.collisionRadius + b.collisionRadius) - dist;
   if (overlap <= 0) return;
 
   const nx = dx / dist;
   const ny = dy / dist;
 
-  const massA = a.radius * a.radius;
-  const massB = b.radius * b.radius;
+  const massA = a.collisionRadius * a.collisionRadius;
+  const massB = b.collisionRadius * b.collisionRadius;
   const totalMass = massA + massB;
 
   // Lighter asteroid moves more
@@ -59,8 +59,8 @@ export function separateOverlap(a, b) {
 
 /**
  * Resolve an elastic collision between two asteroids.
- * Uses 2D elastic collision formula with mass = radius².
- * Applies ±2% random perturbation and angular velocity nudge.
+ * Uses 2D elastic collision formula with mass = collisionRadius².
+ * Applies ±1% random perturbation and angular velocity nudge.
  */
 export function resolveCollision(a, b) {
   const dx = b.x - a.x;
@@ -72,8 +72,8 @@ export function resolveCollision(a, b) {
   const nx = dx / dist;
   const ny = dy / dist;
 
-  const massA = a.radius * a.radius;
-  const massB = b.radius * b.radius;
+  const massA = a.collisionRadius * a.collisionRadius;
+  const massB = b.collisionRadius * b.collisionRadius;
 
   // Relative velocity along collision normal
   const dvx = a.vx - b.vx;

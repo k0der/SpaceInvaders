@@ -91,9 +91,12 @@ Distribution: ~20% large, ~40% medium, ~40% small.
 
 ### 2.1 Detection
 
-- **Circle-circle collision** using each asteroid's bounding radius
+- **Circle-circle collision** using each asteroid's **effective collision radius**
+- The collision radius is computed from the actual generated shape: the average vertex
+  distance from center. This gives a tighter fit than the bounding radius, so asteroids
+  only collide when their visible surfaces are close to touching.
 - Check every pair each frame (with spatial optimization if needed for high counts)
-- A collision is detected when `distance(centerA, centerB) < radiusA + radiusB`
+- A collision is detected when `distance(centerA, centerB) < collisionRadiusA + collisionRadiusB`
 
 ### 2.2 Response — Elastic Collision
 

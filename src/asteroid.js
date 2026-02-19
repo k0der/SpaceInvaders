@@ -34,15 +34,23 @@ export function createAsteroid({ x, y, vx, vy, radius }) {
   const maxAngVel = 0.5 * (20 / Math.max(radius, 10));
   const angularVelocity = (Math.random() * 2 - 1) * Math.min(maxAngVel, 0.5);
 
+  const shape = generateShape(radius);
+
+  // Compute effective collision radius as average vertex distance from center
+  const collisionRadius = shape.reduce(
+    (sum, [vx, vy]) => sum + Math.sqrt(vx * vx + vy * vy), 0
+  ) / shape.length;
+
   return {
     x,
     y,
     vx,
     vy,
     radius,
+    collisionRadius,
     rotation: 0,
     angularVelocity,
-    shape: generateShape(radius),
+    shape,
     strokeWidth: getStrokeWidth(radius),
   };
 }

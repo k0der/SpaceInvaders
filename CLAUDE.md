@@ -35,6 +35,12 @@ Follow strict RED → GREEN → REFACTOR:
 - **All existing tests must continue to pass** — this is non-negotiable
 - If changing more than a few lines in a previously-completed module, flag it in the review summary so the human can verify
 
+### Spec and TODO Changes
+
+- **Never modify SPEC.md or TODO.md without explicit approval from the human developer.**
+- If a change is needed (e.g., a tolerance is unrealistic, an acceptance criterion needs adjustment), explain clearly what needs to change and why, then ask for approval before editing.
+- This applies to all changes: adding, removing, or modifying content in these files.
+
 ### Iteration Discipline
 
 - **Only make changes required by the current increment's acceptance criteria.** Do not add features, abstractions, or "improvements" beyond what is specified.

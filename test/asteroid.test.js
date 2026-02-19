@@ -89,6 +89,23 @@ describe('Increment 5: One Asteroid Floats Through', () => {
       const a = createAsteroid({ x: 0, y: 0, vx: 0, vy: 0, radius: 30 });
       expect(typeof a.angularVelocity).toBe('number');
     });
+
+    it('computes collisionRadius as the average vertex distance from center', () => {
+      const a = createAsteroid({ x: 0, y: 0, vx: 0, vy: 0, radius: 50 });
+      expect(a).toHaveProperty('collisionRadius');
+      // Average of vertices at 0.6–1.0 of radius → should be around 0.8 * radius
+      expect(a.collisionRadius).toBeGreaterThan(0);
+      // Verify it's actually the average of vertex distances
+      const avgDist = a.shape.reduce((sum, [vx, vy]) => sum + Math.sqrt(vx * vx + vy * vy), 0) / a.shape.length;
+      expect(a.collisionRadius).toBeCloseTo(avgDist, 5);
+    });
+
+    it('collisionRadius is less than or equal to radius', () => {
+      for (let i = 0; i < 30; i++) {
+        const a = createAsteroid({ x: 0, y: 0, vx: 0, vy: 0, radius: 50 });
+        expect(a.collisionRadius).toBeLessThanOrEqual(a.radius);
+      }
+    });
   });
 
   describe('updateAsteroid', () => {

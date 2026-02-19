@@ -189,7 +189,25 @@
 
 ---
 
-## Increment 11: Collision Cooldown
+## Increment 11: Tighter Collision Radius
+
+**Goal**: Collisions currently trigger too early because the collision circle uses the full bounding radius, which extends well beyond the visible asteroid surface. Compute an effective collision radius from the actual vertex distances for a tighter fit.
+
+**Module**: `src/asteroid.js`, `src/physics.js`
+
+**Acceptance Criteria**:
+- [ ] `createAsteroid` computes `collisionRadius` as the average vertex distance from center
+- [ ] `collisionRadius` is always less than or equal to `radius`
+- [ ] `collisionRadius` is stored on the asteroid object
+- [ ] `detectCollisions` uses `collisionRadius` instead of `radius`
+- [ ] `separateOverlap` uses `collisionRadius` instead of `radius`
+- [ ] `resolveCollision` uses `collisionRadius` for mass calculation (mass = collisionRadius²)
+- [ ] All existing collision tests still pass (updated to use collisionRadius)
+- [ ] **Visible result**: asteroids collide closer to their visible surfaces — no more bouncing off "empty space"
+
+---
+
+## Increment 12: Collision Cooldown
 
 **Goal**: Prevent rapid re-collisions when asteroids separate slowly.
 
@@ -204,7 +222,7 @@
 
 ---
 
-## Increment 12: Settings Menu
+## Increment 13: Settings Menu
 
 **Goal**: A gear icon in the corner opens a settings panel with 3 sliders. The user can tune the experience.
 
@@ -224,7 +242,7 @@
 
 ---
 
-## Increment 13: Settings Persistence
+## Increment 14: Settings Persistence
 
 **Goal**: Settings survive page reload via localStorage.
 
@@ -240,7 +258,7 @@
 
 ---
 
-## Increment 14: HiDPI Support & Build
+## Increment 15: HiDPI Support & Build
 
 **Goal**: Crisp rendering on retina displays. Final single-file build.
 
