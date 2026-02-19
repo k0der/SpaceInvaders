@@ -229,20 +229,20 @@
 
 ## Increment 13: Settings Menu
 
-**Goal**: A gear icon in the corner opens a settings panel with 3 sliders. The user can tune the experience.
+**Goal**: A hamburger menu icon (☰) in the top-left corner opens a settings panel with 3 sliders. The user can tune the experience.
 
 **Module**: `src/settings.js`
 
 **Acceptance Criteria**:
 - [x] Hamburger menu icon (☰) renders in the top-left corner
 - [x] Icon is semi-transparent (~30% opacity), brightens on hover (~80%)
-- [x] Clicking gear opens a translucent dark panel with white monospace text
+- [x] Clicking the icon opens a translucent dark panel from the left with white monospace text; icon swaps to ✕
 - [x] Panel has 3 labeled sliders: Asteroid Count [5–50, default 20], Speed [0.2x–3.0x, default 1.0x], Star Layers [3–6, default 3]
 - [x] Each slider shows its current value
 - [x] Moving a slider changes the simulation in real-time (asteroid count adjusts gradually, speed scales all motion, star layers add/remove)
 - [x] Pressing Escape closes the panel
 - [x] Panel auto-hides after 4 seconds of no mouse activity over it
-- [x] Gear icon auto-hides after 3 seconds of no mouse movement; reappears on move
+- [x] Menu icon auto-hides after 3 seconds of no mouse movement; reappears on move
 - [x] **Visible result**: interactive settings that visibly change the animation
 
 ---

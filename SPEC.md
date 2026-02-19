@@ -194,12 +194,13 @@ To compensate, the spawner acts as a feedback-controlled energy pump:
 
 ### 5.1 Trigger & Appearance
 
-- **Gear icon** in the bottom-right corner (rendered as a simple SVG/canvas drawn cog)
+- **Hamburger menu icon** (☰) in the top-left corner
 - Icon is semi-transparent (30% opacity) and brightens on hover (80%)
-- Clicking the gear opens a **translucent overlay panel** (dark background, ~80% opacity)
-- Panel slides in from the right edge
+- Clicking the icon opens a **translucent overlay panel** (dark background, ~80% opacity)
+- Panel slides in from the left edge; icon swaps to a close symbol (✕)
+- When panel is open, the close icon stays at full visibility (80% opacity)
 - Panel **auto-hides after 4 seconds** of no mouse movement over it
-- Gear icon auto-hides after 3 seconds of no mouse movement anywhere, reappears on
+- Menu icon auto-hides after 3 seconds of no mouse movement anywhere, reappears on
   mouse move
 - Pressing **Escape** also closes the panel
 
@@ -259,7 +260,7 @@ Each frame (`requestAnimationFrame` callback):
    a. Clear canvas
    b. Draw star layers (far → near)
    c. Draw asteroids
-   d. Draw settings gear icon (if visible)
+   d. Draw settings menu icon (if visible)
 ```
 
 ---
