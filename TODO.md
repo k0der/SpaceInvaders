@@ -62,19 +62,19 @@
 
 ---
 
-## Increment 4: Stars That Twinkle
+## Increment 4: Stars That Twinkle ✅
 
 **Goal**: Stars subtly pulse in brightness. The background becomes alive and hypnotic.
 
 **Module**: `src/starfield.js`
 
 **Acceptance Criteria**:
-- [ ] Each star has a twinkle phase (random offset), frequency (0.5–2.0 Hz), and amplitude (10–20% of base brightness)
-- [ ] Brightness oscillates sinusoidally: `base + amplitude * sin(time * freq + phase)`
-- [ ] Different stars twinkle out of phase (not synchronized)
-- [ ] Near-layer stars do NOT twinkle (steady brightness)
-- [ ] Brightness never goes below 0 or above 1.0
-- [ ] **Visible result**: subtle, organic shimmer in the star field
+- [x] Each star has a twinkle phase (random offset), frequency (0.5–2.0 Hz), and amplitude (10–20% of base brightness)
+- [x] Brightness oscillates sinusoidally: `base + amplitude * sin(time * freq + phase)`
+- [x] Different stars twinkle out of phase (not synchronized)
+- [x] Near-layer stars do NOT twinkle (steady brightness)
+- [x] Brightness never goes below 0 or above 1.0
+- [x] **Visible result**: subtle, organic shimmer in the star field
 
 ---
 

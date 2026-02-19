@@ -52,16 +52,18 @@ export function startApp() {
 
   const loop = createLoop();
   const starLayers = createParallaxLayers(canvas.width, canvas.height);
+  let elapsedTime = 0;
 
   function frame(timestamp) {
     const dt = loop.tick(timestamp);
+    elapsedTime += dt;
 
     updateParallaxLayers(starLayers, dt, canvas.width, canvas.height);
 
     ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    drawParallaxLayers(ctx, starLayers);
+    drawParallaxLayers(ctx, starLayers, elapsedTime);
 
     requestAnimationFrame(frame);
   }

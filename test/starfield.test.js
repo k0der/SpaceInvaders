@@ -5,6 +5,7 @@ import {
   updateStarLayer,
   createParallaxLayers,
   updateParallaxLayers,
+  applyTwinkle,
 } from '../src/starfield.js';
 
 describe('Increment 2: A Single Star Drifts Across the Void', () => {
@@ -363,6 +364,148 @@ describe('Increment 3: Depth — Parallax Star Layers', () => {
       const nearX = layers[2].stars[0].x;
       expect(farX).toBeGreaterThan(midX);
       expect(midX).toBeGreaterThan(nearX);
+    });
+  });
+});
+
+describe('Increment 4: Stars That Twinkle', () => {
+
+  describe('createStar with twinkle options', () => {
+    it('assigns twinkle properties when twinkle option is true', () => {
+      const star = createStar(800, 600, { twinkle: true });
+      expect(star).toHaveProperty('twinklePhase');
+      expect(star).toHaveProperty('twinkleFreq');
+      expect(star).toHaveProperty('twinkleAmplitude');
+    });
+
+    it('does NOT assign twinkle properties when twinkle option is false or absent', () => {
+      const star = createStar(800, 600);
+      expect(star.twinklePhase).toBeUndefined();
+      expect(star.twinkleFreq).toBeUndefined();
+      expect(star.twinkleAmplitude).toBeUndefined();
+    });
+
+    it('twinkle phase is between 0 and 2*PI', () => {
+      for (let i = 0; i < 50; i++) {
+        const star = createStar(800, 600, { twinkle: true });
+        expect(star.twinklePhase).toBeGreaterThanOrEqual(0);
+        expect(star.twinklePhase).toBeLessThanOrEqual(Math.PI * 2);
+      }
+    });
+
+    it('twinkle frequency is between 0.5 and 2.0 Hz', () => {
+      for (let i = 0; i < 50; i++) {
+        const star = createStar(800, 600, { twinkle: true });
+        expect(star.twinkleFreq).toBeGreaterThanOrEqual(0.5);
+        expect(star.twinkleFreq).toBeLessThanOrEqual(2.0);
+      }
+    });
+
+    it('twinkle amplitude is between 10% and 20% of base brightness', () => {
+      for (let i = 0; i < 50; i++) {
+        const star = createStar(800, 600, { twinkle: true, minBrightness: 0.5, maxBrightness: 0.5 });
+        // amplitude should be 10-20% of base (0.5), so 0.05–0.10
+        expect(star.twinkleAmplitude).toBeGreaterThanOrEqual(star.brightness * 0.1);
+        expect(star.twinkleAmplitude).toBeLessThanOrEqual(star.brightness * 0.2);
+      }
+    });
+
+    it('different stars have different twinkle phases (not synchronized)', () => {
+      let differ = false;
+      for (let i = 0; i < 20; i++) {
+        const a = createStar(800, 600, { twinkle: true });
+        const b = createStar(800, 600, { twinkle: true });
+        if (a.twinklePhase !== b.twinklePhase) {
+          differ = true;
+          break;
+        }
+      }
+      expect(differ).toBe(true);
+    });
+  });
+
+  describe('applyTwinkle', () => {
+    it('returns base brightness for a star without twinkle properties', () => {
+      const star = { brightness: 0.5 };
+      expect(applyTwinkle(star, 1.0)).toBe(0.5);
+    });
+
+    it('oscillates brightness sinusoidally for a twinkle star', () => {
+      const star = {
+        brightness: 0.5,
+        twinklePhase: 0,
+        twinkleFreq: 1.0,
+        twinkleAmplitude: 0.1,
+      };
+      // At time=0: sin(0) = 0, so brightness = 0.5
+      expect(applyTwinkle(star, 0)).toBeCloseTo(0.5, 5);
+      // At time where sin peaks (t=0.25 for 1Hz → 2*PI*0.25 = PI/2, sin=1): brightness = 0.6
+      expect(applyTwinkle(star, 0.25)).toBeCloseTo(0.6, 5);
+      // At time where sin troughs (t=0.75 for 1Hz → 2*PI*0.75 = 3PI/2, sin=-1): brightness = 0.4
+      expect(applyTwinkle(star, 0.75)).toBeCloseTo(0.4, 5);
+    });
+
+    it('respects the phase offset', () => {
+      const star = {
+        brightness: 0.5,
+        twinklePhase: Math.PI / 2, // offset by quarter cycle
+        twinkleFreq: 1.0,
+        twinkleAmplitude: 0.1,
+      };
+      // At time=0: sin(PI/2) = 1, so brightness = 0.5 + 0.1 = 0.6
+      expect(applyTwinkle(star, 0)).toBeCloseTo(0.6, 5);
+    });
+
+    it('clamps brightness to [0, 1.0]', () => {
+      const starHigh = {
+        brightness: 0.95,
+        twinklePhase: 0,
+        twinkleFreq: 1.0,
+        twinkleAmplitude: 0.1,
+      };
+      // Peak would be 1.05, should clamp to 1.0
+      expect(applyTwinkle(starHigh, 0.25)).toBe(1.0);
+
+      const starLow = {
+        brightness: 0.05,
+        twinklePhase: 0,
+        twinkleFreq: 1.0,
+        twinkleAmplitude: 0.1,
+      };
+      // Trough would be -0.05, should clamp to 0
+      expect(applyTwinkle(starLow, 0.75)).toBe(0);
+    });
+  });
+
+  describe('createParallaxLayers with twinkle', () => {
+    it('far layer stars have twinkle properties', () => {
+      const layers = createParallaxLayers(800, 600);
+      const far = layers[0];
+      for (const star of far.stars) {
+        expect(star).toHaveProperty('twinklePhase');
+        expect(star).toHaveProperty('twinkleFreq');
+        expect(star).toHaveProperty('twinkleAmplitude');
+      }
+    });
+
+    it('mid layer stars have twinkle properties', () => {
+      const layers = createParallaxLayers(800, 600);
+      const mid = layers[1];
+      for (const star of mid.stars) {
+        expect(star).toHaveProperty('twinklePhase');
+        expect(star).toHaveProperty('twinkleFreq');
+        expect(star).toHaveProperty('twinkleAmplitude');
+      }
+    });
+
+    it('near layer stars do NOT have twinkle properties', () => {
+      const layers = createParallaxLayers(800, 600);
+      const near = layers[2];
+      for (const star of near.stars) {
+        expect(star.twinklePhase).toBeUndefined();
+        expect(star.twinkleFreq).toBeUndefined();
+        expect(star.twinkleAmplitude).toBeUndefined();
+      }
     });
   });
 });

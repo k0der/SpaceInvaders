@@ -7,12 +7,22 @@ export function createStar(canvasWidth, canvasHeight, options = {}) {
   const minBrightness = options.minBrightness ?? 0.3;
   const maxBrightness = options.maxBrightness ?? 1.0;
 
-  return {
+  const brightness = minBrightness + Math.random() * (maxBrightness - minBrightness);
+
+  const star = {
     x: Math.random() * canvasWidth,
     y: Math.random() * canvasHeight,
     size: minSize + Math.random() * (maxSize - minSize),
-    brightness: minBrightness + Math.random() * (maxBrightness - minBrightness),
+    brightness,
   };
+
+  if (options.twinkle) {
+    star.twinklePhase = Math.random() * Math.PI * 2;
+    star.twinkleFreq = 0.5 + Math.random() * 1.5;           // 0.5–2.0 Hz
+    star.twinkleAmplitude = brightness * (0.1 + Math.random() * 0.1); // 10–20% of base
+  }
+
+  return star;
 }
 
 /**
@@ -42,6 +52,17 @@ export function updateStarLayer(layer, dt, canvasWidth, canvasHeight) {
       star.y = Math.random() * canvasHeight;
     }
   }
+}
+
+/**
+ * Compute the effective brightness of a star at a given elapsed time.
+ * Stars without twinkle properties return their base brightness.
+ * Formula: base + amplitude * sin(time * freq * 2π + phase), clamped to [0, 1].
+ */
+export function applyTwinkle(star, elapsedTime) {
+  if (star.twinklePhase == null) return star.brightness;
+  const value = star.brightness + star.twinkleAmplitude * Math.sin(elapsedTime * star.twinkleFreq * Math.PI * 2 + star.twinklePhase);
+  return Math.min(1.0, Math.max(0, value));
 }
 
 // Layer presets for the default 3-layer parallax (far, mid, near).
@@ -91,12 +112,15 @@ export function createParallaxLayers(canvasWidth, canvasHeight, layerCount = 3) 
     const count = Math.max(1, Math.round(preset.baseCount * areaRatio));
     const speed = preset.minSpeed + Math.random() * (preset.maxSpeed - preset.minSpeed);
 
+    const isNearLayer = (i === layerCount - 1) && layerCount > 1;
+
     layers.push(createStarLayer(count, canvasWidth, canvasHeight, {
       speed,
       minSize: preset.minSize,
       maxSize: preset.maxSize,
       minBrightness: preset.minBrightness,
       maxBrightness: preset.maxBrightness,
+      twinkle: !isNearLayer,
     }));
   }
   return layers;
@@ -114,18 +138,19 @@ export function updateParallaxLayers(layers, dt, canvasWidth, canvasHeight) {
 /**
  * Draw all parallax layers (far to near, back to front).
  */
-export function drawParallaxLayers(ctx, layers) {
+export function drawParallaxLayers(ctx, layers, elapsedTime = 0) {
   for (const layer of layers) {
-    drawStarLayer(ctx, layer);
+    drawStarLayer(ctx, layer, elapsedTime);
   }
 }
 
 /**
  * Draw a star layer onto a canvas 2D context.
  */
-export function drawStarLayer(ctx, layer) {
+export function drawStarLayer(ctx, layer, elapsedTime = 0) {
   for (const star of layer.stars) {
-    ctx.fillStyle = `rgba(255, 255, 255, ${star.brightness})`;
+    const brightness = applyTwinkle(star, elapsedTime);
+    ctx.fillStyle = `rgba(255, 255, 255, ${brightness})`;
     ctx.fillRect(
       Math.round(star.x),
       Math.round(star.y),
