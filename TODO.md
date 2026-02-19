@@ -8,6 +8,8 @@
 - **Workflow**: Write failing tests (RED) → implement until tests pass (GREEN) → refactor
 - **Coverage audit**: before committing each increment, explicitly map every acceptance criterion to its test(s) and fill gaps
 - **Philosophy**: Elephant carpaccio — every increment produces a running, visible result. The animation loop exists from the start; each slice adds something you can see.
+- **Mandatory human review**: At the end of every iteration, **STOP and wait for the human developer to review and manually test** the implementation. Do not start the next iteration until the human gives explicit approval. This is not optional.
+- **Final test coverage review**: When development of an iteration is complete and all tests are passing, review the entire codebase for missing test coverage and add any needed tests before presenting for human review.
 
 ---
 

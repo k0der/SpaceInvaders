@@ -19,6 +19,8 @@ colliding asteroids against a deep starfield. Designed to be mesmerizing and rel
 - **TDD**: write failing tests (RED) → implement until green (GREEN) → refactor
 - **Coverage audit**: before committing each increment, explicitly map every acceptance criterion to its test(s) and fill gaps
 - **Build**: `node build.js` inlines ES modules from `src/` into a standalone `index.html`
+- **Mandatory human review**: At the end of every iteration, **stop and wait for the human developer to review and manually test** the implementation before proceeding. Do not start the next iteration until the human gives explicit approval. This is not optional.
+- **Final test coverage review**: When development of an iteration is complete and all tests are passing, review the code for missing test coverage and add any needed tests before presenting the iteration for human review.
 
 ## Visual Style
 
