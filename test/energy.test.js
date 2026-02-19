@@ -103,5 +103,12 @@ describe('Increment 12: Energy-Sustaining Spawns', () => {
       const boost = computeSpeedBoost(0, 20, [a]);
       expect(boost).toBe(1.0);
     });
+
+    it('returns 1.5 when existing asteroids are all stationary (actualKE = 0)', () => {
+      const a = makeAsteroid(0, 0, 30);
+      const b = makeAsteroid(0, 0, 20);
+      const boost = computeSpeedBoost(1000, 10, [a, b]);
+      expect(boost).toBe(1.5);
+    });
   });
 });
