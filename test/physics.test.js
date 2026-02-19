@@ -99,6 +99,46 @@ describe('Increment 10: Asteroids Bounce Off Each Other', () => {
     });
   });
 
+  describe('resolveCollision — edge cases', () => {
+    it('does nothing when asteroids are at the same position (dist === 0)', () => {
+      const a = asteroid(100, 100, 50, 0, 30);
+      const b = asteroid(100, 100, -50, 0, 30);
+      const aVx = a.vx;
+      const bVx = b.vx;
+
+      resolveCollision(a, b);
+
+      expect(a.vx).toBe(aVx);
+      expect(b.vx).toBe(bVx);
+    });
+
+    it('does nothing when asteroids are already moving apart (dvDotN <= 0)', () => {
+      const a = asteroid(100, 100, -50, 0, 30);
+      const b = asteroid(150, 100, 50, 0, 30);
+      // a moving left, b moving right — already separating
+      const aVx = a.vx;
+      const bVx = b.vx;
+
+      resolveCollision(a, b);
+
+      expect(a.vx).toBe(aVx);
+      expect(b.vx).toBe(bVx);
+    });
+
+    it('angular nudge stays within ±0.1 rad/s per impact', () => {
+      for (let i = 0; i < 50; i++) {
+        const a = asteroid(100, 100, 50, 0, 30);
+        const b = asteroid(150, 100, -50, 0, 30);
+        const angBefore = a.angularVelocity;
+
+        resolveCollision(a, b);
+
+        const nudge = Math.abs(a.angularVelocity - angBefore);
+        expect(nudge).toBeLessThanOrEqual(0.1 + 1e-10);
+      }
+    });
+  });
+
   describe('resolveCollision', () => {
     it('conserves momentum (within 1% tolerance)', () => {
       const a = asteroid(100, 100, 50, 0, 30);
@@ -187,6 +227,35 @@ describe('Increment 10: Asteroids Bounce Off Each Other', () => {
       resolveCollision(a, b);
 
       expect(a.angularVelocity).not.toBe(angVelBefore);
+    });
+  });
+
+  describe('separateOverlap — edge cases', () => {
+    it('handles perfectly coincident asteroids (dist === 0)', () => {
+      const a = asteroid(100, 100, 0, 0, 30);
+      const b = asteroid(100, 100, 0, 0, 30);
+
+      separateOverlap(a, b);
+
+      // b should have been pushed away
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      expect(dist).toBeGreaterThan(0);
+    });
+
+    it('does nothing when asteroids are already separated (overlap <= 0)', () => {
+      const a = asteroid(100, 100, 0, 0, 30);
+      const b = asteroid(100, 100, 0, 0, 30);
+      // Place b well beyond collision radius sum
+      b.x = 100 + a.collisionRadius + b.collisionRadius + 10;
+      const bXBefore = b.x;
+      const aXBefore = a.x;
+
+      separateOverlap(a, b);
+
+      expect(a.x).toBe(aXBefore);
+      expect(b.x).toBe(bXBefore);
     });
   });
 

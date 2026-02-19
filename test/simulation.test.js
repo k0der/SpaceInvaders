@@ -239,6 +239,35 @@ describe('Increment 8: Asteroids Come and Go', () => {
       expect(sim.asteroids.length).toBe(1);
     });
 
+    it('detects and resolves collisions between overlapping asteroids', () => {
+      const sim = createSimulation(800, 600, 0);
+      // Two asteroids heading toward each other, overlapping
+      const a = createAsteroid({ x: 100, y: 300, vx: 50, vy: 0, radius: 30 });
+      const b = createAsteroid({ x: 120, y: 300, vx: -50, vy: 0, radius: 30 });
+      sim.asteroids = [a, b];
+
+      updateSimulation(sim, 0.016, 800, 600);
+
+      // Velocities should have changed due to collision response
+      // (they were heading toward each other, now should be bouncing apart)
+      expect(a.vx).not.toBe(50);
+      expect(b.vx).not.toBe(-50);
+    });
+
+    it('separates overlapping asteroids after collision', () => {
+      const sim = createSimulation(800, 600, 0);
+      const a = createAsteroid({ x: 100, y: 300, vx: 0, vy: 0, radius: 30 });
+      const b = createAsteroid({ x: 110, y: 300, vx: 0, vy: 0, radius: 30 });
+      sim.asteroids = [a, b];
+
+      updateSimulation(sim, 0.016, 800, 600);
+
+      const dx = b.x - a.x;
+      const dy = b.y - a.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      expect(dist).toBeGreaterThanOrEqual(a.collisionRadius + b.collisionRadius - 1e-10);
+    });
+
     it('asteroid count stays near target over time', () => {
       const sim = createSimulation(800, 600, 10);
 

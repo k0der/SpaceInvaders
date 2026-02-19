@@ -106,6 +106,17 @@ describe('Increment 5: One Asteroid Floats Through', () => {
         expect(a.collisionRadius).toBeLessThanOrEqual(a.radius);
       }
     });
+
+    it('collisionRadius is within the expected range (0.6–1.0 × radius)', () => {
+      for (const r of [10, 25, 50, 80]) {
+        for (let i = 0; i < 20; i++) {
+          const a = createAsteroid({ x: 0, y: 0, vx: 0, vy: 0, radius: r });
+          // Vertices range from 0.6–1.0 × radius, so average ≈ 0.8 × radius
+          expect(a.collisionRadius).toBeGreaterThanOrEqual(r * 0.6);
+          expect(a.collisionRadius).toBeLessThanOrEqual(r * 1.0);
+        }
+      }
+    });
   });
 
   describe('updateAsteroid', () => {
