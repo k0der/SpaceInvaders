@@ -46,12 +46,8 @@ export function startApp() {
   const canvas = document.getElementById('canvas');
   const ctx = canvas.getContext('2d');
 
-  function resize() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-  }
-  window.addEventListener('resize', resize);
-  resize();
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
 
   const loop = createLoop();
   let starLayers = createParallaxLayers(canvas.width, canvas.height);
@@ -84,6 +80,13 @@ export function startApp() {
     }
     saveSettings(settings);
   };
+
+  // Resize: update canvas and redistribute stars for current direction
+  window.addEventListener('resize', () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    redistributeStars(starLayers, canvas.width, canvas.height, settings.starDirection);
+  });
 
   // Auto-hide: reset gear timer on any mouse movement
   window.addEventListener('mousemove', () => {
