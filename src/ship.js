@@ -7,6 +7,18 @@ const SHIP_SIZE = 15;
 /** Rotation speed in radians per second. */
 export const ROTATION_SPEED = 4.0;
 
+/** Thrust acceleration in pixels/s². */
+export const THRUST_POWER = 300;
+
+/** Drag coefficient per second (mild friction). */
+export const DRAG = 0.5;
+
+/** Braking deceleration in pixels/s². */
+export const BRAKE_POWER = 200;
+
+/** Maximum ship speed in pixels/s. */
+export const MAX_SPEED = 400;
+
 /**
  * Normalize an angle to the range [-PI, PI].
  */
@@ -37,13 +49,44 @@ export function createShip({ x, y, heading }) {
 
 /**
  * Update ship state for one frame.
- * Currently handles rotation only; thrust/physics added in Increment 19.
+ * Applies rotation, thrust, braking, drag, speed cap, and position update.
  */
 export function updateShip(ship, dt) {
-  // Rotation
+  // 1. Rotation
   if (ship.rotatingLeft) ship.heading -= ROTATION_SPEED * dt;
   if (ship.rotatingRight) ship.heading += ROTATION_SPEED * dt;
   ship.heading = normalizeAngle(ship.heading);
+
+  // 2. Thrust — accelerate in heading direction
+  if (ship.thrust) {
+    ship.vx += Math.cos(ship.heading) * THRUST_POWER * dt;
+    ship.vy += Math.sin(ship.heading) * THRUST_POWER * dt;
+  }
+
+  // 3. Braking — decelerate opposite to velocity direction
+  if (ship.braking) {
+    const speed = Math.sqrt(ship.vx * ship.vx + ship.vy * ship.vy);
+    if (speed > 0) {
+      const decel = Math.min(BRAKE_POWER * dt, speed);
+      ship.vx -= (ship.vx / speed) * decel;
+      ship.vy -= (ship.vy / speed) * decel;
+    }
+  }
+
+  // 4. Drag — friction always applied
+  ship.vx *= 1 - DRAG * dt;
+  ship.vy *= 1 - DRAG * dt;
+
+  // 5. Speed cap
+  const currentSpeed = Math.sqrt(ship.vx * ship.vx + ship.vy * ship.vy);
+  if (currentSpeed > MAX_SPEED) {
+    ship.vx = (ship.vx / currentSpeed) * MAX_SPEED;
+    ship.vy = (ship.vy / currentSpeed) * MAX_SPEED;
+  }
+
+  // 6. Position update
+  ship.x += ship.vx * dt;
+  ship.y += ship.vy * dt;
 }
 
 /**
@@ -64,10 +107,10 @@ export function drawShip(ctx, ship) {
 
   // Chevron shape: nose at right (+x), two rear points, notch in back
   ctx.beginPath();
-  ctx.moveTo(s, 0);                    // nose
-  ctx.lineTo(-s, -s * 0.7);            // top-left wing
-  ctx.lineTo(-s * 0.5, 0);             // rear notch
-  ctx.lineTo(-s, s * 0.7);             // bottom-left wing
+  ctx.moveTo(s, 0); // nose
+  ctx.lineTo(-s, -s * 0.7); // top-left wing
+  ctx.lineTo(-s * 0.5, 0); // rear notch
+  ctx.lineTo(-s, s * 0.7); // bottom-left wing
   ctx.closePath();
   ctx.stroke();
 

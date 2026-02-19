@@ -19,7 +19,8 @@
  * Generate an irregular polygon shape for an asteroid.
  * Returns an array of [x, y] vertex pairs centered at origin.
  * Vertices are ordered by increasing angle (no crossed edges).
- */function generateShape(radius) {
+ */
+function generateShape(radius) {
   const vertexCount = 8 + Math.floor(Math.random() * 7); // 8–14
   const step = (Math.PI * 2) / vertexCount;
   const vertices = [];
@@ -37,14 +38,15 @@
  * Determine stroke width from asteroid radius (size class).
  */
 function getStrokeWidth(radius) {
-  if (radius >= 50) return 2.0;  // large
-  if (radius >= 25) return 1.5;  // medium
-  return 1.0;                     // small
+  if (radius >= 50) return 2.0; // large
+  if (radius >= 25) return 1.5; // medium
+  return 1.0; // small
 }
 
 /**
  * Create an asteroid object.
- */function createAsteroid({ x, y, vx, vy, radius }) {
+ */
+function createAsteroid({ x, y, vx, vy, radius }) {
   // Angular velocity scaled inversely to radius: smaller = faster spin
   const maxAngVel = 0.5 * (20 / Math.max(radius, 10));
   const angularVelocity = (Math.random() * 2 - 1) * Math.min(maxAngVel, 0.5);
@@ -52,9 +54,9 @@ function getStrokeWidth(radius) {
   const shape = generateShape(radius);
 
   // Compute effective collision radius as average vertex distance from center
-  const collisionRadius = shape.reduce(
-    (sum, [px, py]) => sum + Math.sqrt(px * px + py * py), 0
-  ) / shape.length;
+  const collisionRadius =
+    shape.reduce((sum, [px, py]) => sum + Math.sqrt(px * px + py * py), 0) /
+    shape.length;
 
   return {
     x,
@@ -72,7 +74,8 @@ function getStrokeWidth(radius) {
 
 /**
  * Update asteroid position and rotation by delta time.
- */function updateAsteroid(asteroid, dt) {
+ */
+function updateAsteroid(asteroid, dt) {
   asteroid.x += asteroid.vx * dt;
   asteroid.y += asteroid.vy * dt;
   asteroid.rotation += asteroid.angularVelocity * dt;
@@ -80,7 +83,8 @@ function getStrokeWidth(radius) {
 
 /**
  * Draw an asteroid as a white wireframe polygon on a canvas 2D context.
- */function drawAsteroid(ctx, asteroid) {
+ */
+function drawAsteroid(ctx, asteroid) {
   const { x, y, rotation, shape, strokeWidth } = asteroid;
 
   ctx.save();
@@ -126,7 +130,11 @@ function computeTotalKE(asteroids) {
  * Compute a speed multiplier for new spawns to sustain system energy.
  * Returns clamp(sqrt(targetKE / actualKE), 1.0, 1.5).
  */
-function computeSpeedBoost(baselineKEPerAsteroid, targetCount, asteroids) {
+function computeSpeedBoost(
+  baselineKEPerAsteroid,
+  targetCount,
+  asteroids,
+) {
   const targetKE = baselineKEPerAsteroid * targetCount;
   if (targetKE <= 0) return 1.0;
 
@@ -140,7 +148,8 @@ function computeSpeedBoost(baselineKEPerAsteroid, targetCount, asteroids) {
 // ===== input.js =====
 /**
  * Create a fresh input state with all flags false.
- */function createInputState() {
+ */
+function createInputState() {
   return {
     thrust: false,
     rotateLeft: false,
@@ -151,15 +160,15 @@ function computeSpeedBoost(baselineKEPerAsteroid, targetCount, asteroids) {
 }
 
 const KEY_MAP = {
-  'w':          'thrust',
-  'arrowup':    'thrust',
-  'a':          'rotateLeft',
-  'arrowleft':  'rotateLeft',
-  'd':          'rotateRight',
-  'arrowright':  'rotateRight',
-  's':          'brake',
-  'arrowdown':  'brake',
-  ' ':          'fire',
+  w: 'thrust',
+  arrowup: 'thrust',
+  a: 'rotateLeft',
+  arrowleft: 'rotateLeft',
+  d: 'rotateRight',
+  arrowright: 'rotateRight',
+  s: 'brake',
+  arrowdown: 'brake',
+  ' ': 'fire',
 };
 
 function resolveKey(key) {
@@ -168,21 +177,24 @@ function resolveKey(key) {
 
 /**
  * Handle a keydown event — set the corresponding input flag to true.
- */function handleKeyDown(state, key) {
+ */
+function handleKeyDown(state, key) {
   const flag = resolveKey(key);
   if (flag) state[flag] = true;
 }
 
 /**
  * Handle a keyup event — clear the corresponding input flag.
- */function handleKeyUp(state, key) {
+ */
+function handleKeyUp(state, key) {
   const flag = resolveKey(key);
   if (flag) state[flag] = false;
 }
 
 /**
  * Copy input flags onto ship control booleans.
- */function applyInput(inputState, ship) {
+ */
+function applyInput(inputState, ship) {
   ship.thrust = inputState.thrust;
   ship.rotatingLeft = inputState.rotateLeft;
   ship.rotatingRight = inputState.rotateRight;
@@ -192,11 +204,35 @@ function resolveKey(key) {
 
 // ===== main.js =====
 
+import {
+  applyInput,
+  createInputState,
+  handleKeyDown,
+  handleKeyUp,
+} from './input.js';
+
+import {
+  createSettings,
+  createSettingsUI,
+  loadSettings,
+  saveSettings,
+  updateAutoHide,
+} from './settings.js';
+
+
+import {
+  createParallaxLayers,
+  drawParallaxLayers,
+  redistributeStars,
+  updateStarLayerDirectional,
+} from './starfield.js';
+
 /**
  * Calculate delta time in seconds between two timestamps (ms).
  * Caps at 0.1s to avoid spiral-of-death after tab backgrounding.
  * Never returns negative values.
- */function calculateDeltaTime(currentTimestamp, previousTimestamp) {
+ */
+function calculateDeltaTime(currentTimestamp, previousTimestamp) {
   const dtSeconds = (currentTimestamp - previousTimestamp) / 1000;
   return Math.min(Math.max(dtSeconds, 0), 0.1);
 }
@@ -205,7 +241,8 @@ function resolveKey(key) {
  * Create an animation loop state object.
  * Call loop.tick(timestamp) each frame from requestAnimationFrame.
  * First tick returns dt=0 (no previous frame to diff against).
- */function createLoop() {
+ */
+function createLoop() {
   let started = false;
 
   const state = {
@@ -228,12 +265,19 @@ function resolveKey(key) {
 
 /**
  * Bootstrap the application: set up canvas, resize handling, and start the loop.
- */function startApp() {
+ */
+function startApp() {
   const canvas = document.getElementById('canvas');
   const ctx = canvas.getContext('2d');
   const dpr = window.devicePixelRatio || 1;
 
-  let logicalSize = setupHiDPICanvas(canvas, ctx, window.innerWidth, window.innerHeight, dpr);
+  let logicalSize = setupHiDPICanvas(
+    canvas,
+    ctx,
+    window.innerWidth,
+    window.innerHeight,
+    dpr,
+  );
 
   const loop = createLoop();
   let starLayers = createParallaxLayers(logicalSize.width, logicalSize.height);
@@ -253,10 +297,19 @@ function resolveKey(key) {
   // Apply loaded settings to simulation and starfield
   sim.targetCount = settings.asteroidCount;
   if (settings.starLayers !== 3) {
-    starLayers = createParallaxLayers(logicalSize.width, logicalSize.height, settings.starLayers);
+    starLayers = createParallaxLayers(
+      logicalSize.width,
+      logicalSize.height,
+      settings.starLayers,
+    );
   }
   if (settings.starDirection !== 'left') {
-    redistributeStars(starLayers, logicalSize.width, logicalSize.height, settings.starDirection);
+    redistributeStars(
+      starLayers,
+      logicalSize.width,
+      logicalSize.height,
+      settings.starDirection,
+    );
   }
 
   ui.onChange = (name, value) => {
@@ -265,18 +318,38 @@ function resolveKey(key) {
       sim.targetCount = value;
     }
     if (name === 'starLayers') {
-      starLayers = createParallaxLayers(logicalSize.width, logicalSize.height, value);
+      starLayers = createParallaxLayers(
+        logicalSize.width,
+        logicalSize.height,
+        value,
+      );
     }
     if (name === 'starDirection') {
-      redistributeStars(starLayers, logicalSize.width, logicalSize.height, value);
+      redistributeStars(
+        starLayers,
+        logicalSize.width,
+        logicalSize.height,
+        value,
+      );
     }
     saveSettings(settings);
   };
 
   // Resize: update canvas with HiDPI and redistribute stars
   window.addEventListener('resize', () => {
-    logicalSize = setupHiDPICanvas(canvas, ctx, window.innerWidth, window.innerHeight, dpr);
-    redistributeStars(starLayers, logicalSize.width, logicalSize.height, settings.starDirection);
+    logicalSize = setupHiDPICanvas(
+      canvas,
+      ctx,
+      window.innerWidth,
+      window.innerHeight,
+      dpr,
+    );
+    redistributeStars(
+      starLayers,
+      logicalSize.width,
+      logicalSize.height,
+      settings.starDirection,
+    );
   });
 
   // Auto-hide: reset gear timer on any mouse movement
@@ -306,9 +379,13 @@ function resolveKey(key) {
       ui.gearButton.style.pointerEvents = 'auto';
     } else {
       ui.gearButton.style.opacity = settings.gearVisible
-        ? (settings.gearHovered ? '0.8' : '0.3')
+        ? settings.gearHovered
+          ? '0.8'
+          : '0.3'
         : '0';
-      ui.gearButton.style.pointerEvents = settings.gearVisible ? 'auto' : 'none';
+      ui.gearButton.style.pointerEvents = settings.gearVisible
+        ? 'auto'
+        : 'none';
     }
     ui.panel.style.display = settings.panelOpen ? 'block' : 'none';
     ui.gearButton.textContent = settings.panelOpen ? '\u2715' : '\u2630';
@@ -318,7 +395,13 @@ function resolveKey(key) {
     updateShip(playerShip, scaledDt);
 
     for (const layer of starLayers) {
-      updateStarLayerDirectional(layer, scaledDt, logicalSize.width, logicalSize.height, settings.starDirection);
+      updateStarLayerDirectional(
+        layer,
+        scaledDt,
+        logicalSize.width,
+        logicalSize.height,
+        settings.starDirection,
+      );
     }
     updateSimulation(sim, scaledDt, logicalSize.width, logicalSize.height);
 
@@ -345,7 +428,8 @@ function resolveKey(key) {
  * Returns an array of [asteroidA, asteroidB] pairs.
  * A collision occurs when distance between centers < sum of collision radii.
  * Exactly touching (distance === sum) is NOT a collision.
- */function detectCollisions(asteroids) {
+ */
+function detectCollisions(asteroids) {
   const pairs = [];
   for (let i = 0; i < asteroids.length; i++) {
     for (let j = i + 1; j < asteroids.length; j++) {
@@ -366,7 +450,8 @@ function resolveKey(key) {
 /**
  * Separate two overlapping asteroids along the collision normal.
  * Lighter asteroid (smaller collisionRadius²) is pushed proportionally more.
- */function separateOverlap(a, b) {
+ */
+function separateOverlap(a, b) {
   const dx = b.x - a.x;
   const dy = b.y - a.y;
   const dist = Math.sqrt(dx * dx + dy * dy);
@@ -377,7 +462,7 @@ function resolveKey(key) {
     return;
   }
 
-  const overlap = (a.collisionRadius + b.collisionRadius) - dist;
+  const overlap = a.collisionRadius + b.collisionRadius - dist;
   if (overlap <= 0) return;
 
   const nx = dx / dist;
@@ -401,7 +486,8 @@ function resolveKey(key) {
  * Resolve an elastic collision between two asteroids.
  * Uses 2D elastic collision formula with mass = collisionRadius².
  * Applies ±1% random perturbation and angular velocity nudge.
- */function resolveCollision(a, b) {
+ */
+function resolveCollision(a, b) {
   const dx = b.x - a.x;
   const dy = b.y - a.y;
   const dist = Math.sqrt(dx * dx + dy * dy);
@@ -429,8 +515,8 @@ function resolveKey(key) {
   // while adding enough variation to prevent repeating collision patterns.
   // Kept at ±1% to maintain KE conservation within 5%.
   const perturbation = 1 + (Math.random() * 0.02 - 0.01);
-  const impulseA = (2 * massB / totalMass) * dvDotN * perturbation;
-  const impulseB = (2 * massA / totalMass) * dvDotN * perturbation;
+  const impulseA = ((2 * massB) / totalMass) * dvDotN * perturbation;
+  const impulseB = ((2 * massA) / totalMass) * dvDotN * perturbation;
 
   a.vx -= impulseA * nx;
   a.vy -= impulseA * ny;
@@ -438,7 +524,7 @@ function resolveKey(key) {
   b.vy += impulseB * ny;
 
   // Nudge angular velocity slightly on impact
-  const angularNudge = () => (Math.random() * 0.2 - 0.1);
+  const angularNudge = () => Math.random() * 0.2 - 0.1;
   a.angularVelocity += angularNudge();
   b.angularVelocity += angularNudge();
 }
@@ -449,11 +535,12 @@ function resolveKey(key) {
  * Sets internal resolution to CSS size × dpr, applies CSS size,
  * and scales the context so all drawing uses CSS (logical) coordinates.
  * Returns the logical size { width, height } for use by game systems.
- */function setupHiDPICanvas(canvas, ctx, cssWidth, cssHeight, dpr) {
+ */
+function setupHiDPICanvas(canvas, ctx, cssWidth, cssHeight, dpr) {
   canvas.width = cssWidth * dpr;
   canvas.height = cssHeight * dpr;
-  canvas.style.width = cssWidth + 'px';
-  canvas.style.height = cssHeight + 'px';
+  canvas.style.width = `${cssWidth}px`;
+  canvas.style.height = `${cssHeight}px`;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   return { width: cssWidth, height: cssHeight };
 }
@@ -461,23 +548,38 @@ function resolveKey(key) {
 // ===== settings.js =====
 /**
  * Configuration for each setting: range, step, default, and display label.
- */const SETTINGS_CONFIG = {
+ */
+const SETTINGS_CONFIG = {
   asteroidCount: { min: 5, max: 50, step: 1, default: 20, label: 'Asteroids' },
-  speedMultiplier: { min: 0.2, max: 3.0, step: 0.1, default: 1.0, label: 'Speed' },
+  speedMultiplier: {
+    min: 0.2,
+    max: 3.0,
+    step: 0.1,
+    default: 1.0,
+    label: 'Speed',
+  },
   starLayers: { min: 3, max: 6, step: 1, default: 3, label: 'Star Layers' },
-  starDirection: { options: ['left', 'right', 'up', 'down', 'radial'], default: 'left', label: 'Direction' },
+  starDirection: {
+    options: ['left', 'right', 'up', 'down', 'radial'],
+    default: 'left',
+    label: 'Direction',
+  },
 };
 
 const STORAGE_KEY = 'asteroidSettings';
 
 /**
  * Create settings state with defaults, optionally applying overrides.
- */function createSettings(overrides = {}) {
+ */
+function createSettings(overrides = {}) {
   return {
-    asteroidCount: overrides.asteroidCount ?? SETTINGS_CONFIG.asteroidCount.default,
-    speedMultiplier: overrides.speedMultiplier ?? SETTINGS_CONFIG.speedMultiplier.default,
+    asteroidCount:
+      overrides.asteroidCount ?? SETTINGS_CONFIG.asteroidCount.default,
+    speedMultiplier:
+      overrides.speedMultiplier ?? SETTINGS_CONFIG.speedMultiplier.default,
     starLayers: overrides.starLayers ?? SETTINGS_CONFIG.starLayers.default,
-    starDirection: overrides.starDirection ?? SETTINGS_CONFIG.starDirection.default,
+    starDirection:
+      overrides.starDirection ?? SETTINGS_CONFIG.starDirection.default,
     panelOpen: false,
     gearVisible: true,
     gearHovered: false,
@@ -488,7 +590,8 @@ const STORAGE_KEY = 'asteroidSettings';
 
 /**
  * Save the 3 tunable settings to localStorage.
- */function saveSettings(settings) {
+ */
+function saveSettings(settings) {
   const data = {
     asteroidCount: settings.asteroidCount,
     speedMultiplier: settings.speedMultiplier,
@@ -501,7 +604,8 @@ const STORAGE_KEY = 'asteroidSettings';
 /**
  * Load settings from localStorage. Returns an object with tunable values.
  * Falls back to defaults if storage is empty, corrupt, or contains invalid values.
- */function loadSettings() {
+ */
+function loadSettings() {
   const defaults = {
     asteroidCount: SETTINGS_CONFIG.asteroidCount.default,
     speedMultiplier: SETTINGS_CONFIG.speedMultiplier.default,
@@ -514,7 +618,11 @@ const STORAGE_KEY = 'asteroidSettings';
     if (raw === null) return defaults;
 
     const parsed = JSON.parse(raw);
-    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      Array.isArray(parsed)
+    ) {
       return defaults;
     }
 
@@ -526,7 +634,7 @@ const STORAGE_KEY = 'asteroidSettings';
       if (config.options) {
         // String enum setting (e.g. starDirection)
         result[name] = config.options.includes(val) ? val : defaults[name];
-      } else if (typeof val === 'number' && !isNaN(val)) {
+      } else if (typeof val === 'number' && !Number.isNaN(val)) {
         result[name] = clampSetting(name, val);
       } else {
         result[name] = defaults[name];
@@ -541,7 +649,8 @@ const STORAGE_KEY = 'asteroidSettings';
 /**
  * Clamp a setting value to its valid range.
  * Integer settings (step=1) are rounded to the nearest integer.
- */function clampSetting(name, value) {
+ */
+function clampSetting(name, value) {
   const config = SETTINGS_CONFIG[name];
   let v = Number(value);
   if (config.step >= 1) v = Math.round(v);
@@ -552,7 +661,8 @@ const STORAGE_KEY = 'asteroidSettings';
  * Update auto-hide timers. Call each frame with dt.
  * - Gear hides after 3s of no mouse movement (caller resets gearTimer to 0 on mouse move)
  * - Panel closes after 4s of no mouse activity over it (caller resets panelTimer to 0)
- */function updateAutoHide(settings, dt) {
+ */
+function updateAutoHide(settings, dt) {
   settings.gearTimer += dt;
   if (settings.gearTimer < 3) {
     settings.gearVisible = true;
@@ -572,14 +682,15 @@ const STORAGE_KEY = 'asteroidSettings';
  * Format a setting value for display.
  */
 function formatValue(name, value) {
-  if (name === 'speedMultiplier') return value.toFixed(1) + 'x';
+  if (name === 'speedMultiplier') return `${value.toFixed(1)}x`;
   return String(value);
 }
 
 /**
  * Create the settings UI: gear button, panel with sliders.
  * Returns { gearButton, panel, sliders, valueDisplays, onChange }.
- */function createSettingsUI(container, settings) {
+ */
+function createSettingsUI(container, settings) {
   // Hamburger menu button
   const gearButton = document.createElement('button');
   gearButton.textContent = '\u2630';
@@ -629,7 +740,8 @@ function formatValue(name, value) {
       label.textContent = config.label;
 
       const select = document.createElement('select');
-      select.style.cssText = 'width:100%;background:#222;color:#fff;border:1px solid #555;' +
+      select.style.cssText =
+        'width:100%;background:#222;color:#fff;border:1px solid #555;' +
         'padding:4px;font-family:"Courier New",monospace;font-size:14px;';
       for (const opt of config.options) {
         const option = document.createElement('option');
@@ -712,8 +824,12 @@ function formatValue(name, value) {
     sliders,
     valueDisplays,
     directionSelect,
-    set onChange(fn) { _onChange = fn; },
-    get onChange() { return _onChange; },
+    set onChange(fn) {
+      _onChange = fn;
+    },
+    get onChange() {
+      return _onChange;
+    },
     destroy() {
       document.removeEventListener('keydown', onKeydown);
     },
@@ -727,7 +843,20 @@ function formatValue(name, value) {
  */
 const SHIP_SIZE = 15;
 
-/** Rotation speed in radians per second. */const ROTATION_SPEED = 4.0;
+/** Rotation speed in radians per second. */
+const ROTATION_SPEED = 4.0;
+
+/** Thrust acceleration in pixels/s². */
+const THRUST_POWER = 300;
+
+/** Drag coefficient per second (mild friction). */
+const DRAG = 0.5;
+
+/** Braking deceleration in pixels/s². */
+const BRAKE_POWER = 200;
+
+/** Maximum ship speed in pixels/s. */
+const MAX_SPEED = 400;
 
 /**
  * Normalize an angle to the range [-PI, PI].
@@ -740,7 +869,8 @@ function normalizeAngle(angle) {
 
 /**
  * Create a ship entity.
- */function createShip({ x, y, heading }) {
+ */
+function createShip({ x, y, heading }) {
   return {
     x,
     y,
@@ -758,18 +888,51 @@ function normalizeAngle(angle) {
 
 /**
  * Update ship state for one frame.
- * Currently handles rotation only; thrust/physics added in Increment 19.
- */function updateShip(ship, dt) {
-  // Rotation
+ * Applies rotation, thrust, braking, drag, speed cap, and position update.
+ */
+function updateShip(ship, dt) {
+  // 1. Rotation
   if (ship.rotatingLeft) ship.heading -= ROTATION_SPEED * dt;
   if (ship.rotatingRight) ship.heading += ROTATION_SPEED * dt;
   ship.heading = normalizeAngle(ship.heading);
+
+  // 2. Thrust — accelerate in heading direction
+  if (ship.thrust) {
+    ship.vx += Math.cos(ship.heading) * THRUST_POWER * dt;
+    ship.vy += Math.sin(ship.heading) * THRUST_POWER * dt;
+  }
+
+  // 3. Braking — decelerate opposite to velocity direction
+  if (ship.braking) {
+    const speed = Math.sqrt(ship.vx * ship.vx + ship.vy * ship.vy);
+    if (speed > 0) {
+      const decel = Math.min(BRAKE_POWER * dt, speed);
+      ship.vx -= (ship.vx / speed) * decel;
+      ship.vy -= (ship.vy / speed) * decel;
+    }
+  }
+
+  // 4. Drag — friction always applied
+  ship.vx *= 1 - DRAG * dt;
+  ship.vy *= 1 - DRAG * dt;
+
+  // 5. Speed cap
+  const currentSpeed = Math.sqrt(ship.vx * ship.vx + ship.vy * ship.vy);
+  if (currentSpeed > MAX_SPEED) {
+    ship.vx = (ship.vx / currentSpeed) * MAX_SPEED;
+    ship.vy = (ship.vy / currentSpeed) * MAX_SPEED;
+  }
+
+  // 6. Position update
+  ship.x += ship.vx * dt;
+  ship.y += ship.vy * dt;
 }
 
 /**
  * Draw a classic Asteroids chevron/triangle at the ship's position,
  * rotated by its heading. White wireframe, no fill.
- */function drawShip(ctx, ship) {
+ */
+function drawShip(ctx, ship) {
   if (!ship.alive) return;
 
   const s = SHIP_SIZE;
@@ -783,10 +946,10 @@ function normalizeAngle(angle) {
 
   // Chevron shape: nose at right (+x), two rear points, notch in back
   ctx.beginPath();
-  ctx.moveTo(s, 0);                    // nose
-  ctx.lineTo(-s, -s * 0.7);            // top-left wing
-  ctx.lineTo(-s * 0.5, 0);             // rear notch
-  ctx.lineTo(-s, s * 0.7);             // bottom-left wing
+  ctx.moveTo(s, 0); // nose
+  ctx.lineTo(-s, -s * 0.7); // top-left wing
+  ctx.lineTo(-s * 0.5, 0); // rear notch
+  ctx.lineTo(-s, s * 0.7); // bottom-left wing
   ctx.closePath();
   ctx.stroke();
 
@@ -795,12 +958,20 @@ function normalizeAngle(angle) {
 
 // ===== simulation.js =====
 
+
+import {
+  detectCollisions,
+  resolveCollision,
+  separateOverlap,
+} from './physics.js';
+
 const SPAWN_STAGGER = 0.3; // seconds between spawns
 const MARGIN = 5; // px margin beyond radius for off-screen detection
 
 /**
  * Check if an asteroid is fully off-screen (center + radius + margin past all edges).
- */function isOffScreen(asteroid, canvasWidth, canvasHeight) {
+ */
+function isOffScreen(asteroid, canvasWidth, canvasHeight) {
   const { x, y, radius } = asteroid;
   return (
     x + radius + MARGIN < 0 ||
@@ -843,7 +1014,12 @@ function speedForRadius(radius) {
 /**
  * Spawn a new asteroid from a random screen edge, aimed roughly inward.
  * Optional speedMultiplier scales the base speed (default 1.0).
- */function spawnAsteroidFromEdge(canvasWidth, canvasHeight, speedMultiplier = 1.0) {
+ */
+function spawnAsteroidFromEdge(
+  canvasWidth,
+  canvasHeight,
+  speedMultiplier = 1.0,
+) {
   const radius = randomRadius();
   const speed = speedForRadius(radius) * speedMultiplier;
   const edge = Math.floor(Math.random() * 4); // 0=left, 1=right, 2=top, 3=bottom
@@ -888,7 +1064,8 @@ function speedForRadius(radius) {
 
 /**
  * Create the simulation state with an initial population of asteroids.
- */function createSimulation(canvasWidth, canvasHeight, targetCount = 20) {
+ */
+function createSimulation(canvasWidth, canvasHeight, targetCount = 20) {
   const asteroids = [];
   for (let i = 0; i < targetCount; i++) {
     asteroids.push(spawnAsteroidFromEdge(canvasWidth, canvasHeight));
@@ -906,7 +1083,8 @@ function speedForRadius(radius) {
 
 /**
  * Update the simulation: move asteroids, remove off-screen ones, spawn replacements.
- */function updateSimulation(sim, dt, canvasWidth, canvasHeight) {
+ */
+function updateSimulation(sim, dt, canvasWidth, canvasHeight) {
   // Update all asteroids
   for (const a of sim.asteroids) {
     updateAsteroid(a, dt);
@@ -920,13 +1098,20 @@ function speedForRadius(radius) {
   }
 
   // Remove off-screen asteroids
-  sim.asteroids = sim.asteroids.filter(a => !isOffScreen(a, canvasWidth, canvasHeight));
+  sim.asteroids = sim.asteroids.filter(
+    (a) => !isOffScreen(a, canvasWidth, canvasHeight),
+  );
 
   // Spawn new asteroids if below target (staggered), with energy-sustaining boost
   sim.spawnTimer += dt;
-  if (sim.asteroids.length < sim.targetCount && sim.spawnTimer >= SPAWN_STAGGER) {
+  if (
+    sim.asteroids.length < sim.targetCount &&
+    sim.spawnTimer >= SPAWN_STAGGER
+  ) {
     const boost = computeSpeedBoost(
-      sim.baselineKEPerAsteroid, sim.targetCount, sim.asteroids
+      sim.baselineKEPerAsteroid,
+      sim.targetCount,
+      sim.asteroids,
     );
     sim.asteroids.push(spawnAsteroidFromEdge(canvasWidth, canvasHeight, boost));
     sim.spawnTimer = 0;
@@ -936,13 +1121,15 @@ function speedForRadius(radius) {
 // ===== starfield.js =====
 /**
  * Create a single star with random position, size, and brightness.
- */function createStar(canvasWidth, canvasHeight, options = {}) {
+ */
+function createStar(canvasWidth, canvasHeight, options = {}) {
   const minSize = options.minSize ?? 1;
   const maxSize = options.maxSize ?? 2;
   const minBrightness = options.minBrightness ?? 0.3;
   const maxBrightness = options.maxBrightness ?? 1.0;
 
-  const brightness = minBrightness + Math.random() * (maxBrightness - minBrightness);
+  const brightness =
+    minBrightness + Math.random() * (maxBrightness - minBrightness);
 
   const star = {
     x: Math.random() * canvasWidth,
@@ -953,7 +1140,7 @@ function speedForRadius(radius) {
 
   if (options.twinkle) {
     star.twinklePhase = Math.random() * Math.PI * 2;
-    star.twinkleFreq = 0.3 + Math.random() * 2.7;           // 0.3–3.0 Hz
+    star.twinkleFreq = 0.3 + Math.random() * 2.7; // 0.3–3.0 Hz
     star.twinkleAmplitude = brightness * (0.1 + Math.random() * 0.2); // 10–30% of base
   }
 
@@ -962,7 +1149,13 @@ function speedForRadius(radius) {
 
 /**
  * Create a star layer: a collection of stars that scroll together at a given speed.
- */function createStarLayer(count, canvasWidth, canvasHeight, options = {}) {
+ */
+function createStarLayer(
+  count,
+  canvasWidth,
+  canvasHeight,
+  options = {},
+) {
   const stars = [];
   for (let i = 0; i < count; i++) {
     stars.push(createStar(canvasWidth, canvasHeight, options));
@@ -976,7 +1169,8 @@ function speedForRadius(radius) {
 /**
  * Update a star layer: move all stars leftward by speed * dt.
  * Stars that exit the left edge wrap to the right edge with a new random y.
- */function updateStarLayer(layer, dt, canvasWidth, canvasHeight) {
+ */
+function updateStarLayer(layer, dt, canvasWidth, canvasHeight) {
   const dx = layer.speed * dt;
   for (const star of layer.stars) {
     star.x -= dx;
@@ -991,18 +1185,48 @@ function speedForRadius(radius) {
  * Compute the effective brightness of a star at a given elapsed time.
  * Stars without twinkle properties return their base brightness.
  * Formula: base + amplitude * sin(time * freq * 2π + phase), clamped to [0, 1].
- */function applyTwinkle(star, elapsedTime) {
+ */
+function applyTwinkle(star, elapsedTime) {
   if (star.twinklePhase == null) return star.brightness;
-  const value = star.brightness + star.twinkleAmplitude * Math.sin(elapsedTime * star.twinkleFreq * Math.PI * 2 + star.twinklePhase);
+  const value =
+    star.brightness +
+    star.twinkleAmplitude *
+      Math.sin(
+        elapsedTime * star.twinkleFreq * Math.PI * 2 + star.twinklePhase,
+      );
   return Math.min(1.0, Math.max(0, value));
 }
 
 // Layer presets for the default 3-layer parallax (far, mid, near).
 // Base star counts are calibrated for 1920×1080; scaled by canvas area ratio.
 const LAYER_PRESETS = [
-  { baseCount: 100, minSize: 1, maxSize: 1, minBrightness: 0.3, maxBrightness: 0.5, minSpeed: 2, maxSpeed: 5 },
-  { baseCount: 60,  minSize: 1, maxSize: 2, minBrightness: 0.5, maxBrightness: 0.7, minSpeed: 8, maxSpeed: 15 },
-  { baseCount: 30,  minSize: 2, maxSize: 3, minBrightness: 0.7, maxBrightness: 1.0, minSpeed: 20, maxSpeed: 35 },
+  {
+    baseCount: 100,
+    minSize: 1,
+    maxSize: 1,
+    minBrightness: 0.3,
+    maxBrightness: 0.5,
+    minSpeed: 2,
+    maxSpeed: 5,
+  },
+  {
+    baseCount: 60,
+    minSize: 1,
+    maxSize: 2,
+    minBrightness: 0.5,
+    maxBrightness: 0.7,
+    minSpeed: 8,
+    maxSpeed: 15,
+  },
+  {
+    baseCount: 30,
+    minSize: 2,
+    maxSize: 3,
+    minBrightness: 0.7,
+    maxBrightness: 1.0,
+    minSpeed: 20,
+    maxSpeed: 35,
+  },
 ];
 
 /**
@@ -1015,7 +1239,12 @@ function lerp(a, b, t) {
 /**
  * Create parallax star layers. Default is 3 (far, mid, near).
  * Extra layers interpolate properties between far and near presets.
- */function createParallaxLayers(canvasWidth, canvasHeight, layerCount = 3) {
+ */
+function createParallaxLayers(
+  canvasWidth,
+  canvasHeight,
+  layerCount = 3,
+) {
   const baseArea = 1920 * 1080;
   const areaRatio = (canvasWidth * canvasHeight) / baseArea;
   const far = LAYER_PRESETS[0];
@@ -1043,20 +1272,23 @@ function lerp(a, b, t) {
     const count = Math.max(1, Math.round(preset.baseCount * areaRatio));
     // Use midpoint of speed range for interpolated layers to guarantee monotonic ordering;
     // the 3-layer preset path already has non-overlapping ranges so random is fine there.
-    const speed = (layerCount === 3 && i < 3)
-      ? preset.minSpeed + Math.random() * (preset.maxSpeed - preset.minSpeed)
-      : (preset.minSpeed + preset.maxSpeed) / 2;
+    const speed =
+      layerCount === 3 && i < 3
+        ? preset.minSpeed + Math.random() * (preset.maxSpeed - preset.minSpeed)
+        : (preset.minSpeed + preset.maxSpeed) / 2;
 
-    const isNearLayer = (i === layerCount - 1) && layerCount > 1;
+    const isNearLayer = i === layerCount - 1 && layerCount > 1;
 
-    layers.push(createStarLayer(count, canvasWidth, canvasHeight, {
-      speed,
-      minSize: preset.minSize,
-      maxSize: preset.maxSize,
-      minBrightness: preset.minBrightness,
-      maxBrightness: preset.maxBrightness,
-      twinkle: !isNearLayer,
-    }));
+    layers.push(
+      createStarLayer(count, canvasWidth, canvasHeight, {
+        speed,
+        minSize: preset.minSize,
+        maxSize: preset.maxSize,
+        minBrightness: preset.minBrightness,
+        maxBrightness: preset.maxBrightness,
+        twinkle: !isNearLayer,
+      }),
+    );
   }
   return layers;
 }
@@ -1064,7 +1296,14 @@ function lerp(a, b, t) {
 /**
  * Update a star layer with a configurable direction.
  * Directions: 'left', 'right', 'up', 'down', 'radial'.
- */function updateStarLayerDirectional(layer, dt, canvasWidth, canvasHeight, direction) {
+ */
+function updateStarLayerDirectional(
+  layer,
+  dt,
+  canvasWidth,
+  canvasHeight,
+  direction,
+) {
   const baseDelta = layer.speed * dt;
   if (baseDelta === 0) return;
 
@@ -1099,7 +1338,12 @@ function lerp(a, b, t) {
       star.radialBrightness = Math.min(newDist / refDist, 1.0);
 
       // Recycle if outside canvas
-      if (star.x < 0 || star.x > canvasWidth || star.y < 0 || star.y > canvasHeight) {
+      if (
+        star.x < 0 ||
+        star.x > canvasWidth ||
+        star.y < 0 ||
+        star.y > canvasHeight
+      ) {
         const angle = Math.random() * Math.PI * 2;
         const spawnDist = 5 + Math.random() * 25;
         star.x = cx + Math.cos(angle) * spawnDist;
@@ -1144,7 +1388,13 @@ function lerp(a, b, t) {
  * Redistribute all stars across layers for a new direction mode.
  * Call when the user switches direction to avoid visual artifacts
  * (e.g. stars clustered at center after leaving radial mode).
- */function redistributeStars(layers, canvasWidth, canvasHeight, direction) {
+ */
+function redistributeStars(
+  layers,
+  canvasWidth,
+  canvasHeight,
+  direction,
+) {
   const cx = canvasWidth / 2;
   const cy = canvasHeight / 2;
   const refDist = Math.min(canvasWidth, canvasHeight) / 2;
@@ -1169,7 +1419,8 @@ function lerp(a, b, t) {
 
 /**
  * Update all parallax layers.
- */function updateParallaxLayers(layers, dt, canvasWidth, canvasHeight) {
+ */
+function updateParallaxLayers(layers, dt, canvasWidth, canvasHeight) {
   for (const layer of layers) {
     updateStarLayer(layer, dt, canvasWidth, canvasHeight);
   }
@@ -1177,7 +1428,8 @@ function lerp(a, b, t) {
 
 /**
  * Draw all parallax layers (far to near, back to front).
- */function drawParallaxLayers(ctx, layers, elapsedTime = 0) {
+ */
+function drawParallaxLayers(ctx, layers, elapsedTime = 0) {
   for (const layer of layers) {
     drawStarLayer(ctx, layer, elapsedTime);
   }
@@ -1185,19 +1437,15 @@ function lerp(a, b, t) {
 
 /**
  * Draw a star layer onto a canvas 2D context.
- */function drawStarLayer(ctx, layer, elapsedTime = 0) {
+ */
+function drawStarLayer(ctx, layer, elapsedTime = 0) {
   for (const star of layer.stars) {
     let brightness = applyTwinkle(star, elapsedTime);
     if (star.radialBrightness != null) {
       brightness *= star.radialBrightness;
     }
     ctx.fillStyle = `rgba(255, 255, 255, ${brightness})`;
-    ctx.fillRect(
-      star.x,
-      star.y,
-      star.size,
-      star.size,
-    );
+    ctx.fillRect(star.x, star.y, star.size, star.size);
   }
 }
 
