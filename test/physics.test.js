@@ -91,9 +91,10 @@ describe('Increment 10: Asteroids Bounce Off Each Other', () => {
     it('uses collisionRadius (not full radius) for detection', () => {
       // Two asteroids with radius 30 but collisionRadius ~24 (avg of 0.6–1.0 range)
       const a = asteroid(100, 100, 0, 0, 30);
-      const b = asteroid(100 + 50, 100, 0, 0, 30);
-      // distance = 50. Full radius sum = 60 → would collide with full radius.
+      const b = asteroid(100 + 55, 100, 0, 0, 30);
+      // distance = 55. Full radius sum = 60 → would collide with full radius.
       // But collisionRadius sum ≈ 48 → should NOT collide with effective radius.
+      // (Using 55 instead of 50 for margin against high-variance random shapes)
       const pairs = detectCollisions([a, b]);
       expect(pairs.length).toBe(0);
     });

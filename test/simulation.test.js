@@ -365,24 +365,17 @@ describe('Increment 12: Energy-Sustaining Spawns — Simulation Integration', ()
     });
 
     it('boosted spawns are faster than unboosted spawns on average', () => {
-      // Create a sim and heavily drain energy to force large boost
       const sim = createSimulation(800, 600, 20);
-      // Make all current asteroids nearly stationary
-      for (const a of sim.asteroids) {
-        a.vx = 0.1;
-        a.vy = 0.1;
-      }
-      // Remove all asteroids to trigger many spawns with large boost
-      sim.asteroids = [];
 
-      // Spawn several boosted replacements
+      // Collect boosted spawns: keep array empty each iteration to maintain max boost
       const boostedSpeeds = [];
-      for (let i = 0; i < 30; i++) {
+      for (let i = 0; i < 100; i++) {
+        sim.asteroids = [];
         sim.spawnTimer = 0.3;
         updateSimulation(sim, 0.016, 800, 600);
         if (sim.asteroids.length > 0) {
-          const last = sim.asteroids[sim.asteroids.length - 1];
-          boostedSpeeds.push(Math.sqrt(last.vx ** 2 + last.vy ** 2));
+          const a = sim.asteroids[0];
+          boostedSpeeds.push(Math.sqrt(a.vx ** 2 + a.vy ** 2));
         }
       }
 
@@ -396,8 +389,8 @@ describe('Increment 12: Energy-Sustaining Spawns — Simulation Integration', ()
       const avgBoosted = boostedSpeeds.reduce((s, v) => s + v, 0) / boostedSpeeds.length;
       const avgNormal = normalSpeeds.reduce((s, v) => s + v, 0) / normalSpeeds.length;
 
-      // Boosted spawns should be faster than normal on average
-      expect(avgBoosted).toBeGreaterThan(avgNormal);
+      // With empty array → boost = 1.5, so boosted should be ~1.5x faster
+      expect(avgBoosted).toBeGreaterThan(avgNormal * 1.2);
     });
 
     it('system KE stays within 80–120% of baseline over a long run', () => {

@@ -227,22 +227,7 @@
 
 ---
 
-## Increment 13: Collision Cooldown
-
-**Goal**: Prevent rapid re-collisions when asteroids separate slowly.
-
-**Module**: `src/physics.js`
-
-**Acceptance Criteria**:
-- [ ] After two asteroids collide, they cannot collide again for 0.3 seconds
-- [ ] `canCollide(A,B)` and `canCollide(B,A)` give the same result (order-independent)
-- [ ] Cooldowns for different pairs are independent
-- [ ] Expired cooldowns are cleaned up (no unbounded memory growth)
-- [ ] **Visible result**: no jittering/vibrating asteroid pairs — collisions resolve cleanly
-
----
-
-## Increment 14: Settings Menu
+## Increment 13: Settings Menu
 
 **Goal**: A gear icon in the corner opens a settings panel with 3 sliders. The user can tune the experience.
 
@@ -262,7 +247,7 @@
 
 ---
 
-## Increment 15: Settings Persistence
+## Increment 14: Settings Persistence
 
 **Goal**: Settings survive page reload via localStorage.
 
@@ -278,7 +263,7 @@
 
 ---
 
-## Increment 16: HiDPI Support & Build
+## Increment 15: HiDPI Support & Build
 
 **Goal**: Crisp rendering on retina displays. Final single-file build.
 

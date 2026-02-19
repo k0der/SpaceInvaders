@@ -128,11 +128,6 @@ To compensate, the spawner acts as a feedback-controlled energy pump:
 - **Result**: small asteroids ricochet dramatically off large ones; two large
   asteroids gently nudge each other
 
-### 2.3 Collision Cooldown
-
-- After two asteroids collide, they cannot collide with each other again for
-  0.3 seconds (prevents rapid re-triggering from overlap)
-
 ---
 
 ## 3. Starfield Background
