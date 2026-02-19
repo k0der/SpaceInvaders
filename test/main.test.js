@@ -23,10 +23,25 @@ describe('Increment 1: A Black Void That Breathes', () => {
       expect(dt).toBeGreaterThanOrEqual(0);
     });
 
+    it('returns exactly 0 when timestamps go backward', () => {
+      const dt = calculateDeltaTime(500, 1000);
+      expect(dt).toBe(0);
+    });
+
+    it('returns exactly 0 for equal timestamps', () => {
+      const dt = calculateDeltaTime(1000, 1000);
+      expect(dt).toBe(0);
+    });
+
     it('caps delta time at 0.1s (100ms) to avoid spiral of death', () => {
       // Simulating a 500ms gap (e.g. tab was backgrounded)
       const dt = calculateDeltaTime(1500, 1000);
       expect(dt).toBeLessThanOrEqual(0.1);
+    });
+
+    it('returns exactly 0.1 at the cap boundary (100ms gap)', () => {
+      const dt = calculateDeltaTime(1100, 1000);
+      expect(dt).toBe(0.1);
     });
 
     it('handles normal 60fps frame intervals', () => {
@@ -75,6 +90,46 @@ describe('Increment 1: A Black Void That Breathes', () => {
       loop.tick(32);
       expect(loop.frameCount).toBe(3);
       expect(loop.lastTimestamp).toBe(32);
+    });
+
+    it('caps dt at 0.1s when a large gap occurs mid-sequence', () => {
+      const loop = createLoop();
+      loop.tick(0);
+      loop.tick(16);
+      // Simulate 2 second gap (tab backgrounded)
+      const dt = loop.tick(2016);
+      expect(dt).toBe(0.1);
+    });
+
+    it('clamps dt to 0 when timestamp goes backward', () => {
+      const loop = createLoop();
+      loop.tick(0);
+      loop.tick(100);
+      const dt = loop.tick(50); // time went backward
+      expect(dt).toBe(0);
+    });
+
+    it('returns accurate dt across a sequence of ticks', () => {
+      const loop = createLoop();
+      loop.tick(0);
+      const dt1 = loop.tick(16);
+      const dt2 = loop.tick(33);
+      const dt3 = loop.tick(50);
+      expect(dt1).toBeCloseTo(0.016, 3);
+      expect(dt2).toBeCloseTo(0.017, 3);
+      expect(dt3).toBeCloseTo(0.017, 3);
+    });
+
+    it('independent loops do not share state', () => {
+      const loopA = createLoop();
+      const loopB = createLoop();
+      loopA.tick(0);
+      loopA.tick(100);
+      loopB.tick(0);
+      expect(loopA.frameCount).toBe(2);
+      expect(loopB.frameCount).toBe(1);
+      expect(loopA.lastTimestamp).toBe(100);
+      expect(loopB.lastTimestamp).toBe(0);
     });
   });
 });
