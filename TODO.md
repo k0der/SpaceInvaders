@@ -234,7 +234,7 @@
 **Module**: `src/settings.js`
 
 **Acceptance Criteria**:
-- [ ] Gear icon renders in the bottom-right corner
+- [ ] Hamburger menu icon (☰) renders in the top-left corner
 - [ ] Icon is semi-transparent (~30% opacity), brightens on hover (~80%)
 - [ ] Clicking gear opens a translucent dark panel with white monospace text
 - [ ] Panel has 3 labeled sliders: Asteroid Count [5–50, default 20], Speed [0.2x–3.0x, default 1.0x], Star Layers [3–6, default 3]
