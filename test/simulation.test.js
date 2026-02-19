@@ -46,6 +46,34 @@ describe('Increment 8: Asteroids Come and Go', () => {
       const a = createAsteroid({ x: -36, y: 300, vx: 0, vy: 0, radius: 30 });
       expect(isOffScreen(a, 800, 600)).toBe(true);
     });
+
+    it('margin boundary: just inside margin is still on screen (left edge)', () => {
+      // x=-34, radius=30: x+radius+margin = -34+30+5 = 1 > 0 → NOT off-screen
+      const a = createAsteroid({ x: -34, y: 300, vx: 0, vy: 0, radius: 30 });
+      expect(isOffScreen(a, 800, 600)).toBe(false);
+    });
+
+    it('margin boundary: just outside margin is off screen (left edge)', () => {
+      // x=-36, radius=30: x+radius+margin = -36+30+5 = -1 < 0 → off-screen
+      const a = createAsteroid({ x: -36, y: 300, vx: 0, vy: 0, radius: 30 });
+      expect(isOffScreen(a, 800, 600)).toBe(true);
+    });
+
+    it('margin boundary: exactly at margin threshold is still on screen', () => {
+      // x=-35, radius=30: x+radius+margin = -35+30+5 = 0, NOT < 0 → still on screen
+      const a = createAsteroid({ x: -35, y: 300, vx: 0, vy: 0, radius: 30 });
+      expect(isOffScreen(a, 800, 600)).toBe(false);
+    });
+
+    it('margin boundary: right edge precision', () => {
+      // x=835, radius=30: x-radius-margin = 835-30-5 = 800, NOT > 800 → still on screen
+      const onEdge = createAsteroid({ x: 835, y: 300, vx: 0, vy: 0, radius: 30 });
+      expect(isOffScreen(onEdge, 800, 600)).toBe(false);
+
+      // x=836, radius=30: x-radius-margin = 836-30-5 = 801 > 800 → off-screen
+      const pastEdge = createAsteroid({ x: 836, y: 300, vx: 0, vy: 0, radius: 30 });
+      expect(isOffScreen(pastEdge, 800, 600)).toBe(true);
+    });
   });
 
   describe('spawnAsteroidFromEdge', () => {

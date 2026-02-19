@@ -249,6 +249,26 @@ describe('Increment 7: A Field of Asteroids', () => {
       expect(a.strokeWidth).toBe(1.0);
     });
 
+    it('stroke width boundary: radius exactly 50 is large (2.0)', () => {
+      const a = createAsteroid({ x: 0, y: 0, vx: 0, vy: 0, radius: 50 });
+      expect(a.strokeWidth).toBe(2.0);
+    });
+
+    it('stroke width boundary: radius exactly 49 is medium (1.5)', () => {
+      const a = createAsteroid({ x: 0, y: 0, vx: 0, vy: 0, radius: 49 });
+      expect(a.strokeWidth).toBe(1.5);
+    });
+
+    it('stroke width boundary: radius exactly 25 is medium (1.5)', () => {
+      const a = createAsteroid({ x: 0, y: 0, vx: 0, vy: 0, radius: 25 });
+      expect(a.strokeWidth).toBe(1.5);
+    });
+
+    it('stroke width boundary: radius exactly 24 is small (1.0)', () => {
+      const a = createAsteroid({ x: 0, y: 0, vx: 0, vy: 0, radius: 24 });
+      expect(a.strokeWidth).toBe(1.0);
+    });
+
     it('drawAsteroid uses the strokeWidth from the asteroid', () => {
       const a = createAsteroid({ x: 0, y: 0, vx: 0, vy: 0, radius: 65 });
       const fakeCtx = {
