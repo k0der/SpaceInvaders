@@ -319,14 +319,14 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 **Modify**: `src/main.js`
 
 **Acceptance Criteria**:
-- [ ] `createShip({ x, y, heading })` returns a ship object with: `x, y, vx, vy, heading, alive` and control booleans (`thrust, rotatingLeft, rotatingRight, braking, fire`), all defaulting to `0`/`false`
-- [ ] `drawShip(ctx, ship)` draws a classic Asteroids chevron/triangle at `(ship.x, ship.y)`, rotated by `ship.heading`
+- [x] `createShip({ x, y, heading })` returns a ship object with: `x, y, vx, vy, heading, alive` and control booleans (`thrust, rotatingLeft, rotatingRight, braking, fire`), all defaulting to `0`/`false`
+- [x] `drawShip(ctx, ship)` draws a classic Asteroids chevron/triangle at `(ship.x, ship.y)`, rotated by `ship.heading`
   - White wireframe (`strokeStyle = '#FFFFFF'`), no fill, lineWidth ~1.5
   - Canvas state saved/restored (no transform leak)
-- [ ] Ship created in `startApp()` at `(canvasWidth/2, canvasHeight/2)` with heading `-PI/2` (pointing up)
-- [ ] Ship drawn after asteroids in the render loop (on top)
-- [ ] Ship is static — no movement, no input
-- [ ] **Visible**: A white triangular ship sitting at the center of the asteroid field. Asteroids drift past it.
+- [x] Ship created in `startApp()` at `(canvasWidth/2, canvasHeight/2)` with heading `-PI/2` (pointing up)
+- [x] Ship drawn after asteroids in the render loop (on top)
+- [x] Ship is static — no movement, no input
+- [x] **Visible**: A white triangular ship sitting at the center of the asteroid field. Asteroids drift past it.
 
 ---
 
