@@ -234,16 +234,16 @@
 **Module**: `src/settings.js`
 
 **Acceptance Criteria**:
-- [ ] Hamburger menu icon (☰) renders in the top-left corner
-- [ ] Icon is semi-transparent (~30% opacity), brightens on hover (~80%)
-- [ ] Clicking gear opens a translucent dark panel with white monospace text
-- [ ] Panel has 3 labeled sliders: Asteroid Count [5–50, default 20], Speed [0.2x–3.0x, default 1.0x], Star Layers [3–6, default 3]
-- [ ] Each slider shows its current value
-- [ ] Moving a slider changes the simulation in real-time (asteroid count adjusts gradually, speed scales all motion, star layers add/remove)
-- [ ] Pressing Escape closes the panel
-- [ ] Panel auto-hides after 4 seconds of no mouse activity over it
-- [ ] Gear icon auto-hides after 3 seconds of no mouse movement; reappears on move
-- [ ] **Visible result**: interactive settings that visibly change the animation
+- [x] Hamburger menu icon (☰) renders in the top-left corner
+- [x] Icon is semi-transparent (~30% opacity), brightens on hover (~80%)
+- [x] Clicking gear opens a translucent dark panel with white monospace text
+- [x] Panel has 3 labeled sliders: Asteroid Count [5–50, default 20], Speed [0.2x–3.0x, default 1.0x], Star Layers [3–6, default 3]
+- [x] Each slider shows its current value
+- [x] Moving a slider changes the simulation in real-time (asteroid count adjusts gradually, speed scales all motion, star layers add/remove)
+- [x] Pressing Escape closes the panel
+- [x] Panel auto-hides after 4 seconds of no mouse activity over it
+- [x] Gear icon auto-hides after 3 seconds of no mouse movement; reappears on move
+- [x] **Visible result**: interactive settings that visibly change the animation
 
 ---
 
