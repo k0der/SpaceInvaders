@@ -2,6 +2,7 @@ import { createParallaxLayers, updateStarLayerDirectional, drawParallaxLayers, r
 import { drawAsteroid } from './asteroid.js';
 import { createSimulation, updateSimulation } from './simulation.js';
 import { createSettings, createSettingsUI, updateAutoHide, loadSettings, saveSettings } from './settings.js';
+import { setupHiDPICanvas } from './renderer.js';
 
 /**
  * Calculate delta time in seconds between two timestamps (ms).
@@ -45,13 +46,13 @@ export function createLoop() {
 export function startApp() {
   const canvas = document.getElementById('canvas');
   const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
 
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
+  let logicalSize = setupHiDPICanvas(canvas, ctx, window.innerWidth, window.innerHeight, dpr);
 
   const loop = createLoop();
-  let starLayers = createParallaxLayers(canvas.width, canvas.height);
-  const sim = createSimulation(canvas.width, canvas.height);
+  let starLayers = createParallaxLayers(logicalSize.width, logicalSize.height);
+  const sim = createSimulation(logicalSize.width, logicalSize.height);
   const loaded = loadSettings();
   const settings = createSettings(loaded);
   let elapsedTime = 0;
@@ -61,10 +62,10 @@ export function startApp() {
   // Apply loaded settings to simulation and starfield
   sim.targetCount = settings.asteroidCount;
   if (settings.starLayers !== 3) {
-    starLayers = createParallaxLayers(canvas.width, canvas.height, settings.starLayers);
+    starLayers = createParallaxLayers(logicalSize.width, logicalSize.height, settings.starLayers);
   }
   if (settings.starDirection !== 'left') {
-    redistributeStars(starLayers, canvas.width, canvas.height, settings.starDirection);
+    redistributeStars(starLayers, logicalSize.width, logicalSize.height, settings.starDirection);
   }
 
   ui.onChange = (name, value) => {
@@ -73,19 +74,18 @@ export function startApp() {
       sim.targetCount = value;
     }
     if (name === 'starLayers') {
-      starLayers = createParallaxLayers(canvas.width, canvas.height, value);
+      starLayers = createParallaxLayers(logicalSize.width, logicalSize.height, value);
     }
     if (name === 'starDirection') {
-      redistributeStars(starLayers, canvas.width, canvas.height, value);
+      redistributeStars(starLayers, logicalSize.width, logicalSize.height, value);
     }
     saveSettings(settings);
   };
 
-  // Resize: update canvas and redistribute stars for current direction
+  // Resize: update canvas with HiDPI and redistribute stars
   window.addEventListener('resize', () => {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    redistributeStars(starLayers, canvas.width, canvas.height, settings.starDirection);
+    logicalSize = setupHiDPICanvas(canvas, ctx, window.innerWidth, window.innerHeight, dpr);
+    redistributeStars(starLayers, logicalSize.width, logicalSize.height, settings.starDirection);
   });
 
   // Auto-hide: reset gear timer on any mouse movement
@@ -119,12 +119,12 @@ export function startApp() {
     ui.gearButton.textContent = settings.panelOpen ? '\u2715' : '\u2630';
 
     for (const layer of starLayers) {
-      updateStarLayerDirectional(layer, scaledDt, canvas.width, canvas.height, settings.starDirection);
+      updateStarLayerDirectional(layer, scaledDt, logicalSize.width, logicalSize.height, settings.starDirection);
     }
-    updateSimulation(sim, scaledDt, canvas.width, canvas.height);
+    updateSimulation(sim, scaledDt, logicalSize.width, logicalSize.height);
 
     ctx.fillStyle = '#000000';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, logicalSize.width, logicalSize.height);
 
     drawParallaxLayers(ctx, starLayers, elapsedTime);
 
