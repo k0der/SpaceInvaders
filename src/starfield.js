@@ -110,7 +110,11 @@ export function createParallaxLayers(canvasWidth, canvasHeight, layerCount = 3) 
     }
 
     const count = Math.max(1, Math.round(preset.baseCount * areaRatio));
-    const speed = preset.minSpeed + Math.random() * (preset.maxSpeed - preset.minSpeed);
+    // Use midpoint of speed range for interpolated layers to guarantee monotonic ordering;
+    // the 3-layer preset path already has non-overlapping ranges so random is fine there.
+    const speed = (layerCount === 3 && i < 3)
+      ? preset.minSpeed + Math.random() * (preset.maxSpeed - preset.minSpeed)
+      : (preset.minSpeed + preset.maxSpeed) / 2;
 
     const isNearLayer = (i === layerCount - 1) && layerCount > 1;
 

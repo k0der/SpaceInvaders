@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   createStar,
   createStarLayer,
@@ -6,6 +6,8 @@ import {
   createParallaxLayers,
   updateParallaxLayers,
   applyTwinkle,
+  drawParallaxLayers,
+  drawStarLayer,
 } from '../src/starfield.js';
 
 describe('Increment 2: A Single Star Drifts Across the Void', () => {
@@ -126,6 +128,10 @@ describe('Increment 2: A Single Star Drifts Across the Void', () => {
   describe('updateStarLayer', () => {
     it('moves stars leftward by speed * dt', () => {
       const layer = createStarLayer(5, 800, 600, { speed: 100 });
+      // Place all stars far from the left edge to avoid wrapping interference
+      for (const star of layer.stars) {
+        star.x = 400;
+      }
       const initialXPositions = layer.stars.map(s => s.x);
 
       updateStarLayer(layer, 0.1, 800, 600);
@@ -366,6 +372,33 @@ describe('Increment 3: Depth — Parallax Star Layers', () => {
       expect(midX).toBeGreaterThan(nearX);
     });
   });
+
+  describe('drawParallaxLayers', () => {
+    it('draws layers back-to-front (far first, near last)', () => {
+      const layers = createParallaxLayers(800, 600);
+      const drawOrder = [];
+      const fakeCtx = {
+        fillStyle: '',
+        fillRect: vi.fn(() => {
+          drawOrder.push(fakeCtx.fillStyle);
+        }),
+      };
+      // Give each layer a unique brightness and remove twinkle so brightness is deterministic
+      layers[0].stars.forEach(s => { s.brightness = 0.3; delete s.twinklePhase; delete s.twinkleFreq; delete s.twinkleAmplitude; });
+      layers[1].stars.forEach(s => { s.brightness = 0.6; delete s.twinklePhase; delete s.twinkleFreq; delete s.twinkleAmplitude; });
+      layers[2].stars.forEach(s => { s.brightness = 0.9; delete s.twinklePhase; delete s.twinkleFreq; delete s.twinkleAmplitude; });
+
+      drawParallaxLayers(fakeCtx, layers);
+
+      // Far layer (0.3) draws should come before mid (0.6), which come before near (0.9)
+      const farEnd = drawOrder.lastIndexOf('rgba(255, 255, 255, 0.3)');
+      const midStart = drawOrder.indexOf('rgba(255, 255, 255, 0.6)');
+      const midEnd = drawOrder.lastIndexOf('rgba(255, 255, 255, 0.6)');
+      const nearStart = drawOrder.indexOf('rgba(255, 255, 255, 0.9)');
+      expect(farEnd).toBeLessThan(midStart);
+      expect(midEnd).toBeLessThan(nearStart);
+    });
+  });
 });
 
 describe('Increment 4: Stars That Twinkle', () => {
@@ -506,6 +539,58 @@ describe('Increment 4: Stars That Twinkle', () => {
         expect(star.twinkleFreq).toBeUndefined();
         expect(star.twinkleAmplitude).toBeUndefined();
       }
+    });
+  });
+
+  describe('drawStarLayer with twinkle', () => {
+    it('uses twinkle-adjusted brightness at render time, not base brightness', () => {
+      const layer = createStarLayer(1, 800, 600, {
+        speed: 10,
+        twinkle: true,
+        minBrightness: 0.5,
+        maxBrightness: 0.5,
+      });
+      const star = layer.stars[0];
+      // Force known twinkle params: at t=0.25 with freq=1, phase=0, sin peaks → brightness = 0.5 + amp
+      star.twinklePhase = 0;
+      star.twinkleFreq = 1.0;
+      star.twinkleAmplitude = 0.1;
+
+      const fillStyles = [];
+      const fakeCtx = {
+        fillStyle: '',
+        fillRect: vi.fn(() => { fillStyles.push(fakeCtx.fillStyle); }),
+      };
+
+      // Draw at elapsed=0 → sin(0)=0 → brightness 0.5
+      drawStarLayer(fakeCtx, layer, 0);
+      expect(fillStyles[0]).toBe('rgba(255, 255, 255, 0.5)');
+
+      // Draw at elapsed=0.25 → sin(PI/2)=1 → brightness 0.6
+      drawStarLayer(fakeCtx, layer, 0.25);
+      expect(fillStyles[1]).toBe('rgba(255, 255, 255, 0.6)');
+    });
+
+    it('renders non-twinkle stars with constant base brightness regardless of elapsed time', () => {
+      const layer = createStarLayer(1, 800, 600, {
+        speed: 10,
+        minBrightness: 0.7,
+        maxBrightness: 0.7,
+      });
+
+      const fillStyles = [];
+      const fakeCtx = {
+        fillStyle: '',
+        fillRect: vi.fn(() => { fillStyles.push(fakeCtx.fillStyle); }),
+      };
+
+      drawStarLayer(fakeCtx, layer, 0);
+      drawStarLayer(fakeCtx, layer, 5.0);
+      drawStarLayer(fakeCtx, layer, 100.0);
+
+      // All renders should use the same base brightness
+      expect(fillStyles[0]).toBe(fillStyles[1]);
+      expect(fillStyles[1]).toBe(fillStyles[2]);
     });
   });
 });
