@@ -571,6 +571,25 @@ describe('Increment 4: Stars That Twinkle', () => {
       expect(fillStyles[1]).toBe('rgba(255, 255, 255, 0.6)');
     });
 
+    it('renders stars at sub-pixel coordinates (no rounding) for smooth movement', () => {
+      const layer = createStarLayer(1, 800, 600, { speed: 10 });
+      // Set star to a fractional position
+      layer.stars[0].x = 100.7;
+      layer.stars[0].y = 200.3;
+
+      const coords = [];
+      const fakeCtx = {
+        fillStyle: '',
+        fillRect: vi.fn((x, y) => { coords.push({ x, y }); }),
+      };
+
+      drawStarLayer(fakeCtx, layer, 0);
+
+      // Should preserve fractional coordinates, not round to 101/200
+      expect(coords[0].x).toBe(100.7);
+      expect(coords[0].y).toBe(200.3);
+    });
+
     it('renders non-twinkle stars with constant base brightness regardless of elapsed time', () => {
       const layer = createStarLayer(1, 800, 600, {
         speed: 10,

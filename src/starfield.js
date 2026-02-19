@@ -156,8 +156,8 @@ export function drawStarLayer(ctx, layer, elapsedTime = 0) {
     const brightness = applyTwinkle(star, elapsedTime);
     ctx.fillStyle = `rgba(255, 255, 255, ${brightness})`;
     ctx.fillRect(
-      Math.round(star.x),
-      Math.round(star.y),
+      star.x,
+      star.y,
       star.size,
       star.size,
     );
