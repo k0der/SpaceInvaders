@@ -1,11 +1,7 @@
-import { describe, it, expect } from 'vitest';
-import {
-  createLoop,
-  calculateDeltaTime,
-} from '../src/main.js';
+import { describe, expect, it } from 'vitest';
+import { calculateDeltaTime, createLoop } from '../src/main.js';
 
 describe('Increment 1: A Black Void That Breathes', () => {
-
   describe('calculateDeltaTime', () => {
     it('returns the difference between current and previous timestamp in seconds', () => {
       const dt = calculateDeltaTime(1016, 1000);

@@ -1,19 +1,18 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
+  applyTwinkle,
+  createParallaxLayers,
   createStar,
   createStarLayer,
-  updateStarLayer,
-  createParallaxLayers,
-  updateParallaxLayers,
-  applyTwinkle,
   drawParallaxLayers,
   drawStarLayer,
-  updateStarLayerDirectional,
   redistributeStars,
+  updateParallaxLayers,
+  updateStarLayer,
+  updateStarLayerDirectional,
 } from '../src/starfield.js';
 
 describe('Increment 2: A Single Star Drifts Across the Void', () => {
-
   describe('createStar', () => {
     it('creates a star with x, y, size, and brightness properties', () => {
       const star = createStar(800, 600);
@@ -59,7 +58,10 @@ describe('Increment 2: A Single Star Drifts Across the Void', () => {
 
     it('respects custom brightness range', () => {
       for (let i = 0; i < 50; i++) {
-        const star = createStar(800, 600, { minBrightness: 0.5, maxBrightness: 0.7 });
+        const star = createStar(800, 600, {
+          minBrightness: 0.5,
+          maxBrightness: 0.7,
+        });
         expect(star.brightness).toBeGreaterThanOrEqual(0.5);
         expect(star.brightness).toBeLessThanOrEqual(0.7);
       }
@@ -134,7 +136,7 @@ describe('Increment 2: A Single Star Drifts Across the Void', () => {
       for (const star of layer.stars) {
         star.x = 400;
       }
-      const initialXPositions = layer.stars.map(s => s.x);
+      const initialXPositions = layer.stars.map((s) => s.x);
 
       updateStarLayer(layer, 0.1, 800, 600);
 
@@ -145,7 +147,7 @@ describe('Increment 2: A Single Star Drifts Across the Void', () => {
 
     it('does not move stars when dt is 0', () => {
       const layer = createStarLayer(5, 800, 600, { speed: 100 });
-      const initialXPositions = layer.stars.map(s => s.x);
+      const initialXPositions = layer.stars.map((s) => s.x);
 
       updateStarLayer(layer, 0, 800, 600);
 
@@ -160,7 +162,7 @@ describe('Increment 2: A Single Star Drifts Across the Void', () => {
       for (const star of layer.stars) {
         star.x = 500;
       }
-      const initialYPositions = layer.stars.map(s => s.y);
+      const initialYPositions = layer.stars.map((s) => s.y);
 
       updateStarLayer(layer, 0.1, 800, 600); // moves 1px left → still far from edge
 
@@ -221,7 +223,6 @@ describe('Increment 2: A Single Star Drifts Across the Void', () => {
 });
 
 describe('Increment 3: Depth — Parallax Star Layers', () => {
-
   describe('createParallaxLayers', () => {
     it('creates 3 layers by default', () => {
       const layers = createParallaxLayers(800, 600);
@@ -329,7 +330,7 @@ describe('Increment 3: Depth — Parallax Star Layers', () => {
   describe('updateParallaxLayers', () => {
     it('updates all layers', () => {
       const layers = createParallaxLayers(800, 600);
-      const initialPositions = layers.map(l => l.stars.map(s => s.x));
+      const initialPositions = layers.map((l) => l.stars.map((s) => s.x));
 
       updateParallaxLayers(layers, 0.1, 800, 600);
 
@@ -344,7 +345,7 @@ describe('Increment 3: Depth — Parallax Star Layers', () => {
 
     it('does not move any stars when dt is 0', () => {
       const layers = createParallaxLayers(800, 600);
-      const initialPositions = layers.map(l => l.stars.map(s => s.x));
+      const initialPositions = layers.map((l) => l.stars.map((s) => s.x));
 
       updateParallaxLayers(layers, 0, 800, 600);
 
@@ -386,9 +387,24 @@ describe('Increment 3: Depth — Parallax Star Layers', () => {
         }),
       };
       // Give each layer a unique brightness and remove twinkle so brightness is deterministic
-      layers[0].stars.forEach(s => { s.brightness = 0.3; delete s.twinklePhase; delete s.twinkleFreq; delete s.twinkleAmplitude; });
-      layers[1].stars.forEach(s => { s.brightness = 0.6; delete s.twinklePhase; delete s.twinkleFreq; delete s.twinkleAmplitude; });
-      layers[2].stars.forEach(s => { s.brightness = 0.9; delete s.twinklePhase; delete s.twinkleFreq; delete s.twinkleAmplitude; });
+      layers[0].stars.forEach((s) => {
+        s.brightness = 0.3;
+        delete s.twinklePhase;
+        delete s.twinkleFreq;
+        delete s.twinkleAmplitude;
+      });
+      layers[1].stars.forEach((s) => {
+        s.brightness = 0.6;
+        delete s.twinklePhase;
+        delete s.twinkleFreq;
+        delete s.twinkleAmplitude;
+      });
+      layers[2].stars.forEach((s) => {
+        s.brightness = 0.9;
+        delete s.twinklePhase;
+        delete s.twinkleFreq;
+        delete s.twinkleAmplitude;
+      });
 
       drawParallaxLayers(fakeCtx, layers);
 
@@ -404,7 +420,6 @@ describe('Increment 3: Depth — Parallax Star Layers', () => {
 });
 
 describe('Increment 4: Stars That Twinkle', () => {
-
   describe('createStar with twinkle options', () => {
     it('assigns twinkle properties when twinkle option is true', () => {
       const star = createStar(800, 600, { twinkle: true });
@@ -450,16 +465,28 @@ describe('Increment 4: Stars That Twinkle', () => {
 
     it('twinkle amplitude is between 10% and 30% of base brightness', () => {
       for (let i = 0; i < 50; i++) {
-        const star = createStar(800, 600, { twinkle: true, minBrightness: 0.5, maxBrightness: 0.5 });
-        expect(star.twinkleAmplitude).toBeGreaterThanOrEqual(star.brightness * 0.1);
-        expect(star.twinkleAmplitude).toBeLessThanOrEqual(star.brightness * 0.3);
+        const star = createStar(800, 600, {
+          twinkle: true,
+          minBrightness: 0.5,
+          maxBrightness: 0.5,
+        });
+        expect(star.twinkleAmplitude).toBeGreaterThanOrEqual(
+          star.brightness * 0.1,
+        );
+        expect(star.twinkleAmplitude).toBeLessThanOrEqual(
+          star.brightness * 0.3,
+        );
       }
     });
 
     it('twinkle amplitude range spans beyond the old 10–20% range', () => {
       let aboveOldMax = false;
       for (let i = 0; i < 200; i++) {
-        const star = createStar(800, 600, { twinkle: true, minBrightness: 0.5, maxBrightness: 0.5 });
+        const star = createStar(800, 600, {
+          twinkle: true,
+          minBrightness: 0.5,
+          maxBrightness: 0.5,
+        });
         if (star.twinkleAmplitude > star.brightness * 0.2) aboveOldMax = true;
       }
       expect(aboveOldMax).toBe(true);
@@ -482,10 +509,16 @@ describe('Increment 4: Stars That Twinkle', () => {
       // Create 50 twinkle stars with same base brightness
       const stars = [];
       for (let i = 0; i < 50; i++) {
-        stars.push(createStar(800, 600, { twinkle: true, minBrightness: 0.5, maxBrightness: 0.5 }));
+        stars.push(
+          createStar(800, 600, {
+            twinkle: true,
+            minBrightness: 0.5,
+            maxBrightness: 0.5,
+          }),
+        );
       }
       // Sample at an arbitrary time — brightness values should have meaningful spread
-      const brightnesses = stars.map(s => applyTwinkle(s, 1.0));
+      const brightnesses = stars.map((s) => applyTwinkle(s, 1.0));
       const min = Math.min(...brightnesses);
       const max = Math.max(...brightnesses);
       // Spread should be significant (at least 0.1 range among 50 stars)
@@ -595,7 +628,9 @@ describe('Increment 4: Stars That Twinkle', () => {
       const fillStyles = [];
       const fakeCtx = {
         fillStyle: '',
-        fillRect: vi.fn(() => { fillStyles.push(fakeCtx.fillStyle); }),
+        fillRect: vi.fn(() => {
+          fillStyles.push(fakeCtx.fillStyle);
+        }),
       };
 
       // Draw at elapsed=0 → sin(0)=0 → brightness 0.5
@@ -616,7 +651,9 @@ describe('Increment 4: Stars That Twinkle', () => {
       const coords = [];
       const fakeCtx = {
         fillStyle: '',
-        fillRect: vi.fn((x, y) => { coords.push({ x, y }); }),
+        fillRect: vi.fn((x, y) => {
+          coords.push({ x, y });
+        }),
       };
 
       drawStarLayer(fakeCtx, layer, 0);
@@ -637,7 +674,9 @@ describe('Increment 4: Stars That Twinkle', () => {
       const fillStyles = [];
       const fakeCtx = {
         fillStyle: '',
-        fillRect: vi.fn(() => { fillStyles.push(fakeCtx.fillStyle); }),
+        fillRect: vi.fn(() => {
+          fillStyles.push(fakeCtx.fillStyle);
+        }),
       };
 
       drawStarLayer(fakeCtx, layer, 0);
@@ -656,7 +695,9 @@ describe('Increment 4: Stars That Twinkle', () => {
       const fillStyles = [];
       const fakeCtx = {
         fillStyle: '',
-        fillRect: vi.fn(() => { fillStyles.push(fakeCtx.fillStyle); }),
+        fillRect: vi.fn(() => {
+          fillStyles.push(fakeCtx.fillStyle);
+        }),
       };
 
       drawStarLayer(fakeCtx, layer, 0);
@@ -673,7 +714,9 @@ describe('Increment 4: Stars That Twinkle', () => {
       const fillStyles = [];
       const fakeCtx = {
         fillStyle: '',
-        fillRect: vi.fn(() => { fillStyles.push(fakeCtx.fillStyle); }),
+        fillRect: vi.fn(() => {
+          fillStyles.push(fakeCtx.fillStyle);
+        }),
       };
 
       drawStarLayer(fakeCtx, layer, 0);
@@ -688,7 +731,6 @@ describe('Increment 4: Stars That Twinkle', () => {
 });
 
 describe('Increment 15: Star Field Direction', () => {
-
   describe('updateStarLayerDirectional — left (default)', () => {
     it('moves stars leftward by speed * dt', () => {
       const layer = createStarLayer(1, 800, 600, { speed: 100 });
@@ -791,12 +833,19 @@ describe('Increment 15: Star Field Direction', () => {
       // Place star to the right of center
       layer.stars[0].x = 500;
       layer.stars[0].y = 300;
-      const cx = 400, cy = 300;
-      const distBefore = Math.hypot(layer.stars[0].x - cx, layer.stars[0].y - cy);
+      const cx = 400,
+        cy = 300;
+      const distBefore = Math.hypot(
+        layer.stars[0].x - cx,
+        layer.stars[0].y - cy,
+      );
 
       updateStarLayerDirectional(layer, 0.1, 800, 600, 'radial');
 
-      const distAfter = Math.hypot(layer.stars[0].x - cx, layer.stars[0].y - cy);
+      const distAfter = Math.hypot(
+        layer.stars[0].x - cx,
+        layer.stars[0].y - cy,
+      );
       expect(distAfter).toBeGreaterThan(distBefore);
     });
 
@@ -804,12 +853,19 @@ describe('Increment 15: Star Field Direction', () => {
       const layer = createStarLayer(1, 800, 600, { speed: 100 });
       layer.stars[0].x = 500;
       layer.stars[0].y = 400;
-      const cx = 400, cy = 300;
-      const angleBefore = Math.atan2(layer.stars[0].y - cy, layer.stars[0].x - cx);
+      const cx = 400,
+        cy = 300;
+      const angleBefore = Math.atan2(
+        layer.stars[0].y - cy,
+        layer.stars[0].x - cx,
+      );
 
       updateStarLayerDirectional(layer, 0.1, 800, 600, 'radial');
 
-      const angleAfter = Math.atan2(layer.stars[0].y - cy, layer.stars[0].x - cx);
+      const angleAfter = Math.atan2(
+        layer.stars[0].y - cy,
+        layer.stars[0].x - cx,
+      );
       expect(angleAfter).toBeCloseTo(angleBefore, 3);
     });
 
@@ -820,7 +876,8 @@ describe('Increment 15: Star Field Direction', () => {
 
       updateStarLayerDirectional(layer, 0.01, 800, 600, 'radial');
 
-      const cx = 400, cy = 300;
+      const cx = 400,
+        cy = 300;
       const dist = Math.hypot(layer.stars[0].x - cx, layer.stars[0].y - cy);
       // Should have respawned near center but not at exact center
       expect(dist).toBeGreaterThan(3);
@@ -834,7 +891,8 @@ describe('Increment 15: Star Field Direction', () => {
 
       updateStarLayerDirectional(layer, 0.01, 800, 600, 'radial');
 
-      const cx = 400, cy = 300;
+      const cx = 400,
+        cy = 300;
       const dist = Math.hypot(layer.stars[0].x - cx, layer.stars[0].y - cy);
       expect(dist).toBeGreaterThan(3);
       expect(dist).toBeLessThan(40);
@@ -868,8 +926,8 @@ describe('Increment 15: Star Field Direction', () => {
       updateStarLayerDirectional(nearCenter, 0.1, 800, 600, 'radial');
       updateStarLayerDirectional(farFromCenter, 0.1, 800, 600, 'radial');
 
-      const nearMoved = (nearCenter.stars[0].x - 400) - nearDistBefore;
-      const farMoved = (farFromCenter.stars[0].x - 400) - farDistBefore;
+      const nearMoved = nearCenter.stars[0].x - 400 - nearDistBefore;
+      const farMoved = farFromCenter.stars[0].x - 400 - farDistBefore;
 
       // Far star should have moved more pixels than near star
       expect(farMoved).toBeGreaterThan(nearMoved);
@@ -900,7 +958,9 @@ describe('Increment 15: Star Field Direction', () => {
       updateStarLayerDirectional(nearCenter, 0.01, 800, 600, 'radial');
       updateStarLayerDirectional(nearEdge, 0.01, 800, 600, 'radial');
 
-      expect(nearEdge.stars[0].radialBrightness).toBeGreaterThan(nearCenter.stars[0].radialBrightness);
+      expect(nearEdge.stars[0].radialBrightness).toBeGreaterThan(
+        nearCenter.stars[0].radialBrightness,
+      );
     });
 
     it('respawned stars have low radialBrightness', () => {
@@ -952,7 +1012,7 @@ describe('Increment 15: Star Field Direction', () => {
   describe('existing stars preserved on direction change', () => {
     it('stars are not recreated — same array reference after direction switch', () => {
       const layer = createStarLayer(5, 800, 600, { speed: 10 });
-      const starRefs = layer.stars.map(s => s);
+      const starRefs = layer.stars.map((s) => s);
 
       // Update with one direction, then another — stars should be same objects
       updateStarLayerDirectional(layer, 0.016, 800, 600, 'left');
@@ -991,7 +1051,7 @@ describe('Increment 15: Star Field Direction', () => {
       redistributeStars(layers, 800, 600, 'left');
 
       // Stars should now be spread across the canvas, not all at center
-      const xs = layers[0].stars.map(s => s.x);
+      const xs = layers[0].stars.map((s) => s.x);
       const minX = Math.min(...xs);
       const maxX = Math.max(...xs);
       expect(maxX - minX).toBeGreaterThan(200);
@@ -1027,8 +1087,11 @@ describe('Increment 15: Star Field Direction', () => {
 
       redistributeStars(layers, 800, 600, 'radial');
 
-      const cx = 400, cy = 300;
-      const distances = layers[0].stars.map(s => Math.hypot(s.x - cx, s.y - cy));
+      const cx = 400,
+        cy = 300;
+      const distances = layers[0].stars.map((s) =>
+        Math.hypot(s.x - cx, s.y - cy),
+      );
       const minDist = Math.min(...distances);
       const maxDist = Math.max(...distances);
       // Should have stars both near and far from center
@@ -1052,15 +1115,21 @@ describe('Increment 15: Star Field Direction', () => {
 
       redistributeStars(layers, 800, 600, 'radial');
 
-      const cx = 400, cy = 300;
+      const cx = 400,
+        cy = 300;
       // Sort stars by distance from center
       const sorted = [...layers[0].stars].sort(
-        (a, b) => Math.hypot(a.x - cx, a.y - cy) - Math.hypot(b.x - cx, b.y - cy)
+        (a, b) =>
+          Math.hypot(a.x - cx, a.y - cy) - Math.hypot(b.x - cx, b.y - cy),
       );
       // The nearest quarter should on average be dimmer than the farthest quarter
       const quarter = Math.floor(sorted.length / 4);
-      const nearAvg = sorted.slice(0, quarter).reduce((s, st) => s + st.radialBrightness, 0) / quarter;
-      const farAvg = sorted.slice(-quarter).reduce((s, st) => s + st.radialBrightness, 0) / quarter;
+      const nearAvg =
+        sorted.slice(0, quarter).reduce((s, st) => s + st.radialBrightness, 0) /
+        quarter;
+      const farAvg =
+        sorted.slice(-quarter).reduce((s, st) => s + st.radialBrightness, 0) /
+        quarter;
       expect(farAvg).toBeGreaterThan(nearAvg);
     });
 
@@ -1080,7 +1149,7 @@ describe('Increment 15: Star Field Direction', () => {
       redistributeStars(layers, 800, 600, 'up');
 
       for (const layer of layers) {
-        const xs = layer.stars.map(s => s.x);
+        const xs = layer.stars.map((s) => s.x);
         expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(100);
       }
     });

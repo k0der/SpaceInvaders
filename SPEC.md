@@ -240,6 +240,7 @@ The star field direction is user-configurable with 5 modes:
 | Asteroid Count       | Slider   | 5 – 50                        | 20      | 1    |
 | Speed Multiplier     | Slider   | 0.2 – 3.0                     | 1.0     | 0.1  |
 | Star Parallax Layers | Slider   | 3 – 6                         | 3       | 1    |
+| Thrust Power         | Slider   | 100 – 2000                        | 900     | 50   |
 | Star Field Direction | Select   | left / right / up / down / radial | left    | —    |
 
 - Each slider shows its **current value** as a label

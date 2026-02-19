@@ -3,9 +3,20 @@
  */
 export const SETTINGS_CONFIG = {
   asteroidCount: { min: 5, max: 50, step: 1, default: 20, label: 'Asteroids' },
-  speedMultiplier: { min: 0.2, max: 3.0, step: 0.1, default: 1.0, label: 'Speed' },
+  speedMultiplier: {
+    min: 0.2,
+    max: 3.0,
+    step: 0.1,
+    default: 1.0,
+    label: 'Speed',
+  },
   starLayers: { min: 3, max: 6, step: 1, default: 3, label: 'Star Layers' },
-  starDirection: { options: ['left', 'right', 'up', 'down', 'radial'], default: 'left', label: 'Direction' },
+  thrustPower: { min: 100, max: 2000, step: 50, default: 900, label: 'Thrust' },
+  starDirection: {
+    options: ['left', 'right', 'up', 'down', 'radial'],
+    default: 'left',
+    label: 'Direction',
+  },
 };
 
 const STORAGE_KEY = 'asteroidSettings';
@@ -15,10 +26,14 @@ const STORAGE_KEY = 'asteroidSettings';
  */
 export function createSettings(overrides = {}) {
   return {
-    asteroidCount: overrides.asteroidCount ?? SETTINGS_CONFIG.asteroidCount.default,
-    speedMultiplier: overrides.speedMultiplier ?? SETTINGS_CONFIG.speedMultiplier.default,
+    asteroidCount:
+      overrides.asteroidCount ?? SETTINGS_CONFIG.asteroidCount.default,
+    speedMultiplier:
+      overrides.speedMultiplier ?? SETTINGS_CONFIG.speedMultiplier.default,
     starLayers: overrides.starLayers ?? SETTINGS_CONFIG.starLayers.default,
-    starDirection: overrides.starDirection ?? SETTINGS_CONFIG.starDirection.default,
+    thrustPower: overrides.thrustPower ?? SETTINGS_CONFIG.thrustPower.default,
+    starDirection:
+      overrides.starDirection ?? SETTINGS_CONFIG.starDirection.default,
     panelOpen: false,
     gearVisible: true,
     gearHovered: false,
@@ -35,6 +50,7 @@ export function saveSettings(settings) {
     asteroidCount: settings.asteroidCount,
     speedMultiplier: settings.speedMultiplier,
     starLayers: settings.starLayers,
+    thrustPower: settings.thrustPower,
     starDirection: settings.starDirection,
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -49,6 +65,7 @@ export function loadSettings() {
     asteroidCount: SETTINGS_CONFIG.asteroidCount.default,
     speedMultiplier: SETTINGS_CONFIG.speedMultiplier.default,
     starLayers: SETTINGS_CONFIG.starLayers.default,
+    thrustPower: SETTINGS_CONFIG.thrustPower.default,
     starDirection: SETTINGS_CONFIG.starDirection.default,
   };
 
@@ -57,7 +74,11 @@ export function loadSettings() {
     if (raw === null) return defaults;
 
     const parsed = JSON.parse(raw);
-    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      Array.isArray(parsed)
+    ) {
       return defaults;
     }
 
@@ -69,7 +90,7 @@ export function loadSettings() {
       if (config.options) {
         // String enum setting (e.g. starDirection)
         result[name] = config.options.includes(val) ? val : defaults[name];
-      } else if (typeof val === 'number' && !isNaN(val)) {
+      } else if (typeof val === 'number' && !Number.isNaN(val)) {
         result[name] = clampSetting(name, val);
       } else {
         result[name] = defaults[name];
@@ -117,7 +138,7 @@ export function updateAutoHide(settings, dt) {
  * Format a setting value for display.
  */
 function formatValue(name, value) {
-  if (name === 'speedMultiplier') return value.toFixed(1) + 'x';
+  if (name === 'speedMultiplier') return `${value.toFixed(1)}x`;
   return String(value);
 }
 
@@ -175,7 +196,8 @@ export function createSettingsUI(container, settings) {
       label.textContent = config.label;
 
       const select = document.createElement('select');
-      select.style.cssText = 'width:100%;background:#222;color:#fff;border:1px solid #555;' +
+      select.style.cssText =
+        'width:100%;background:#222;color:#fff;border:1px solid #555;' +
         'padding:4px;font-family:"Courier New",monospace;font-size:14px;';
       for (const opt of config.options) {
         const option = document.createElement('option');
@@ -258,8 +280,12 @@ export function createSettingsUI(container, settings) {
     sliders,
     valueDisplays,
     directionSelect,
-    set onChange(fn) { _onChange = fn; },
-    get onChange() { return _onChange; },
+    set onChange(fn) {
+      _onChange = fn;
+    },
+    get onChange() {
+      return _onChange;
+    },
     destroy() {
       document.removeEventListener('keydown', onKeydown);
     },

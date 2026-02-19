@@ -12,15 +12,15 @@ export function createInputState() {
 }
 
 const KEY_MAP = {
-  'w':          'thrust',
-  'arrowup':    'thrust',
-  'a':          'rotateLeft',
-  'arrowleft':  'rotateLeft',
-  'd':          'rotateRight',
-  'arrowright':  'rotateRight',
-  's':          'brake',
-  'arrowdown':  'brake',
-  ' ':          'fire',
+  w: 'thrust',
+  arrowup: 'thrust',
+  a: 'rotateLeft',
+  arrowleft: 'rotateLeft',
+  d: 'rotateRight',
+  arrowright: 'rotateRight',
+  s: 'brake',
+  arrowdown: 'brake',
+  ' ': 'fire',
 };
 
 function resolveKey(key) {

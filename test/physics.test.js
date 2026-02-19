@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { createAsteroid } from '../src/asteroid.js';
 import {
   detectCollisions,
@@ -7,7 +7,6 @@ import {
 } from '../src/physics.js';
 
 describe('Increment 10: Asteroids Bounce Off Each Other', () => {
-
   // Helper: create a simple asteroid at a given position with velocity
   function asteroid(x, y, vx, vy, radius) {
     const a = createAsteroid({ x, y, vx, vy, radius });
@@ -18,7 +17,8 @@ describe('Increment 10: Asteroids Bounce Off Each Other', () => {
 
   // Helper: compute total momentum (mass = collisionRadius²)
   function totalMomentum(asteroids) {
-    let px = 0, py = 0;
+    let px = 0,
+      py = 0;
     for (const a of asteroids) {
       const mass = a.collisionRadius * a.collisionRadius;
       px += mass * a.vx;
@@ -155,7 +155,9 @@ describe('Increment 10: Asteroids Bounce Off Each Other', () => {
       // Tighter check: within 1%
       const pMagBefore = Math.sqrt(before.px ** 2 + before.py ** 2);
       if (pMagBefore > 0) {
-        const pError = Math.sqrt((after.px - before.px) ** 2 + (after.py - before.py) ** 2);
+        const pError = Math.sqrt(
+          (after.px - before.px) ** 2 + (after.py - before.py) ** 2,
+        );
         expect(pError / pMagBefore).toBeLessThan(0.01);
       }
     });
@@ -208,7 +210,7 @@ describe('Increment 10: Asteroids Bounce Off Each Other', () => {
 
     it('applies small random perturbation (±2%) to post-collision velocities', () => {
       // Run many collisions with identical setup; velocities should vary slightly
-      let vxValues = [];
+      const vxValues = [];
       for (let i = 0; i < 50; i++) {
         const a = asteroid(100, 100, 50, 0, 30);
         const b = asteroid(150, 100, -50, 0, 30);
@@ -216,7 +218,7 @@ describe('Increment 10: Asteroids Bounce Off Each Other', () => {
         vxValues.push(a.vx);
       }
       // Not all identical (perturbation introduces variance)
-      const unique = new Set(vxValues.map(v => v.toFixed(4)));
+      const unique = new Set(vxValues.map((v) => v.toFixed(4)));
       expect(unique.size).toBeGreaterThan(1);
     });
 
@@ -272,7 +274,9 @@ describe('Increment 10: Asteroids Bounce Off Each Other', () => {
       const dy = b.y - a.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
       // Allow tiny floating-point tolerance (1e-10) on the sqrt result
-      expect(dist).toBeGreaterThanOrEqual(a.collisionRadius + b.collisionRadius - 1e-10);
+      expect(dist).toBeGreaterThanOrEqual(
+        a.collisionRadius + b.collisionRadius - 1e-10,
+      );
     });
 
     it('lighter asteroid is pushed more during separation', () => {
@@ -303,8 +307,9 @@ describe('Increment 10: Asteroids Bounce Off Each Other', () => {
       const lenAfter = Math.sqrt(nxAfter ** 2 + nyAfter ** 2);
 
       // Direction should be preserved (dot product of normalized vectors ≈ 1)
-      const dot = (nxBefore / lenBefore) * (nxAfter / lenAfter) +
-                  (nyBefore / lenBefore) * (nyAfter / lenAfter);
+      const dot =
+        (nxBefore / lenBefore) * (nxAfter / lenAfter) +
+        (nyBefore / lenBefore) * (nyAfter / lenAfter);
       expect(dot).toBeCloseTo(1.0, 3);
     });
   });

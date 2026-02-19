@@ -7,7 +7,8 @@ export function createStar(canvasWidth, canvasHeight, options = {}) {
   const minBrightness = options.minBrightness ?? 0.3;
   const maxBrightness = options.maxBrightness ?? 1.0;
 
-  const brightness = minBrightness + Math.random() * (maxBrightness - minBrightness);
+  const brightness =
+    minBrightness + Math.random() * (maxBrightness - minBrightness);
 
   const star = {
     x: Math.random() * canvasWidth,
@@ -18,7 +19,7 @@ export function createStar(canvasWidth, canvasHeight, options = {}) {
 
   if (options.twinkle) {
     star.twinklePhase = Math.random() * Math.PI * 2;
-    star.twinkleFreq = 0.3 + Math.random() * 2.7;           // 0.3–3.0 Hz
+    star.twinkleFreq = 0.3 + Math.random() * 2.7; // 0.3–3.0 Hz
     star.twinkleAmplitude = brightness * (0.1 + Math.random() * 0.2); // 10–30% of base
   }
 
@@ -28,7 +29,12 @@ export function createStar(canvasWidth, canvasHeight, options = {}) {
 /**
  * Create a star layer: a collection of stars that scroll together at a given speed.
  */
-export function createStarLayer(count, canvasWidth, canvasHeight, options = {}) {
+export function createStarLayer(
+  count,
+  canvasWidth,
+  canvasHeight,
+  options = {},
+) {
   const stars = [];
   for (let i = 0; i < count; i++) {
     stars.push(createStar(canvasWidth, canvasHeight, options));
@@ -61,16 +67,45 @@ export function updateStarLayer(layer, dt, canvasWidth, canvasHeight) {
  */
 export function applyTwinkle(star, elapsedTime) {
   if (star.twinklePhase == null) return star.brightness;
-  const value = star.brightness + star.twinkleAmplitude * Math.sin(elapsedTime * star.twinkleFreq * Math.PI * 2 + star.twinklePhase);
+  const value =
+    star.brightness +
+    star.twinkleAmplitude *
+      Math.sin(
+        elapsedTime * star.twinkleFreq * Math.PI * 2 + star.twinklePhase,
+      );
   return Math.min(1.0, Math.max(0, value));
 }
 
 // Layer presets for the default 3-layer parallax (far, mid, near).
 // Base star counts are calibrated for 1920×1080; scaled by canvas area ratio.
 const LAYER_PRESETS = [
-  { baseCount: 100, minSize: 1, maxSize: 1, minBrightness: 0.3, maxBrightness: 0.5, minSpeed: 2, maxSpeed: 5 },
-  { baseCount: 60,  minSize: 1, maxSize: 2, minBrightness: 0.5, maxBrightness: 0.7, minSpeed: 8, maxSpeed: 15 },
-  { baseCount: 30,  minSize: 2, maxSize: 3, minBrightness: 0.7, maxBrightness: 1.0, minSpeed: 20, maxSpeed: 35 },
+  {
+    baseCount: 100,
+    minSize: 1,
+    maxSize: 1,
+    minBrightness: 0.3,
+    maxBrightness: 0.5,
+    minSpeed: 2,
+    maxSpeed: 5,
+  },
+  {
+    baseCount: 60,
+    minSize: 1,
+    maxSize: 2,
+    minBrightness: 0.5,
+    maxBrightness: 0.7,
+    minSpeed: 8,
+    maxSpeed: 15,
+  },
+  {
+    baseCount: 30,
+    minSize: 2,
+    maxSize: 3,
+    minBrightness: 0.7,
+    maxBrightness: 1.0,
+    minSpeed: 20,
+    maxSpeed: 35,
+  },
 ];
 
 /**
@@ -84,7 +119,11 @@ function lerp(a, b, t) {
  * Create parallax star layers. Default is 3 (far, mid, near).
  * Extra layers interpolate properties between far and near presets.
  */
-export function createParallaxLayers(canvasWidth, canvasHeight, layerCount = 3) {
+export function createParallaxLayers(
+  canvasWidth,
+  canvasHeight,
+  layerCount = 3,
+) {
   const baseArea = 1920 * 1080;
   const areaRatio = (canvasWidth * canvasHeight) / baseArea;
   const far = LAYER_PRESETS[0];
@@ -112,20 +151,23 @@ export function createParallaxLayers(canvasWidth, canvasHeight, layerCount = 3) 
     const count = Math.max(1, Math.round(preset.baseCount * areaRatio));
     // Use midpoint of speed range for interpolated layers to guarantee monotonic ordering;
     // the 3-layer preset path already has non-overlapping ranges so random is fine there.
-    const speed = (layerCount === 3 && i < 3)
-      ? preset.minSpeed + Math.random() * (preset.maxSpeed - preset.minSpeed)
-      : (preset.minSpeed + preset.maxSpeed) / 2;
+    const speed =
+      layerCount === 3 && i < 3
+        ? preset.minSpeed + Math.random() * (preset.maxSpeed - preset.minSpeed)
+        : (preset.minSpeed + preset.maxSpeed) / 2;
 
-    const isNearLayer = (i === layerCount - 1) && layerCount > 1;
+    const isNearLayer = i === layerCount - 1 && layerCount > 1;
 
-    layers.push(createStarLayer(count, canvasWidth, canvasHeight, {
-      speed,
-      minSize: preset.minSize,
-      maxSize: preset.maxSize,
-      minBrightness: preset.minBrightness,
-      maxBrightness: preset.maxBrightness,
-      twinkle: !isNearLayer,
-    }));
+    layers.push(
+      createStarLayer(count, canvasWidth, canvasHeight, {
+        speed,
+        minSize: preset.minSize,
+        maxSize: preset.maxSize,
+        minBrightness: preset.minBrightness,
+        maxBrightness: preset.maxBrightness,
+        twinkle: !isNearLayer,
+      }),
+    );
   }
   return layers;
 }
@@ -134,7 +176,13 @@ export function createParallaxLayers(canvasWidth, canvasHeight, layerCount = 3) 
  * Update a star layer with a configurable direction.
  * Directions: 'left', 'right', 'up', 'down', 'radial'.
  */
-export function updateStarLayerDirectional(layer, dt, canvasWidth, canvasHeight, direction) {
+export function updateStarLayerDirectional(
+  layer,
+  dt,
+  canvasWidth,
+  canvasHeight,
+  direction,
+) {
   const baseDelta = layer.speed * dt;
   if (baseDelta === 0) return;
 
@@ -169,7 +217,12 @@ export function updateStarLayerDirectional(layer, dt, canvasWidth, canvasHeight,
       star.radialBrightness = Math.min(newDist / refDist, 1.0);
 
       // Recycle if outside canvas
-      if (star.x < 0 || star.x > canvasWidth || star.y < 0 || star.y > canvasHeight) {
+      if (
+        star.x < 0 ||
+        star.x > canvasWidth ||
+        star.y < 0 ||
+        star.y > canvasHeight
+      ) {
         const angle = Math.random() * Math.PI * 2;
         const spawnDist = 5 + Math.random() * 25;
         star.x = cx + Math.cos(angle) * spawnDist;
@@ -215,7 +268,12 @@ export function updateStarLayerDirectional(layer, dt, canvasWidth, canvasHeight,
  * Call when the user switches direction to avoid visual artifacts
  * (e.g. stars clustered at center after leaving radial mode).
  */
-export function redistributeStars(layers, canvasWidth, canvasHeight, direction) {
+export function redistributeStars(
+  layers,
+  canvasWidth,
+  canvasHeight,
+  direction,
+) {
   const cx = canvasWidth / 2;
   const cy = canvasHeight / 2;
   const refDist = Math.min(canvasWidth, canvasHeight) / 2;
@@ -266,11 +324,6 @@ export function drawStarLayer(ctx, layer, elapsedTime = 0) {
       brightness *= star.radialBrightness;
     }
     ctx.fillStyle = `rgba(255, 255, 255, ${brightness})`;
-    ctx.fillRect(
-      star.x,
-      star.y,
-      star.size,
-      star.size,
-    );
+    ctx.fillRect(star.x, star.y, star.size, star.size);
   }
 }

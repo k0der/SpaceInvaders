@@ -1,10 +1,26 @@
-import { createParallaxLayers, updateStarLayerDirectional, drawParallaxLayers, redistributeStars } from './starfield.js';
 import { drawAsteroid } from './asteroid.js';
-import { createSimulation, updateSimulation } from './simulation.js';
-import { createSettings, createSettingsUI, updateAutoHide, loadSettings, saveSettings } from './settings.js';
+import {
+  applyInput,
+  createInputState,
+  handleKeyDown,
+  handleKeyUp,
+} from './input.js';
 import { setupHiDPICanvas } from './renderer.js';
-import { createShip, updateShip, drawShip } from './ship.js';
-import { createInputState, handleKeyDown, handleKeyUp, applyInput } from './input.js';
+import {
+  createSettings,
+  createSettingsUI,
+  loadSettings,
+  saveSettings,
+  updateAutoHide,
+} from './settings.js';
+import { createShip, drawShip, updateShip } from './ship.js';
+import { createSimulation, updateSimulation } from './simulation.js';
+import {
+  createParallaxLayers,
+  drawParallaxLayers,
+  redistributeStars,
+  updateStarLayerDirectional,
+} from './starfield.js';
 
 /**
  * Calculate delta time in seconds between two timestamps (ms).
@@ -50,7 +66,13 @@ export function startApp() {
   const ctx = canvas.getContext('2d');
   const dpr = window.devicePixelRatio || 1;
 
-  let logicalSize = setupHiDPICanvas(canvas, ctx, window.innerWidth, window.innerHeight, dpr);
+  let logicalSize = setupHiDPICanvas(
+    canvas,
+    ctx,
+    window.innerWidth,
+    window.innerHeight,
+    dpr,
+  );
 
   const loop = createLoop();
   let starLayers = createParallaxLayers(logicalSize.width, logicalSize.height);
@@ -67,13 +89,23 @@ export function startApp() {
 
   // Settings UI
   const ui = createSettingsUI(document.body, settings);
-  // Apply loaded settings to simulation and starfield
+  // Apply loaded settings to simulation, ship, and starfield
   sim.targetCount = settings.asteroidCount;
+  playerShip.thrustPower = settings.thrustPower;
   if (settings.starLayers !== 3) {
-    starLayers = createParallaxLayers(logicalSize.width, logicalSize.height, settings.starLayers);
+    starLayers = createParallaxLayers(
+      logicalSize.width,
+      logicalSize.height,
+      settings.starLayers,
+    );
   }
   if (settings.starDirection !== 'left') {
-    redistributeStars(starLayers, logicalSize.width, logicalSize.height, settings.starDirection);
+    redistributeStars(
+      starLayers,
+      logicalSize.width,
+      logicalSize.height,
+      settings.starDirection,
+    );
   }
 
   ui.onChange = (name, value) => {
@@ -82,18 +114,41 @@ export function startApp() {
       sim.targetCount = value;
     }
     if (name === 'starLayers') {
-      starLayers = createParallaxLayers(logicalSize.width, logicalSize.height, value);
+      starLayers = createParallaxLayers(
+        logicalSize.width,
+        logicalSize.height,
+        value,
+      );
+    }
+    if (name === 'thrustPower') {
+      playerShip.thrustPower = value;
     }
     if (name === 'starDirection') {
-      redistributeStars(starLayers, logicalSize.width, logicalSize.height, value);
+      redistributeStars(
+        starLayers,
+        logicalSize.width,
+        logicalSize.height,
+        value,
+      );
     }
     saveSettings(settings);
   };
 
   // Resize: update canvas with HiDPI and redistribute stars
   window.addEventListener('resize', () => {
-    logicalSize = setupHiDPICanvas(canvas, ctx, window.innerWidth, window.innerHeight, dpr);
-    redistributeStars(starLayers, logicalSize.width, logicalSize.height, settings.starDirection);
+    logicalSize = setupHiDPICanvas(
+      canvas,
+      ctx,
+      window.innerWidth,
+      window.innerHeight,
+      dpr,
+    );
+    redistributeStars(
+      starLayers,
+      logicalSize.width,
+      logicalSize.height,
+      settings.starDirection,
+    );
   });
 
   // Auto-hide: reset gear timer on any mouse movement
@@ -123,9 +178,13 @@ export function startApp() {
       ui.gearButton.style.pointerEvents = 'auto';
     } else {
       ui.gearButton.style.opacity = settings.gearVisible
-        ? (settings.gearHovered ? '0.8' : '0.3')
+        ? settings.gearHovered
+          ? '0.8'
+          : '0.3'
         : '0';
-      ui.gearButton.style.pointerEvents = settings.gearVisible ? 'auto' : 'none';
+      ui.gearButton.style.pointerEvents = settings.gearVisible
+        ? 'auto'
+        : 'none';
     }
     ui.panel.style.display = settings.panelOpen ? 'block' : 'none';
     ui.gearButton.textContent = settings.panelOpen ? '\u2715' : '\u2630';
@@ -135,7 +194,13 @@ export function startApp() {
     updateShip(playerShip, scaledDt);
 
     for (const layer of starLayers) {
-      updateStarLayerDirectional(layer, scaledDt, logicalSize.width, logicalSize.height, settings.starDirection);
+      updateStarLayerDirectional(
+        layer,
+        scaledDt,
+        logicalSize.width,
+        logicalSize.height,
+        settings.starDirection,
+      );
     }
     updateSimulation(sim, scaledDt, logicalSize.width, logicalSize.height);
 

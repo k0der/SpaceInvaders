@@ -1,8 +1,7 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { setupHiDPICanvas } from '../src/renderer.js';
 
 describe('Increment 16: HiDPI Support', () => {
-
   describe('setupHiDPICanvas', () => {
     function createMockCanvas() {
       return {

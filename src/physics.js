@@ -37,7 +37,7 @@ export function separateOverlap(a, b) {
     return;
   }
 
-  const overlap = (a.collisionRadius + b.collisionRadius) - dist;
+  const overlap = a.collisionRadius + b.collisionRadius - dist;
   if (overlap <= 0) return;
 
   const nx = dx / dist;
@@ -90,8 +90,8 @@ export function resolveCollision(a, b) {
   // while adding enough variation to prevent repeating collision patterns.
   // Kept at ±1% to maintain KE conservation within 5%.
   const perturbation = 1 + (Math.random() * 0.02 - 0.01);
-  const impulseA = (2 * massB / totalMass) * dvDotN * perturbation;
-  const impulseB = (2 * massA / totalMass) * dvDotN * perturbation;
+  const impulseA = ((2 * massB) / totalMass) * dvDotN * perturbation;
+  const impulseB = ((2 * massA) / totalMass) * dvDotN * perturbation;
 
   a.vx -= impulseA * nx;
   a.vy -= impulseA * ny;
@@ -99,7 +99,7 @@ export function resolveCollision(a, b) {
   b.vy += impulseB * ny;
 
   // Nudge angular velocity slightly on impact
-  const angularNudge = () => (Math.random() * 0.2 - 0.1);
+  const angularNudge = () => Math.random() * 0.2 - 0.1;
   a.angularVelocity += angularNudge();
   b.angularVelocity += angularNudge();
 }

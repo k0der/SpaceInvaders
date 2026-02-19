@@ -1,13 +1,12 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
+  applyInput,
   createInputState,
   handleKeyDown,
   handleKeyUp,
-  applyInput,
 } from '../src/input.js';
 
 describe('Increment 18: Ship Rotates with Keyboard', () => {
-
   describe('createInputState', () => {
     it('returns all flags set to false', () => {
       const state = createInputState();

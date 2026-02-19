@@ -3,6 +3,8 @@
 ## Commands
 
 - `npm test` — run all tests (Vitest)
+- `npm run lint` — auto-fix lint and formatting issues (Biome)
+- `npm run lint:check` — check lint and formatting without writing (CI-friendly)
 - `npm run build` — bundle ES modules into standalone `index.html`
 - `npm run test:watch` — run tests in watch mode (development)
 
@@ -23,10 +25,12 @@
 1. **RED** — Write failing tests for the increment's acceptance criteria. Run `npm test` to confirm they fail.
 2. **GREEN** — Write the minimum code to make all tests pass. Run `npm test` to confirm.
 3. **REFACTOR** — Clean up if needed (see Refactoring Rules below). Tests must pass after each refactoring step.
-4. **Mandatory Coverage Audit** — See dedicated section below. This is the most commonly skipped step. **Do NOT proceed to Build until the coverage table has been presented to the human.**
-5. **Build** — Run `npm run build` and verify it completes without errors.
-6. **Commit & push** — Commit all changes and push to `main`.
-7. **STOP** — Present a summary of changes to the human developer and wait for review and manual testing. **Do not start the next iteration until the human gives explicit approval.** This is not optional.
+4. **Lint** — Run `npm run lint` to auto-fix formatting and lint issues. Run `npm test` to confirm nothing broke. If Biome reports remaining errors that `--write` cannot fix, resolve them manually.
+5. **Mandatory Coverage Audit** — See dedicated section below. This is the most commonly skipped step. **Do NOT proceed to Build until the coverage table has been presented to the human.**
+6. **Quality Review** — Self-review all iteration changes as a principal developer would review a PR. See dedicated section below. Fix all critical and important issues autonomously, then proceed. Include the review summary in the final STOP report.
+7. **Build** — Run `npm run build` and verify it completes without errors.
+8. **Commit & push** — Commit all changes and push to `main`.
+9. **STOP** — Present a summary of changes to the human developer and wait for review and manual testing. **Do not start the next iteration until the human gives explicit approval.** This is not optional.
 
 ## Workflow Rules
 
@@ -63,6 +67,45 @@ This step exists because there is a repeated pattern of skipping it or doing a s
 6. **Present the coverage table** to the human as a visible artifact (not just an internal check). The table must be shown *before* proceeding to the Build step.
 
 If no gaps are found, say so explicitly in the table — but still present it.
+
+### Quality Review
+
+**This step is mandatory but autonomous.** Do the review, fix issues, and proceed to Build without waiting for human approval. Include the review summary in the final STOP report (step 9).
+
+After the coverage audit, review all iteration changes with the eye of a principal developer reviewing a PR. Follow these sub-steps:
+
+1. **Determine scope**: Run `git diff` to see all uncommitted changes. These are the changes under review.
+2. **Review each aspect** by reading the actual changed code (not from memory):
+   - **Code quality** — Does the code follow the Code Conventions in this file? Look for: SOLID violations, magic numbers, deep nesting, unclear names, functions doing too much, mutating inputs.
+   - **Bugs & correctness** — Are there off-by-one errors, wrong comparisons, missing edge cases, race conditions, or logic errors?
+   - **Error handling** — Are there silent failures, swallowed errors, or missing validations at system boundaries?
+   - **Test quality** — Are tests testing behavior (not implementation details)? Are assertions meaningful? Are test names descriptive?
+   - **Simplification** — Can any code be simplified without losing clarity? Are there unnecessary abstractions, redundant conditions, or overly clever constructs?
+   - **Comment accuracy** — Do existing comments match what the code actually does? Are there stale or misleading comments? (Do NOT add new comments unless logic is non-obvious.)
+3. **Classify findings** into severity levels:
+   - **Critical** — Must fix (bugs, correctness issues, security problems, broken behavior).
+   - **Important** — Should fix (code convention violations, poor names, missing edge-case handling, test quality issues).
+   - **Minor** — Use principal-developer judgment: fix if quick and low-risk, otherwise note and skip.
+4. **Fix** all critical and important issues. Run `npm test` after each fix to ensure nothing breaks.
+5. **Record the review summary** for inclusion in the STOP report, using this format:
+
+```
+## Quality Review
+
+### Critical Issues (N found — all fixed)
+- [aspect]: Description [file:line] — fixed
+
+### Important Issues (N found — all fixed)
+- [aspect]: Description [file:line] — fixed
+
+### Minor Issues (N found — M fixed, K skipped)
+- [aspect]: Description [file:line] — fixed / skipped (reason)
+
+### Strengths
+- What's well-done in this iteration
+```
+
+If no issues are found in a category, say "None" — but still include the full summary.
 
 ### Code Conventions
 

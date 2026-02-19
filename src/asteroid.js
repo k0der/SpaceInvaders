@@ -21,9 +21,9 @@ export function generateShape(radius) {
  * Determine stroke width from asteroid radius (size class).
  */
 function getStrokeWidth(radius) {
-  if (radius >= 50) return 2.0;  // large
-  if (radius >= 25) return 1.5;  // medium
-  return 1.0;                     // small
+  if (radius >= 50) return 2.0; // large
+  if (radius >= 25) return 1.5; // medium
+  return 1.0; // small
 }
 
 /**
@@ -37,9 +37,9 @@ export function createAsteroid({ x, y, vx, vy, radius }) {
   const shape = generateShape(radius);
 
   // Compute effective collision radius as average vertex distance from center
-  const collisionRadius = shape.reduce(
-    (sum, [px, py]) => sum + Math.sqrt(px * px + py * py), 0
-  ) / shape.length;
+  const collisionRadius =
+    shape.reduce((sum, [px, py]) => sum + Math.sqrt(px * px + py * py), 0) /
+    shape.length;
 
   return {
     x,

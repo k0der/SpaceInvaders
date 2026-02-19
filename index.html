@@ -271,8 +271,9 @@ function startApp() {
 
   // Settings UI
   const ui = createSettingsUI(document.body, settings);
-  // Apply loaded settings to simulation and starfield
+  // Apply loaded settings to simulation, ship, and starfield
   sim.targetCount = settings.asteroidCount;
+  playerShip.thrustPower = settings.thrustPower;
   if (settings.starLayers !== 3) {
     starLayers = createParallaxLayers(
       logicalSize.width,
@@ -300,6 +301,9 @@ function startApp() {
         logicalSize.height,
         value,
       );
+    }
+    if (name === 'thrustPower') {
+      playerShip.thrustPower = value;
     }
     if (name === 'starDirection') {
       redistributeStars(
@@ -536,6 +540,7 @@ const SETTINGS_CONFIG = {
     label: 'Speed',
   },
   starLayers: { min: 3, max: 6, step: 1, default: 3, label: 'Star Layers' },
+  thrustPower: { min: 100, max: 2000, step: 50, default: 900, label: 'Thrust' },
   starDirection: {
     options: ['left', 'right', 'up', 'down', 'radial'],
     default: 'left',
@@ -555,6 +560,7 @@ function createSettings(overrides = {}) {
     speedMultiplier:
       overrides.speedMultiplier ?? SETTINGS_CONFIG.speedMultiplier.default,
     starLayers: overrides.starLayers ?? SETTINGS_CONFIG.starLayers.default,
+    thrustPower: overrides.thrustPower ?? SETTINGS_CONFIG.thrustPower.default,
     starDirection:
       overrides.starDirection ?? SETTINGS_CONFIG.starDirection.default,
     panelOpen: false,
@@ -573,6 +579,7 @@ function saveSettings(settings) {
     asteroidCount: settings.asteroidCount,
     speedMultiplier: settings.speedMultiplier,
     starLayers: settings.starLayers,
+    thrustPower: settings.thrustPower,
     starDirection: settings.starDirection,
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -587,6 +594,7 @@ function loadSettings() {
     asteroidCount: SETTINGS_CONFIG.asteroidCount.default,
     speedMultiplier: SETTINGS_CONFIG.speedMultiplier.default,
     starLayers: SETTINGS_CONFIG.starLayers.default,
+    thrustPower: SETTINGS_CONFIG.thrustPower.default,
     starDirection: SETTINGS_CONFIG.starDirection.default,
   };
 
@@ -875,8 +883,9 @@ function updateShip(ship, dt) {
 
   // 2. Thrust — accelerate in heading direction
   if (ship.thrust) {
-    ship.vx += Math.cos(ship.heading) * THRUST_POWER * dt;
-    ship.vy += Math.sin(ship.heading) * THRUST_POWER * dt;
+    const power = ship.thrustPower ?? THRUST_POWER;
+    ship.vx += Math.cos(ship.heading) * power * dt;
+    ship.vy += Math.sin(ship.heading) * power * dt;
   }
 
   // 3. Braking — decelerate opposite to velocity direction

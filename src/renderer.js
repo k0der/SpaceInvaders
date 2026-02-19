@@ -7,8 +7,8 @@
 export function setupHiDPICanvas(canvas, ctx, cssWidth, cssHeight, dpr) {
   canvas.width = cssWidth * dpr;
   canvas.height = cssHeight * dpr;
-  canvas.style.width = cssWidth + 'px';
-  canvas.style.height = cssHeight + 'px';
+  canvas.style.width = `${cssWidth}px`;
+  canvas.style.height = `${cssHeight}px`;
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   return { width: cssWidth, height: cssHeight };
 }

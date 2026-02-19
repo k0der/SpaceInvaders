@@ -59,8 +59,9 @@ export function updateShip(ship, dt) {
 
   // 2. Thrust — accelerate in heading direction
   if (ship.thrust) {
-    ship.vx += Math.cos(ship.heading) * THRUST_POWER * dt;
-    ship.vy += Math.sin(ship.heading) * THRUST_POWER * dt;
+    const power = ship.thrustPower ?? THRUST_POWER;
+    ship.vx += Math.cos(ship.heading) * power * dt;
+    ship.vy += Math.sin(ship.heading) * power * dt;
   }
 
   // 3. Braking — decelerate opposite to velocity direction

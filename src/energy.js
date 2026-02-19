@@ -22,7 +22,11 @@ export function computeTotalKE(asteroids) {
  * Compute a speed multiplier for new spawns to sustain system energy.
  * Returns clamp(sqrt(targetKE / actualKE), 1.0, 1.5).
  */
-export function computeSpeedBoost(baselineKEPerAsteroid, targetCount, asteroids) {
+export function computeSpeedBoost(
+  baselineKEPerAsteroid,
+  targetCount,
+  asteroids,
+) {
   const targetKE = baselineKEPerAsteroid * targetCount;
   if (targetKE <= 0) return 1.0;
 

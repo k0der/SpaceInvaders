@@ -1,15 +1,14 @@
-import { describe, it, expect } from 'vitest';
-import {
-  isOffScreen,
-  spawnAsteroidFromEdge,
-  createSimulation,
-  updateSimulation,
-} from '../src/simulation.js';
+import { describe, expect, it } from 'vitest';
 import { createAsteroid } from '../src/asteroid.js';
 import { computeTotalKE } from '../src/energy.js';
+import {
+  createSimulation,
+  isOffScreen,
+  spawnAsteroidFromEdge,
+  updateSimulation,
+} from '../src/simulation.js';
 
 describe('Increment 8: Asteroids Come and Go', () => {
-
   describe('isOffScreen', () => {
     it('returns true when asteroid is fully past the right edge', () => {
       const a = createAsteroid({ x: 900, y: 300, vx: 0, vy: 0, radius: 30 });
@@ -68,11 +67,23 @@ describe('Increment 8: Asteroids Come and Go', () => {
 
     it('margin boundary: right edge precision', () => {
       // x=835, radius=30: x-radius-margin = 835-30-5 = 800, NOT > 800 → still on screen
-      const onEdge = createAsteroid({ x: 835, y: 300, vx: 0, vy: 0, radius: 30 });
+      const onEdge = createAsteroid({
+        x: 835,
+        y: 300,
+        vx: 0,
+        vy: 0,
+        radius: 30,
+      });
       expect(isOffScreen(onEdge, 800, 600)).toBe(false);
 
       // x=836, radius=30: x-radius-margin = 836-30-5 = 801 > 800 → off-screen
-      const pastEdge = createAsteroid({ x: 836, y: 300, vx: 0, vy: 0, radius: 30 });
+      const pastEdge = createAsteroid({
+        x: 836,
+        y: 300,
+        vx: 0,
+        vy: 0,
+        radius: 30,
+      });
       expect(isOffScreen(pastEdge, 800, 600)).toBe(true);
     });
   });
@@ -105,11 +116,9 @@ describe('Increment 8: Asteroids Come and Go', () => {
       const total = 100;
       for (let i = 0; i < total; i++) {
         const a = spawnAsteroidFromEdge(800, 600);
-        const distBefore = Math.sqrt(
-          Math.pow(a.x - 400, 2) + Math.pow(a.y - 300, 2)
-        );
+        const distBefore = Math.sqrt((a.x - 400) ** 2 + (a.y - 300) ** 2);
         const distAfter = Math.sqrt(
-          Math.pow(a.x + a.vx * 2 - 400, 2) + Math.pow(a.y + a.vy * 2 - 300, 2)
+          (a.x + a.vx * 2 - 400) ** 2 + (a.y + a.vy * 2 - 300) ** 2,
         );
         if (distAfter < distBefore) inwardCount++;
       }
@@ -133,7 +142,9 @@ describe('Increment 8: Asteroids Come and Go', () => {
     });
 
     it('respects size distribution (~20% large, ~40% medium, ~40% small)', () => {
-      let large = 0, medium = 0, small = 0;
+      let large = 0,
+        medium = 0,
+        small = 0;
       const N = 500;
       for (let i = 0; i < N; i++) {
         const a = spawnAsteroidFromEdge(800, 600);
@@ -152,7 +163,8 @@ describe('Increment 8: Asteroids Come and Go', () => {
 
     it('speed is inversely proportional to radius (large=slow, small=fast)', () => {
       // Spawn many and check average speeds by size class
-      let largeSpeeds = [], smallSpeeds = [];
+      const largeSpeeds = [],
+        smallSpeeds = [];
       for (let i = 0; i < 200; i++) {
         const a = spawnAsteroidFromEdge(800, 600);
         const speed = Math.sqrt(a.vx * a.vx + a.vy * a.vy);
@@ -160,8 +172,10 @@ describe('Increment 8: Asteroids Come and Go', () => {
         else if (a.radius < 25) smallSpeeds.push(speed);
       }
       if (largeSpeeds.length > 0 && smallSpeeds.length > 0) {
-        const avgLarge = largeSpeeds.reduce((s, v) => s + v, 0) / largeSpeeds.length;
-        const avgSmall = smallSpeeds.reduce((s, v) => s + v, 0) / smallSpeeds.length;
+        const avgLarge =
+          largeSpeeds.reduce((s, v) => s + v, 0) / largeSpeeds.length;
+        const avgSmall =
+          smallSpeeds.reduce((s, v) => s + v, 0) / smallSpeeds.length;
         expect(avgSmall).toBeGreaterThan(avgLarge);
       }
     });
@@ -188,13 +202,16 @@ describe('Increment 8: Asteroids Come and Go', () => {
   describe('updateSimulation', () => {
     it('updates all asteroid positions', () => {
       const sim = createSimulation(800, 600, 5);
-      const positions = sim.asteroids.map(a => ({ x: a.x, y: a.y }));
+      const positions = sim.asteroids.map((a) => ({ x: a.x, y: a.y }));
 
       updateSimulation(sim, 0.1, 800, 600);
 
       let anyMoved = false;
       for (let i = 0; i < sim.asteroids.length; i++) {
-        if (sim.asteroids[i].x !== positions[i].x || sim.asteroids[i].y !== positions[i].y) {
+        if (
+          sim.asteroids[i].x !== positions[i].x ||
+          sim.asteroids[i].y !== positions[i].y
+        ) {
           anyMoved = true;
           break;
         }
@@ -205,7 +222,13 @@ describe('Increment 8: Asteroids Come and Go', () => {
     it('removes off-screen asteroids', () => {
       const sim = createSimulation(800, 600, 0);
       // Manually add an asteroid that is already off-screen
-      const offScreen = createAsteroid({ x: -200, y: -200, vx: -10, vy: -10, radius: 20 });
+      const offScreen = createAsteroid({
+        x: -200,
+        y: -200,
+        vx: -10,
+        vy: -10,
+        radius: 20,
+      });
       sim.asteroids.push(offScreen);
 
       updateSimulation(sim, 0.016, 800, 600);
@@ -269,7 +292,9 @@ describe('Increment 8: Asteroids Come and Go', () => {
       const dx = b.x - a.x;
       const dy = b.y - a.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      expect(dist).toBeGreaterThanOrEqual(a.collisionRadius + b.collisionRadius - 1e-10);
+      expect(dist).toBeGreaterThanOrEqual(
+        a.collisionRadius + b.collisionRadius - 1e-10,
+      );
     });
 
     it('asteroid count stays near target over time', () => {
@@ -288,7 +313,6 @@ describe('Increment 8: Asteroids Come and Go', () => {
 });
 
 describe('Increment 12: Energy-Sustaining Spawns — Simulation Integration', () => {
-
   describe('createSimulation — baseline KE', () => {
     it('records baselineKEPerAsteroid from initial population', () => {
       const sim = createSimulation(800, 600, 20);
@@ -314,31 +338,35 @@ describe('Increment 12: Energy-Sustaining Spawns — Simulation Integration', ()
 
     it('default multiplier is 1.0 (no change)', () => {
       // Sample many and compare average speeds with and without multiplier
-      let speedsDefault = [];
-      let speedsExplicit = [];
+      const speedsDefault = [];
+      const speedsExplicit = [];
       for (let i = 0; i < 200; i++) {
         const a = spawnAsteroidFromEdge(800, 600);
         const b = spawnAsteroidFromEdge(800, 600, 1.0);
         speedsDefault.push(Math.sqrt(a.vx ** 2 + a.vy ** 2));
         speedsExplicit.push(Math.sqrt(b.vx ** 2 + b.vy ** 2));
       }
-      const avgDefault = speedsDefault.reduce((s, v) => s + v, 0) / speedsDefault.length;
-      const avgExplicit = speedsExplicit.reduce((s, v) => s + v, 0) / speedsExplicit.length;
+      const avgDefault =
+        speedsDefault.reduce((s, v) => s + v, 0) / speedsDefault.length;
+      const avgExplicit =
+        speedsExplicit.reduce((s, v) => s + v, 0) / speedsExplicit.length;
       // Averages should be roughly similar (within 20% due to randomness)
       expect(Math.abs(avgDefault - avgExplicit) / avgDefault).toBeLessThan(0.2);
     });
 
     it('multiplier of 1.5 produces ~1.5x faster asteroids on average', () => {
-      let speedsNormal = [];
-      let speedsBoosted = [];
+      const speedsNormal = [];
+      const speedsBoosted = [];
       for (let i = 0; i < 300; i++) {
         const a = spawnAsteroidFromEdge(800, 600, 1.0);
         const b = spawnAsteroidFromEdge(800, 600, 1.5);
         speedsNormal.push(Math.sqrt(a.vx ** 2 + a.vy ** 2));
         speedsBoosted.push(Math.sqrt(b.vx ** 2 + b.vy ** 2));
       }
-      const avgNormal = speedsNormal.reduce((s, v) => s + v, 0) / speedsNormal.length;
-      const avgBoosted = speedsBoosted.reduce((s, v) => s + v, 0) / speedsBoosted.length;
+      const avgNormal =
+        speedsNormal.reduce((s, v) => s + v, 0) / speedsNormal.length;
+      const avgBoosted =
+        speedsBoosted.reduce((s, v) => s + v, 0) / speedsBoosted.length;
       const ratio = avgBoosted / avgNormal;
       // Should be approximately 1.5 (within ±20%)
       expect(ratio).toBeGreaterThan(1.2);
@@ -389,8 +417,10 @@ describe('Increment 12: Energy-Sustaining Spawns — Simulation Integration', ()
         normalSpeeds.push(Math.sqrt(a.vx ** 2 + a.vy ** 2));
       }
 
-      const avgBoosted = boostedSpeeds.reduce((s, v) => s + v, 0) / boostedSpeeds.length;
-      const avgNormal = normalSpeeds.reduce((s, v) => s + v, 0) / normalSpeeds.length;
+      const avgBoosted =
+        boostedSpeeds.reduce((s, v) => s + v, 0) / boostedSpeeds.length;
+      const avgNormal =
+        normalSpeeds.reduce((s, v) => s + v, 0) / normalSpeeds.length;
 
       // With empty array → boost = 1.5, so boosted should be ~1.5x faster
       expect(avgBoosted).toBeGreaterThan(avgNormal * 1.2);

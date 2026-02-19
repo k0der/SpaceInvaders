@@ -1,9 +1,8 @@
-import { describe, it, expect } from 'vitest';
-import { computeKE, computeTotalKE, computeSpeedBoost } from '../src/energy.js';
+import { describe, expect, it } from 'vitest';
 import { createAsteroid } from '../src/asteroid.js';
+import { computeKE, computeSpeedBoost, computeTotalKE } from '../src/energy.js';
 
 describe('Increment 12: Energy-Sustaining Spawns', () => {
-
   // Helper: create an asteroid with known collisionRadius for deterministic tests
   function makeAsteroid(vx, vy, collisionRadius) {
     const a = createAsteroid({ x: 0, y: 0, vx, vy, radius: collisionRadius });
@@ -59,7 +58,7 @@ describe('Increment 12: Energy-Sustaining Spawns', () => {
     it('returns 1.0 when actual KE >= target KE', () => {
       // targetKE = baselineKEPerAsteroid * targetCount = 100 * 20 = 2000
       // actualKE = 3000 (above target)
-      const asteroids = [makeAsteroid(10, 0, 10)]; // doesn't matter, we just need an array
+      const _asteroids = [makeAsteroid(10, 0, 10)]; // doesn't matter, we just need an array
       // Override: computeTotalKE for this array = 0.5*100*100 = 5000
       const a = makeAsteroid(100, 0, 10); // KE = 0.5*100*10000 = 500000
       expect(computeSpeedBoost(100, 20, [a])).toBe(1.0);

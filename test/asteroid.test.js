@@ -1,13 +1,12 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
-  generateShape,
   createAsteroid,
-  updateAsteroid,
   drawAsteroid,
+  generateShape,
+  updateAsteroid,
 } from '../src/asteroid.js';
 
 describe('Increment 5: One Asteroid Floats Through', () => {
-
   describe('generateShape', () => {
     it('produces between 8 and 14 vertices', () => {
       for (let i = 0; i < 50; i++) {
@@ -96,7 +95,11 @@ describe('Increment 5: One Asteroid Floats Through', () => {
       // Average of vertices at 0.6–1.0 of radius → should be around 0.8 * radius
       expect(a.collisionRadius).toBeGreaterThan(0);
       // Verify it's actually the average of vertex distances
-      const avgDist = a.shape.reduce((sum, [vx, vy]) => sum + Math.sqrt(vx * vx + vy * vy), 0) / a.shape.length;
+      const avgDist =
+        a.shape.reduce(
+          (sum, [vx, vy]) => sum + Math.sqrt(vx * vx + vy * vy),
+          0,
+        ) / a.shape.length;
       expect(a.collisionRadius).toBeCloseTo(avgDist, 5);
     });
 
@@ -195,7 +198,6 @@ describe('Increment 5: One Asteroid Floats Through', () => {
 });
 
 describe('Increment 6: The Asteroid Tumbles', () => {
-
   describe('angularVelocity', () => {
     it('is between -0.5 and +0.5 rad/s', () => {
       for (let i = 0; i < 50; i++) {
@@ -206,7 +208,8 @@ describe('Increment 6: The Asteroid Tumbles', () => {
     });
 
     it('larger asteroids rotate more slowly (on average)', () => {
-      let largeTotal = 0, smallTotal = 0;
+      let largeTotal = 0,
+        smallTotal = 0;
       const N = 200;
       for (let i = 0; i < N; i++) {
         const large = createAsteroid({ x: 0, y: 0, vx: 0, vy: 0, radius: 70 });
@@ -260,7 +263,6 @@ describe('Increment 6: The Asteroid Tumbles', () => {
 });
 
 describe('Increment 7: A Field of Asteroids', () => {
-
   describe('size classes', () => {
     it('large asteroids have radius 50-80 and stroke 2.0', () => {
       const a = createAsteroid({ x: 0, y: 0, vx: 0, vy: 0, radius: 65 });

@@ -372,6 +372,10 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 - [ ] Ship drawn at its `(x, y)` which is now changing
 - [ ] Ship can fly off-screen (intentional — camera comes next)
 - [ ] Speed multiplier setting scales ship dt (same `scaledDt` as asteroids)
+- [ ] `SETTINGS_CONFIG` includes `thrustPower` slider (100–2000, default 900, step 50)
+- [ ] `thrustPower` persisted to localStorage
+- [ ] Changing slider updates thrust in real-time
+- [ ] `updateShip` uses `ship.thrustPower` instead of bare constant (falls back to exported `THRUST_POWER` default)
 - [ ] **Visible**: W/Up thrusts the ship forward. It drifts with momentum. S/Down brakes. Ship carves fluid arcs when combining rotation + thrust. Can fly off-screen.
 
 ---

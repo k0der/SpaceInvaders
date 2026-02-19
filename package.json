@@ -6,6 +6,8 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
+    "lint": "biome check --write src/ test/",
+    "lint:check": "biome check src/ test/",
     "build": "node build.js"
   },
   "repository": {
@@ -16,6 +18,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@biomejs/biome": "2.4.3",
     "happy-dom": "^20.6.3",
     "vitest": "^4.0.18"
   }

@@ -453,6 +453,35 @@ describe('Increment 19: Ship Thrusts and Drifts', () => {
     });
   });
 
+  describe('configurable thrustPower via ship.thrustPower', () => {
+    it('uses ship.thrustPower when set on the ship object', () => {
+      const ship = createShip({ x: 0, y: 0, heading: 0 });
+      ship.thrustPower = 200;
+      ship.thrust = true;
+      updateShip(ship, 0.1);
+      // cos(0)=1, expected vx after thrust + drag: 200*0.1*(1-DRAG*0.1)
+      const expectedVx = 200 * 0.1 * (1 - DRAG * 0.1);
+      expect(ship.vx).toBeCloseTo(expectedVx, 5);
+    });
+
+    it('falls back to THRUST_POWER when ship.thrustPower is not set', () => {
+      const ship = createShip({ x: 0, y: 0, heading: 0 });
+      ship.thrust = true;
+      updateShip(ship, 0.1);
+      const expectedVx = THRUST_POWER * 0.1 * (1 - DRAG * 0.1);
+      expect(ship.vx).toBeCloseTo(expectedVx, 5);
+    });
+
+    it('uses ship.thrustPower of 0 when explicitly set to 0', () => {
+      const ship = createShip({ x: 0, y: 0, heading: 0 });
+      ship.thrustPower = 0;
+      ship.thrust = true;
+      updateShip(ship, 0.1);
+      // No thrust applied, no drag on zero velocity
+      expect(ship.vx).toBe(0);
+    });
+  });
+
   describe('combined rotation + thrust', () => {
     it('rotation and thrust both apply in the same frame', () => {
       const ship = createShip({ x: 0, y: 0, heading: 0 });

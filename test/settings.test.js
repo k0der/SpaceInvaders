@@ -1,17 +1,16 @@
 // @vitest-environment happy-dom
-import { describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  SETTINGS_CONFIG,
-  createSettings,
   clampSetting,
-  updateAutoHide,
+  createSettings,
   createSettingsUI,
-  saveSettings,
   loadSettings,
+  SETTINGS_CONFIG,
+  saveSettings,
+  updateAutoHide,
 } from '../src/settings.js';
 
 describe('Increment 13: Settings Menu', () => {
-
   describe('SETTINGS_CONFIG', () => {
     it('defines asteroid count: min 5, max 50, step 1, default 20', () => {
       const c = SETTINGS_CONFIG.asteroidCount;
@@ -191,10 +190,10 @@ describe('Increment 13: Settings Menu', () => {
       expect(ui.panel.style.display).toBe('none');
     });
 
-    it('creates 3 slider inputs with correct attributes', () => {
+    it('creates 4 slider inputs with correct attributes', () => {
       const ui = createSettingsUI(container, settings);
       const sliders = ui.panel.querySelectorAll('input[type="range"]');
-      expect(sliders.length).toBe(3);
+      expect(sliders.length).toBe(4);
     });
 
     it('asteroid count slider has correct min/max/step/value', () => {
@@ -376,9 +375,13 @@ describe('Increment 13: Settings Menu', () => {
         ui.gearButton.style.pointerEvents = 'auto';
       } else {
         ui.gearButton.style.opacity = settings.gearVisible
-          ? (settings.gearHovered ? '0.8' : '0.3')
+          ? settings.gearHovered
+            ? '0.8'
+            : '0.3'
           : '0';
-        ui.gearButton.style.pointerEvents = settings.gearVisible ? 'auto' : 'none';
+        ui.gearButton.style.pointerEvents = settings.gearVisible
+          ? 'auto'
+          : 'none';
       }
       ui.panel.style.display = settings.panelOpen ? 'block' : 'none';
       ui.gearButton.textContent = settings.panelOpen ? '\u2715' : '\u2630';
@@ -498,7 +501,6 @@ describe('Increment 13: Settings Menu', () => {
 });
 
 describe('Increment 14: Settings Persistence', () => {
-
   beforeEach(() => {
     localStorage.clear();
   });
@@ -539,11 +541,14 @@ describe('Increment 14: Settings Persistence', () => {
 
   describe('loadSettings', () => {
     it('returns saved values when localStorage has valid data', () => {
-      localStorage.setItem('asteroidSettings', JSON.stringify({
-        asteroidCount: 40,
-        speedMultiplier: 2.5,
-        starLayers: 5,
-      }));
+      localStorage.setItem(
+        'asteroidSettings',
+        JSON.stringify({
+          asteroidCount: 40,
+          speedMultiplier: 2.5,
+          starLayers: 5,
+        }),
+      );
       const loaded = loadSettings();
       expect(loaded.asteroidCount).toBe(40);
       expect(loaded.speedMultiplier).toBe(2.5);
@@ -566,11 +571,14 @@ describe('Increment 14: Settings Persistence', () => {
     });
 
     it('clamps out-of-range values to valid ranges', () => {
-      localStorage.setItem('asteroidSettings', JSON.stringify({
-        asteroidCount: 999,
-        speedMultiplier: -5,
-        starLayers: 0,
-      }));
+      localStorage.setItem(
+        'asteroidSettings',
+        JSON.stringify({
+          asteroidCount: 999,
+          speedMultiplier: -5,
+          starLayers: 0,
+        }),
+      );
       const loaded = loadSettings();
       expect(loaded.asteroidCount).toBe(50);
       expect(loaded.speedMultiplier).toBe(0.2);
@@ -578,9 +586,12 @@ describe('Increment 14: Settings Persistence', () => {
     });
 
     it('uses defaults for missing keys in stored object', () => {
-      localStorage.setItem('asteroidSettings', JSON.stringify({
-        asteroidCount: 30,
-      }));
+      localStorage.setItem(
+        'asteroidSettings',
+        JSON.stringify({
+          asteroidCount: 30,
+        }),
+      );
       const loaded = loadSettings();
       expect(loaded.asteroidCount).toBe(30);
       expect(loaded.speedMultiplier).toBe(1.0);
@@ -602,11 +613,14 @@ describe('Increment 14: Settings Persistence', () => {
     });
 
     it('uses defaults when stored values are non-numeric', () => {
-      localStorage.setItem('asteroidSettings', JSON.stringify({
-        asteroidCount: 'banana',
-        speedMultiplier: null,
-        starLayers: true,
-      }));
+      localStorage.setItem(
+        'asteroidSettings',
+        JSON.stringify({
+          asteroidCount: 'banana',
+          speedMultiplier: null,
+          starLayers: true,
+        }),
+      );
       const loaded = loadSettings();
       expect(loaded.asteroidCount).toBe(20);
       expect(loaded.speedMultiplier).toBe(1.0);
@@ -616,7 +630,11 @@ describe('Increment 14: Settings Persistence', () => {
 
   describe('save + load round-trip', () => {
     it('loadSettings returns what saveSettings wrote', () => {
-      const s = createSettings({ asteroidCount: 42, speedMultiplier: 1.7, starLayers: 5 });
+      const s = createSettings({
+        asteroidCount: 42,
+        speedMultiplier: 1.7,
+        starLayers: 5,
+      });
       saveSettings(s);
       const loaded = loadSettings();
       expect(loaded.asteroidCount).toBe(42);
@@ -627,7 +645,11 @@ describe('Increment 14: Settings Persistence', () => {
 
   describe('createSettings with overrides', () => {
     it('applies loaded overrides to settings', () => {
-      const s = createSettings({ asteroidCount: 35, speedMultiplier: 2.0, starLayers: 5 });
+      const s = createSettings({
+        asteroidCount: 35,
+        speedMultiplier: 2.0,
+        starLayers: 5,
+      });
       expect(s.asteroidCount).toBe(35);
       expect(s.speedMultiplier).toBe(2.0);
       expect(s.starLayers).toBe(5);
@@ -653,7 +675,11 @@ describe('Increment 14: Settings Persistence', () => {
     it('sliders reflect non-default settings values on creation', () => {
       const container = document.createElement('div');
       document.body.appendChild(container);
-      const s = createSettings({ asteroidCount: 35, speedMultiplier: 2.0, starLayers: 5 });
+      const s = createSettings({
+        asteroidCount: 35,
+        speedMultiplier: 2.0,
+        starLayers: 5,
+      });
       const ui = createSettingsUI(container, s);
       expect(ui.sliders.asteroidCount.value).toBe('35');
       expect(ui.sliders.speedMultiplier.value).toBe('2');
@@ -663,7 +689,11 @@ describe('Increment 14: Settings Persistence', () => {
     it('value displays reflect non-default settings on creation', () => {
       const container = document.createElement('div');
       document.body.appendChild(container);
-      const s = createSettings({ asteroidCount: 35, speedMultiplier: 2.0, starLayers: 5 });
+      const s = createSettings({
+        asteroidCount: 35,
+        speedMultiplier: 2.0,
+        starLayers: 5,
+      });
       const ui = createSettingsUI(container, s);
       expect(ui.valueDisplays.asteroidCount.textContent).toContain('35');
       expect(ui.valueDisplays.speedMultiplier.textContent).toContain('2.0');
@@ -672,8 +702,144 @@ describe('Increment 14: Settings Persistence', () => {
   });
 });
 
-describe('Increment 15: Star Field Direction Setting', () => {
+describe('Increment 19: Thrust Power Setting', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
 
+  describe('SETTINGS_CONFIG — thrustPower', () => {
+    it('defines thrustPower with min 100, max 2000, step 50, default 900', () => {
+      const c = SETTINGS_CONFIG.thrustPower;
+      expect(c).toBeDefined();
+      expect(c.min).toBe(100);
+      expect(c.max).toBe(2000);
+      expect(c.step).toBe(50);
+      expect(c.default).toBe(900);
+    });
+
+    it('has a label string', () => {
+      expect(typeof SETTINGS_CONFIG.thrustPower.label).toBe('string');
+    });
+  });
+
+  describe('createSettings — thrustPower', () => {
+    it('defaults thrustPower to 900', () => {
+      const s = createSettings();
+      expect(s.thrustPower).toBe(900);
+    });
+
+    it('accepts thrustPower override', () => {
+      const s = createSettings({ thrustPower: 500 });
+      expect(s.thrustPower).toBe(500);
+    });
+  });
+
+  describe('persistence — thrustPower', () => {
+    it('saveSettings persists thrustPower', () => {
+      const s = createSettings({ thrustPower: 1200 });
+      saveSettings(s);
+      const stored = JSON.parse(localStorage.getItem('asteroidSettings'));
+      expect(stored.thrustPower).toBe(1200);
+    });
+
+    it('loadSettings restores thrustPower', () => {
+      localStorage.setItem(
+        'asteroidSettings',
+        JSON.stringify({
+          asteroidCount: 20,
+          speedMultiplier: 1.0,
+          starLayers: 3,
+          starDirection: 'left',
+          thrustPower: 1500,
+        }),
+      );
+      const loaded = loadSettings();
+      expect(loaded.thrustPower).toBe(1500);
+    });
+
+    it('loadSettings defaults thrustPower when missing from storage', () => {
+      localStorage.setItem(
+        'asteroidSettings',
+        JSON.stringify({
+          asteroidCount: 20,
+          speedMultiplier: 1.0,
+          starLayers: 3,
+          starDirection: 'left',
+        }),
+      );
+      const loaded = loadSettings();
+      expect(loaded.thrustPower).toBe(900);
+    });
+
+    it('loadSettings clamps out-of-range thrustPower', () => {
+      localStorage.setItem(
+        'asteroidSettings',
+        JSON.stringify({
+          asteroidCount: 20,
+          speedMultiplier: 1.0,
+          starLayers: 3,
+          starDirection: 'left',
+          thrustPower: 9999,
+        }),
+      );
+      const loaded = loadSettings();
+      expect(loaded.thrustPower).toBe(2000);
+    });
+
+    it('round-trip: save then load preserves thrustPower', () => {
+      const s = createSettings({ thrustPower: 700 });
+      saveSettings(s);
+      const loaded = loadSettings();
+      expect(loaded.thrustPower).toBe(700);
+    });
+  });
+
+  describe('createSettingsUI — thrustPower slider', () => {
+    let container;
+    let settings;
+
+    beforeEach(() => {
+      container = document.createElement('div');
+      document.body.appendChild(container);
+      settings = createSettings();
+    });
+
+    it('creates a thrustPower slider', () => {
+      const ui = createSettingsUI(container, settings);
+      expect(ui.sliders.thrustPower).toBeDefined();
+    });
+
+    it('thrustPower slider has correct min/max/step/value', () => {
+      const ui = createSettingsUI(container, settings);
+      const slider = ui.sliders.thrustPower;
+      expect(slider.min).toBe('100');
+      expect(slider.max).toBe('2000');
+      expect(slider.step).toBe('50');
+      expect(slider.value).toBe('900');
+    });
+
+    it('thrustPower slider reflects non-default settings on creation', () => {
+      const s = createSettings({ thrustPower: 1400 });
+      const ui = createSettingsUI(container, s);
+      expect(ui.sliders.thrustPower.value).toBe('1400');
+    });
+
+    it('onChange fires with correct name and value when thrustPower slider moves', () => {
+      const ui = createSettingsUI(container, settings);
+      const changes = [];
+      ui.onChange = (name, value) => changes.push({ name, value });
+
+      ui.sliders.thrustPower.value = '1200';
+      ui.sliders.thrustPower.dispatchEvent(new Event('input'));
+
+      expect(changes.length).toBe(1);
+      expect(changes[0].name).toBe('thrustPower');
+      expect(changes[0].value).toBe(1200);
+    });
+  });
+});
+
+describe('Increment 15: Star Field Direction Setting', () => {
   beforeEach(() => {
     localStorage.clear();
   });
@@ -715,25 +881,42 @@ describe('Increment 15: Star Field Direction Setting', () => {
     });
 
     it('loadSettings restores starDirection', () => {
-      localStorage.setItem('asteroidSettings', JSON.stringify({
-        asteroidCount: 20, speedMultiplier: 1.0, starLayers: 3, starDirection: 'radial',
-      }));
+      localStorage.setItem(
+        'asteroidSettings',
+        JSON.stringify({
+          asteroidCount: 20,
+          speedMultiplier: 1.0,
+          starLayers: 3,
+          starDirection: 'radial',
+        }),
+      );
       const loaded = loadSettings();
       expect(loaded.starDirection).toBe('radial');
     });
 
     it('loadSettings defaults starDirection when missing from storage', () => {
-      localStorage.setItem('asteroidSettings', JSON.stringify({
-        asteroidCount: 20, speedMultiplier: 1.0, starLayers: 3,
-      }));
+      localStorage.setItem(
+        'asteroidSettings',
+        JSON.stringify({
+          asteroidCount: 20,
+          speedMultiplier: 1.0,
+          starLayers: 3,
+        }),
+      );
       const loaded = loadSettings();
       expect(loaded.starDirection).toBe('left');
     });
 
     it('loadSettings defaults starDirection when stored value is invalid', () => {
-      localStorage.setItem('asteroidSettings', JSON.stringify({
-        asteroidCount: 20, speedMultiplier: 1.0, starLayers: 3, starDirection: 'diagonal',
-      }));
+      localStorage.setItem(
+        'asteroidSettings',
+        JSON.stringify({
+          asteroidCount: 20,
+          speedMultiplier: 1.0,
+          starLayers: 3,
+          starDirection: 'diagonal',
+        }),
+      );
       const loaded = loadSettings();
       expect(loaded.starDirection).toBe('left');
     });
@@ -764,7 +947,7 @@ describe('Increment 15: Star Field Direction Setting', () => {
     it('direction selector has all 5 options', () => {
       const ui = createSettingsUI(container, settings);
       const options = ui.directionSelect.querySelectorAll('option');
-      const values = Array.from(options).map(o => o.value);
+      const values = Array.from(options).map((o) => o.value);
       expect(values).toEqual(['left', 'right', 'up', 'down', 'radial']);
     });
 
