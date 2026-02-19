@@ -3,6 +3,8 @@ import {
   createStar,
   createStarLayer,
   updateStarLayer,
+  createParallaxLayers,
+  updateParallaxLayers,
 } from '../src/starfield.js';
 
 describe('Increment 2: A Single Star Drifts Across the Void', () => {
@@ -57,6 +59,19 @@ describe('Increment 2: A Single Star Drifts Across the Void', () => {
         expect(star.brightness).toBeLessThanOrEqual(0.7);
       }
     });
+
+    it('two calls produce different stars (randomness)', () => {
+      let differ = false;
+      for (let i = 0; i < 20; i++) {
+        const a = createStar(800, 600);
+        const b = createStar(800, 600);
+        if (a.x !== b.x || a.y !== b.y) {
+          differ = true;
+          break;
+        }
+      }
+      expect(differ).toBe(true);
+    });
   });
 
   describe('createStarLayer', () => {
@@ -95,6 +110,16 @@ describe('Increment 2: A Single Star Drifts Across the Void', () => {
         expect(star.brightness).toBeLessThanOrEqual(1.0);
       }
     });
+
+    it('defaults to speed 10 when no speed option is provided', () => {
+      const layer = createStarLayer(5, 800, 600);
+      expect(layer.speed).toBe(10);
+    });
+
+    it('creates 0 stars when count is 0', () => {
+      const layer = createStarLayer(0, 800, 600, { speed: 10 });
+      expect(layer.stars.length).toBe(0);
+    });
   });
 
   describe('updateStarLayer', () => {
@@ -117,6 +142,21 @@ describe('Increment 2: A Single Star Drifts Across the Void', () => {
 
       for (let i = 0; i < layer.stars.length; i++) {
         expect(layer.stars[i].x).toBe(initialXPositions[i]);
+      }
+    });
+
+    it('does not change y-position for non-wrapping stars', () => {
+      const layer = createStarLayer(5, 800, 600, { speed: 10 });
+      // Place all stars far from the left edge
+      for (const star of layer.stars) {
+        star.x = 500;
+      }
+      const initialYPositions = layer.stars.map(s => s.y);
+
+      updateStarLayer(layer, 0.1, 800, 600); // moves 1px left → still far from edge
+
+      for (let i = 0; i < layer.stars.length; i++) {
+        expect(layer.stars[i].y).toBe(initialYPositions[i]);
       }
     });
 
@@ -167,6 +207,162 @@ describe('Increment 2: A Single Star Drifts Across the Void', () => {
       }
 
       expect(layer.stars.length).toBe(80);
+    });
+  });
+});
+
+describe('Increment 3: Depth — Parallax Star Layers', () => {
+
+  describe('createParallaxLayers', () => {
+    it('creates 3 layers by default', () => {
+      const layers = createParallaxLayers(800, 600);
+      expect(layers.length).toBe(3);
+    });
+
+    it('layers are ordered far → mid → near (slowest to fastest)', () => {
+      const layers = createParallaxLayers(800, 600);
+      expect(layers[0].speed).toBeLessThan(layers[1].speed);
+      expect(layers[1].speed).toBeLessThan(layers[2].speed);
+    });
+
+    it('far layer: ~100 stars, 1px size, dim (0.3–0.5), slow (2–5 px/s)', () => {
+      const layers = createParallaxLayers(800, 600);
+      const far = layers[0];
+      // Star count scales with area — base counts are for 1920×1080
+      expect(far.stars.length).toBeGreaterThan(0);
+      expect(far.speed).toBeGreaterThanOrEqual(2);
+      expect(far.speed).toBeLessThanOrEqual(5);
+      for (const star of far.stars) {
+        expect(star.size).toBeGreaterThanOrEqual(1);
+        expect(star.size).toBeLessThanOrEqual(1);
+        expect(star.brightness).toBeGreaterThanOrEqual(0.3);
+        expect(star.brightness).toBeLessThanOrEqual(0.5);
+      }
+    });
+
+    it('mid layer: ~60 stars, 1–2px size, medium brightness (0.5–0.7), moderate speed (8–15 px/s)', () => {
+      const layers = createParallaxLayers(800, 600);
+      const mid = layers[1];
+      expect(mid.stars.length).toBeGreaterThan(0);
+      expect(mid.speed).toBeGreaterThanOrEqual(8);
+      expect(mid.speed).toBeLessThanOrEqual(15);
+      for (const star of mid.stars) {
+        expect(star.size).toBeGreaterThanOrEqual(1);
+        expect(star.size).toBeLessThanOrEqual(2);
+        expect(star.brightness).toBeGreaterThanOrEqual(0.5);
+        expect(star.brightness).toBeLessThanOrEqual(0.7);
+      }
+    });
+
+    it('near layer: ~30 stars, 2–3px size, bright (0.7–1.0), fastest (20–35 px/s)', () => {
+      const layers = createParallaxLayers(800, 600);
+      const near = layers[2];
+      expect(near.stars.length).toBeGreaterThan(0);
+      expect(near.speed).toBeGreaterThanOrEqual(20);
+      expect(near.speed).toBeLessThanOrEqual(35);
+      for (const star of near.stars) {
+        expect(star.size).toBeGreaterThanOrEqual(2);
+        expect(star.size).toBeLessThanOrEqual(3);
+        expect(star.brightness).toBeGreaterThanOrEqual(0.7);
+        expect(star.brightness).toBeLessThanOrEqual(1.0);
+      }
+    });
+
+    it('star counts scale proportionally with canvas area', () => {
+      const small = createParallaxLayers(400, 300);
+      const large = createParallaxLayers(1600, 1200);
+      // Larger canvas should have more stars in every layer
+      for (let i = 0; i < 3; i++) {
+        expect(large[i].stars.length).toBeGreaterThan(small[i].stars.length);
+      }
+    });
+
+    it('supports custom layer count', () => {
+      const layers = createParallaxLayers(800, 600, 5);
+      expect(layers.length).toBe(5);
+    });
+
+    it('extra layers interpolate properties between far and near', () => {
+      const layers = createParallaxLayers(800, 600, 5);
+      // Each layer should scroll faster than the previous
+      for (let i = 1; i < layers.length; i++) {
+        expect(layers[i].speed).toBeGreaterThan(layers[i - 1].speed);
+      }
+    });
+
+    it('handles layerCount=1 without error', () => {
+      const layers = createParallaxLayers(800, 600, 1);
+      expect(layers.length).toBe(1);
+      expect(layers[0].stars.length).toBeGreaterThan(0);
+      expect(layers[0].speed).toBeGreaterThanOrEqual(2);
+    });
+
+    it('guarantees at least 1 star per layer on very small canvases', () => {
+      const layers = createParallaxLayers(10, 10);
+      for (const layer of layers) {
+        expect(layer.stars.length).toBeGreaterThanOrEqual(1);
+      }
+    });
+
+    it('interpolated layers have brightness ranges between far and near', () => {
+      const layers = createParallaxLayers(800, 600, 5);
+      // Middle layers (index 1,2,3) should have brightness between far and near ranges
+      for (let i = 1; i < layers.length - 1; i++) {
+        for (const star of layers[i].stars) {
+          // Brightness should be somewhere between far min (0.3) and near max (1.0)
+          expect(star.brightness).toBeGreaterThanOrEqual(0.3);
+          expect(star.brightness).toBeLessThanOrEqual(1.0);
+        }
+      }
+    });
+  });
+
+  describe('updateParallaxLayers', () => {
+    it('updates all layers', () => {
+      const layers = createParallaxLayers(800, 600);
+      const initialPositions = layers.map(l => l.stars.map(s => s.x));
+
+      updateParallaxLayers(layers, 0.1, 800, 600);
+
+      for (let i = 0; i < layers.length; i++) {
+        for (let j = 0; j < layers[i].stars.length; j++) {
+          // Stars should have moved (unless dt was 0 or speed was 0)
+          const moved = layers[i].stars[j].x !== initialPositions[i][j];
+          expect(moved).toBe(true);
+        }
+      }
+    });
+
+    it('does not move any stars when dt is 0', () => {
+      const layers = createParallaxLayers(800, 600);
+      const initialPositions = layers.map(l => l.stars.map(s => s.x));
+
+      updateParallaxLayers(layers, 0, 800, 600);
+
+      for (let i = 0; i < layers.length; i++) {
+        for (let j = 0; j < layers[i].stars.length; j++) {
+          expect(layers[i].stars[j].x).toBe(initialPositions[i][j]);
+        }
+      }
+    });
+
+    it('nearer layers move faster than farther layers', () => {
+      const layers = createParallaxLayers(800, 600);
+      // Set all stars to the same x so we can compare displacement
+      for (const layer of layers) {
+        for (const star of layer.stars) {
+          star.x = 400;
+        }
+      }
+
+      updateParallaxLayers(layers, 0.1, 800, 600);
+
+      // Far layer moves least, near layer moves most
+      const farX = layers[0].stars[0].x;
+      const midX = layers[1].stars[0].x;
+      const nearX = layers[2].stars[0].x;
+      expect(farX).toBeGreaterThan(midX);
+      expect(midX).toBeGreaterThan(nearX);
     });
   });
 });

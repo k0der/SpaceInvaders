@@ -21,44 +21,44 @@
 - Create `build.js` that assembles modules into `index.html`
 
 **Acceptance Criteria**:
-- [ ] `npm test` runs and exits cleanly
-- [ ] `dev.html` opens in browser showing a fullscreen black canvas, no scrollbars
-- [ ] Canvas resizes when browser window resizes
-- [ ] Animation loop is running (verified by a frame counter incrementing in console or test)
-- [ ] Delta time between frames is calculated correctly (not zero, not negative, capped at a reasonable max like 100ms)
-- [ ] `node build.js` produces a standalone `index.html` that works identically
+- [x] `npm test` runs and exits cleanly
+- [x] `dev.html` opens in browser showing a fullscreen black canvas, no scrollbars
+- [x] Canvas resizes when browser window resizes
+- [x] Animation loop is running (verified by a frame counter incrementing in console or test)
+- [x] Delta time between frames is calculated correctly (not zero, not negative, capped at a reasonable max like 100ms)
+- [x] `node build.js` produces a standalone `index.html` that works identically
 
 ---
 
-## Increment 2: A Single Star Drifts Across the Void
+## Increment 2: A Single Star Drifts Across the Void ✅
 
 **Goal**: One star layer rendered and scrolling. You open the page and see tiny dots drifting left — the universe is alive.
 
 **Module**: `src/starfield.js`
 
 **Acceptance Criteria**:
-- [ ] A single star layer is created with ~80 stars randomly distributed across the canvas
-- [ ] Each star is a white dot (1–2px) with an alpha brightness value
-- [ ] Stars scroll leftward at a constant speed each frame (position changes by `speed * dt`)
-- [ ] Stars that exit the left edge reappear on the right edge with a new random y-position
-- [ ] **Visible result**: open `dev.html` and see dots slowly drifting across a black screen
+- [x] A single star layer is created with ~80 stars randomly distributed across the canvas
+- [x] Each star is a white dot (1–2px) with an alpha brightness value
+- [x] Stars scroll leftward at a constant speed each frame (position changes by `speed * dt`)
+- [x] Stars that exit the left edge reappear on the right edge with a new random y-position
+- [x] **Visible result**: open `dev.html` and see dots slowly drifting across a black screen
 
 ---
 
-## Increment 3: Depth — Parallax Star Layers
+## Increment 3: Depth — Parallax Star Layers ✅
 
 **Goal**: Add multiple star layers scrolling at different speeds. The background now has depth.
 
 **Module**: `src/starfield.js`
 
 **Acceptance Criteria**:
-- [ ] 3 layers are created by default: far, mid, near
-- [ ] Far layer: more stars (~100), smaller (1px), dimmer (0.3–0.5 alpha), slowest scroll (~2–5 px/s)
-- [ ] Mid layer: medium count (~60), 1–2px, medium brightness (0.5–0.7 alpha), moderate scroll (~8–15 px/s)
-- [ ] Near layer: fewer stars (~30), larger (2–3px), brighter (0.7–1.0 alpha), fastest scroll (~20–35 px/s)
-- [ ] Layers are drawn back-to-front (far first)
-- [ ] Star counts scale proportionally with canvas area
-- [ ] **Visible result**: clear sense of depth and parallax when watching
+- [x] 3 layers are created by default: far, mid, near
+- [x] Far layer: more stars (~100), smaller (1px), dimmer (0.3–0.5 alpha), slowest scroll (~2–5 px/s)
+- [x] Mid layer: medium count (~60), 1–2px, medium brightness (0.5–0.7 alpha), moderate scroll (~8–15 px/s)
+- [x] Near layer: fewer stars (~30), larger (2–3px), brighter (0.7–1.0 alpha), fastest scroll (~20–35 px/s)
+- [x] Layers are drawn back-to-front (far first)
+- [x] Star counts scale proportionally with canvas area
+- [x] **Visible result**: clear sense of depth and parallax when watching
 
 ---
 

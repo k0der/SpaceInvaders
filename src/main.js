@@ -1,4 +1,4 @@
-import { createStarLayer, updateStarLayer, drawStarLayer } from './starfield.js';
+import { createParallaxLayers, updateParallaxLayers, drawParallaxLayers } from './starfield.js';
 
 /**
  * Calculate delta time in seconds between two timestamps (ms).
@@ -51,23 +51,17 @@ export function startApp() {
   resize();
 
   const loop = createLoop();
-  const starLayer = createStarLayer(80, canvas.width, canvas.height, {
-    speed: 15,
-    minSize: 1,
-    maxSize: 2,
-    minBrightness: 0.3,
-    maxBrightness: 1.0,
-  });
+  const starLayers = createParallaxLayers(canvas.width, canvas.height);
 
   function frame(timestamp) {
     const dt = loop.tick(timestamp);
 
-    updateStarLayer(starLayer, dt, canvas.width, canvas.height);
+    updateParallaxLayers(starLayers, dt, canvas.width, canvas.height);
 
     ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    drawStarLayer(ctx, starLayer);
+    drawParallaxLayers(ctx, starLayers);
 
     requestAnimationFrame(frame);
   }
