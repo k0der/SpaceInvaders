@@ -53,7 +53,7 @@ function getStrokeWidth(radius) {
 
   // Compute effective collision radius as average vertex distance from center
   const collisionRadius = shape.reduce(
-    (sum, [vx, vy]) => sum + Math.sqrt(vx * vx + vy * vy), 0
+    (sum, [px, py]) => sum + Math.sqrt(px * px + py * py), 0
   ) / shape.length;
 
   return {
@@ -496,12 +496,13 @@ function formatValue(name, value) {
   });
 
   // Escape closes panel
-  document.addEventListener('keydown', (e) => {
+  const onKeydown = (e) => {
     if (e.key === 'Escape') {
       settings.panelOpen = false;
       panel.style.display = 'none';
     }
-  });
+  };
+  document.addEventListener('keydown', onKeydown);
 
   return {
     gearButton,
@@ -510,6 +511,9 @@ function formatValue(name, value) {
     valueDisplays,
     set onChange(fn) { _onChange = fn; },
     get onChange() { return _onChange; },
+    destroy() {
+      document.removeEventListener('keydown', onKeydown);
+    },
   };
 }
 

@@ -38,7 +38,7 @@ export function createAsteroid({ x, y, vx, vy, radius }) {
 
   // Compute effective collision radius as average vertex distance from center
   const collisionRadius = shape.reduce(
-    (sum, [vx, vy]) => sum + Math.sqrt(vx * vx + vy * vy), 0
+    (sum, [px, py]) => sum + Math.sqrt(px * px + py * py), 0
   ) / shape.length;
 
   return {

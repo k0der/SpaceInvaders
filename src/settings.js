@@ -150,12 +150,13 @@ export function createSettingsUI(container, settings) {
   });
 
   // Escape closes panel
-  document.addEventListener('keydown', (e) => {
+  const onKeydown = (e) => {
     if (e.key === 'Escape') {
       settings.panelOpen = false;
       panel.style.display = 'none';
     }
-  });
+  };
+  document.addEventListener('keydown', onKeydown);
 
   return {
     gearButton,
@@ -164,5 +165,8 @@ export function createSettingsUI(container, settings) {
     valueDisplays,
     set onChange(fn) { _onChange = fn; },
     get onChange() { return _onChange; },
+    destroy() {
+      document.removeEventListener('keydown', onKeydown);
+    },
   };
 }

@@ -34,9 +34,10 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+      - run: mkdir dist && cp index.html dist/
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: ./dist
           retention-days: 1
 
   deploy:
