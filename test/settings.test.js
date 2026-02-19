@@ -251,6 +251,27 @@ describe('Increment 13: Settings Menu', () => {
       expect(settings.panelOpen).toBe(false);
     });
 
+    it('icon changes to close (✕) when panel opens', () => {
+      const ui = createSettingsUI(container, settings);
+      expect(ui.gearButton.textContent).toBe('\u2630');
+      ui.gearButton.click();
+      expect(ui.gearButton.textContent).toBe('\u2715');
+    });
+
+    it('icon reverts to hamburger (☰) when panel closes', () => {
+      const ui = createSettingsUI(container, settings);
+      ui.gearButton.click(); // open
+      ui.gearButton.click(); // close
+      expect(ui.gearButton.textContent).toBe('\u2630');
+    });
+
+    it('Escape reverts icon to hamburger', () => {
+      const ui = createSettingsUI(container, settings);
+      ui.gearButton.click(); // open
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+      expect(ui.gearButton.textContent).toBe('\u2630');
+    });
+
     it('pressing Escape closes the panel and clears panelOpen', () => {
       const ui = createSettingsUI(container, settings);
       ui.gearButton.click(); // open
@@ -348,11 +369,17 @@ describe('Increment 13: Settings Menu', () => {
      */
     function simulateFrame(ui, dt) {
       updateAutoHide(settings, dt);
-      ui.gearButton.style.opacity = settings.gearVisible
-        ? (settings.gearHovered ? '0.8' : '0.3')
-        : '0';
-      ui.gearButton.style.pointerEvents = settings.gearVisible ? 'auto' : 'none';
+      if (settings.panelOpen) {
+        ui.gearButton.style.opacity = '0.8';
+        ui.gearButton.style.pointerEvents = 'auto';
+      } else {
+        ui.gearButton.style.opacity = settings.gearVisible
+          ? (settings.gearHovered ? '0.8' : '0.3')
+          : '0';
+        ui.gearButton.style.pointerEvents = settings.gearVisible ? 'auto' : 'none';
+      }
       ui.panel.style.display = settings.panelOpen ? 'block' : 'none';
+      ui.gearButton.textContent = settings.panelOpen ? '\u2715' : '\u2630';
     }
 
     it('hover opacity survives a frame-loop tick', () => {
@@ -423,6 +450,27 @@ describe('Increment 13: Settings Menu', () => {
       }
       expect(ui.panel.style.display).toBe('none');
       expect(settings.panelOpen).toBe(false);
+    });
+
+    it('button stays at 0.8 opacity when panel is open (close button)', () => {
+      const ui = createSettingsUI(container, settings);
+      ui.gearButton.click(); // open panel
+
+      simulateFrame(ui, 0.016);
+      expect(ui.gearButton.style.opacity).toBe('0.8');
+      expect(ui.gearButton.style.pointerEvents).toBe('auto');
+    });
+
+    it('icon reverts to hamburger when panel auto-closes', () => {
+      const ui = createSettingsUI(container, settings);
+      ui.gearButton.click(); // open panel
+
+      // Simulate 4.1 seconds with no mouse activity
+      for (let i = 0; i < 246; i++) {
+        simulateFrame(ui, 1 / 60);
+      }
+      expect(settings.panelOpen).toBe(false);
+      expect(ui.gearButton.textContent).toBe('\u2630');
     });
 
     it('gear hover works even when gear was previously hidden and reappeared', () => {

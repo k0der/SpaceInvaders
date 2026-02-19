@@ -220,11 +220,19 @@ function computeSpeedBoost(baselineKEPerAsteroid, targetCount, asteroids) {
     const scaledDt = dt * settings.speedMultiplier;
 
     updateAutoHide(settings, dt);
-    ui.gearButton.style.opacity = settings.gearVisible
-      ? (settings.gearHovered ? '0.8' : '0.3')
-      : '0';
-    ui.gearButton.style.pointerEvents = settings.gearVisible ? 'auto' : 'none';
+
+    // When panel is open, button acts as close icon — always fully visible
+    if (settings.panelOpen) {
+      ui.gearButton.style.opacity = '0.8';
+      ui.gearButton.style.pointerEvents = 'auto';
+    } else {
+      ui.gearButton.style.opacity = settings.gearVisible
+        ? (settings.gearHovered ? '0.8' : '0.3')
+        : '0';
+      ui.gearButton.style.pointerEvents = settings.gearVisible ? 'auto' : 'none';
+    }
     ui.panel.style.display = settings.panelOpen ? 'block' : 'none';
+    ui.gearButton.textContent = settings.panelOpen ? '\u2715' : '\u2630';
 
     updateParallaxLayers(starLayers, scaledDt, canvas.width, canvas.height);
     updateSimulation(sim, scaledDt, canvas.width, canvas.height);
@@ -436,7 +444,7 @@ function formatValue(name, value) {
   panel.style.cssText =
     'position:fixed;top:0;left:0;width:260px;height:100%;' +
     'background:rgba(0,0,0,0.85);color:#fff;font-family:"Courier New",monospace;' +
-    'font-size:14px;padding:24px 20px;box-sizing:border-box;z-index:1000;' +
+    'font-size:14px;padding:70px 20px 24px;box-sizing:border-box;z-index:1000;' +
     'display:none;';
   container.appendChild(panel);
 
@@ -488,11 +496,12 @@ function formatValue(name, value) {
     panel.appendChild(row);
   }
 
-  // Gear click toggles panel
+  // Button click toggles panel; swap icon between ☰ and ✕
   gearButton.addEventListener('click', () => {
     settings.panelOpen = !settings.panelOpen;
     settings.panelTimer = 0;
     panel.style.display = settings.panelOpen ? 'block' : 'none';
+    gearButton.textContent = settings.panelOpen ? '\u2715' : '\u2630';
   });
 
   // Escape closes panel
@@ -500,6 +509,7 @@ function formatValue(name, value) {
     if (e.key === 'Escape') {
       settings.panelOpen = false;
       panel.style.display = 'none';
+      gearButton.textContent = '\u2630';
     }
   };
   document.addEventListener('keydown', onKeydown);

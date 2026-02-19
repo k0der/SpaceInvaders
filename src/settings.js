@@ -90,7 +90,7 @@ export function createSettingsUI(container, settings) {
   panel.style.cssText =
     'position:fixed;top:0;left:0;width:260px;height:100%;' +
     'background:rgba(0,0,0,0.85);color:#fff;font-family:"Courier New",monospace;' +
-    'font-size:14px;padding:24px 20px;box-sizing:border-box;z-index:1000;' +
+    'font-size:14px;padding:70px 20px 24px;box-sizing:border-box;z-index:1000;' +
     'display:none;';
   container.appendChild(panel);
 
@@ -142,11 +142,12 @@ export function createSettingsUI(container, settings) {
     panel.appendChild(row);
   }
 
-  // Gear click toggles panel
+  // Button click toggles panel; swap icon between ☰ and ✕
   gearButton.addEventListener('click', () => {
     settings.panelOpen = !settings.panelOpen;
     settings.panelTimer = 0;
     panel.style.display = settings.panelOpen ? 'block' : 'none';
+    gearButton.textContent = settings.panelOpen ? '\u2715' : '\u2630';
   });
 
   // Escape closes panel
@@ -154,6 +155,7 @@ export function createSettingsUI(container, settings) {
     if (e.key === 'Escape') {
       settings.panelOpen = false;
       panel.style.display = 'none';
+      gearButton.textContent = '\u2630';
     }
   };
   document.addEventListener('keydown', onKeydown);

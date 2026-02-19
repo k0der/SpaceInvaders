@@ -87,11 +87,19 @@ export function startApp() {
     const scaledDt = dt * settings.speedMultiplier;
 
     updateAutoHide(settings, dt);
-    ui.gearButton.style.opacity = settings.gearVisible
-      ? (settings.gearHovered ? '0.8' : '0.3')
-      : '0';
-    ui.gearButton.style.pointerEvents = settings.gearVisible ? 'auto' : 'none';
+
+    // When panel is open, button acts as close icon — always fully visible
+    if (settings.panelOpen) {
+      ui.gearButton.style.opacity = '0.8';
+      ui.gearButton.style.pointerEvents = 'auto';
+    } else {
+      ui.gearButton.style.opacity = settings.gearVisible
+        ? (settings.gearHovered ? '0.8' : '0.3')
+        : '0';
+      ui.gearButton.style.pointerEvents = settings.gearVisible ? 'auto' : 'none';
+    }
     ui.panel.style.display = settings.panelOpen ? 'block' : 'none';
+    ui.gearButton.textContent = settings.panelOpen ? '\u2715' : '\u2630';
 
     updateParallaxLayers(starLayers, scaledDt, canvas.width, canvas.height);
     updateSimulation(sim, scaledDt, canvas.width, canvas.height);
