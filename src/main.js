@@ -2,6 +2,7 @@ import { drawAsteroid } from './asteroid.js';
 import {
   applyCameraTransform,
   createCamera,
+  getViewportBounds,
   resetCameraTransform,
 } from './camera.js';
 import {
@@ -81,7 +82,13 @@ export function startApp() {
 
   const loop = createLoop();
   let starLayers = createParallaxLayers(logicalSize.width, logicalSize.height);
-  const sim = createSimulation(logicalSize.width, logicalSize.height);
+  const initialBounds = {
+    minX: 0,
+    maxX: logicalSize.width,
+    minY: 0,
+    maxY: logicalSize.height,
+  };
+  const sim = createSimulation(initialBounds);
   const playerShip = createShip({
     x: logicalSize.width / 2,
     y: logicalSize.height / 2,
@@ -217,7 +224,12 @@ export function startApp() {
         settings.starDirection,
       );
     }
-    updateSimulation(sim, scaledDt, logicalSize.width, logicalSize.height);
+    const bounds = getViewportBounds(
+      camera,
+      logicalSize.width,
+      logicalSize.height,
+    );
+    updateSimulation(sim, scaledDt, bounds);
 
     ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, logicalSize.width, logicalSize.height);

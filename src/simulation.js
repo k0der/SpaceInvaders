@@ -10,15 +10,17 @@ const SPAWN_STAGGER = 0.3; // seconds between spawns
 const MARGIN = 5; // px margin beyond radius for off-screen detection
 
 /**
- * Check if an asteroid is fully off-screen (center + radius + margin past all edges).
+ * Check if an asteroid is fully outside the viewport bounds (center + radius + margin past all edges).
+ * @param {object} asteroid
+ * @param {object} bounds - { minX, maxX, minY, maxY }
  */
-export function isOffScreen(asteroid, canvasWidth, canvasHeight) {
+export function isOffScreen(asteroid, bounds) {
   const { x, y, radius } = asteroid;
   return (
-    x + radius + MARGIN < 0 ||
-    x - radius - MARGIN > canvasWidth ||
-    y + radius + MARGIN < 0 ||
-    y - radius - MARGIN > canvasHeight
+    x + radius + MARGIN < bounds.minX ||
+    x - radius - MARGIN > bounds.maxX ||
+    y + radius + MARGIN < bounds.minY ||
+    y - radius - MARGIN > bounds.maxY
   );
 }
 
@@ -53,44 +55,41 @@ function speedForRadius(radius) {
 }
 
 /**
- * Spawn a new asteroid from a random screen edge, aimed roughly inward.
- * Optional speedMultiplier scales the base speed (default 1.0).
+ * Spawn a new asteroid from a random viewport edge, aimed roughly inward toward bounds center.
+ * @param {object} bounds - { minX, maxX, minY, maxY }
+ * @param {number} speedMultiplier - scales the base speed (default 1.0)
  */
-export function spawnAsteroidFromEdge(
-  canvasWidth,
-  canvasHeight,
-  speedMultiplier = 1.0,
-) {
+export function spawnAsteroidFromEdge(bounds, speedMultiplier = 1.0) {
   const radius = randomRadius();
   const speed = speedForRadius(radius) * speedMultiplier;
   const edge = Math.floor(Math.random() * 4); // 0=left, 1=right, 2=top, 3=bottom
 
-  let x, y, baseAngle;
+  const centerX = (bounds.minX + bounds.maxX) / 2;
+  const centerY = (bounds.minY + bounds.maxY) / 2;
+
+  let x, y;
 
   switch (edge) {
     case 0: // left
-      x = -radius - 1;
-      y = Math.random() * canvasHeight;
-      baseAngle = 0; // aiming right
+      x = bounds.minX - radius - 1;
+      y = bounds.minY + Math.random() * (bounds.maxY - bounds.minY);
       break;
     case 1: // right
-      x = canvasWidth + radius + 1;
-      y = Math.random() * canvasHeight;
-      baseAngle = Math.PI; // aiming left
+      x = bounds.maxX + radius + 1;
+      y = bounds.minY + Math.random() * (bounds.maxY - bounds.minY);
       break;
     case 2: // top
-      x = Math.random() * canvasWidth;
-      y = -radius - 1;
-      baseAngle = Math.PI / 2; // aiming down
+      x = bounds.minX + Math.random() * (bounds.maxX - bounds.minX);
+      y = bounds.minY - radius - 1;
       break;
     default: // bottom
-      x = Math.random() * canvasWidth;
-      y = canvasHeight + radius + 1;
-      baseAngle = -Math.PI / 2; // aiming up
+      x = bounds.minX + Math.random() * (bounds.maxX - bounds.minX);
+      y = bounds.maxY + radius + 1;
       break;
   }
 
-  // Add angular spread of ±30° (±PI/6)
+  // Aim toward bounds center with ±30° spread
+  const baseAngle = Math.atan2(centerY - y, centerX - x);
   const spread = (Math.random() * 2 - 1) * (Math.PI / 6);
   const angle = baseAngle + spread;
 
@@ -105,11 +104,13 @@ export function spawnAsteroidFromEdge(
 
 /**
  * Create the simulation state with an initial population of asteroids.
+ * @param {object} bounds - { minX, maxX, minY, maxY }
+ * @param {number} targetCount
  */
-export function createSimulation(canvasWidth, canvasHeight, targetCount = 20) {
+export function createSimulation(bounds, targetCount = 20) {
   const asteroids = [];
   for (let i = 0; i < targetCount; i++) {
-    asteroids.push(spawnAsteroidFromEdge(canvasWidth, canvasHeight));
+    asteroids.push(spawnAsteroidFromEdge(bounds));
   }
 
   const baselineKEPerAsteroid = computeTotalKE(asteroids) / asteroids.length;
@@ -124,8 +125,11 @@ export function createSimulation(canvasWidth, canvasHeight, targetCount = 20) {
 
 /**
  * Update the simulation: move asteroids, remove off-screen ones, spawn replacements.
+ * @param {object} sim
+ * @param {number} dt
+ * @param {object} bounds - { minX, maxX, minY, maxY }
  */
-export function updateSimulation(sim, dt, canvasWidth, canvasHeight) {
+export function updateSimulation(sim, dt, bounds) {
   // Update all asteroids
   for (const a of sim.asteroids) {
     updateAsteroid(a, dt);
@@ -139,9 +143,7 @@ export function updateSimulation(sim, dt, canvasWidth, canvasHeight) {
   }
 
   // Remove off-screen asteroids
-  sim.asteroids = sim.asteroids.filter(
-    (a) => !isOffScreen(a, canvasWidth, canvasHeight),
-  );
+  sim.asteroids = sim.asteroids.filter((a) => !isOffScreen(a, bounds));
 
   // Spawn new asteroids if below target (staggered), with energy-sustaining boost
   sim.spawnTimer += dt;
@@ -154,7 +156,7 @@ export function updateSimulation(sim, dt, canvasWidth, canvasHeight) {
       sim.targetCount,
       sim.asteroids,
     );
-    sim.asteroids.push(spawnAsteroidFromEdge(canvasWidth, canvasHeight, boost));
+    sim.asteroids.push(spawnAsteroidFromEdge(bounds, boost));
     sim.spawnTimer = 0;
   }
 }
