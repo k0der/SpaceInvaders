@@ -1,5 +1,10 @@
 import { drawAsteroid } from './asteroid.js';
 import {
+  applyCameraTransform,
+  createCamera,
+  resetCameraTransform,
+} from './camera.js';
+import {
   applyInput,
   createInputState,
   handleKeyDown,
@@ -82,6 +87,7 @@ export function startApp() {
     y: logicalSize.height / 2,
     heading: -Math.PI / 2,
   });
+  const camera = createCamera(playerShip.x, playerShip.y, playerShip.heading);
   const inputState = createInputState();
   const loaded = loadSettings();
   const settings = createSettings(loaded);
@@ -193,6 +199,11 @@ export function startApp() {
     applyInput(inputState, playerShip);
     updateShip(playerShip, scaledDt);
 
+    // Camera follows ship
+    camera.x = playerShip.x;
+    camera.y = playerShip.y;
+    camera.rotation = playerShip.heading;
+
     for (const layer of starLayers) {
       updateStarLayerDirectional(
         layer,
@@ -209,11 +220,15 @@ export function startApp() {
 
     drawParallaxLayers(ctx, starLayers, elapsedTime);
 
+    applyCameraTransform(ctx, camera, logicalSize.width, logicalSize.height);
+
     for (const asteroid of sim.asteroids) {
       drawAsteroid(ctx, asteroid);
     }
 
     drawShip(ctx, playerShip);
+
+    resetCameraTransform(ctx);
 
     requestAnimationFrame(frame);
   }

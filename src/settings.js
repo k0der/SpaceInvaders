@@ -11,7 +11,13 @@ export const SETTINGS_CONFIG = {
     label: 'Speed',
   },
   starLayers: { min: 3, max: 6, step: 1, default: 3, label: 'Star Layers' },
-  thrustPower: { min: 1000, max: 5000, step: 50, default: 2000, label: 'Thrust' },
+  thrustPower: {
+    min: 1000,
+    max: 5000,
+    step: 50,
+    default: 2000,
+    label: 'Thrust',
+  },
   starDirection: {
     options: ['left', 'right', 'up', 'down', 'radial'],
     default: 'left',

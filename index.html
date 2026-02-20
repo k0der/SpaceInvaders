@@ -105,6 +105,87 @@ function drawAsteroid(ctx, asteroid) {
   ctx.restore();
 }
 
+// ===== camera.js =====
+/** Padding margin around viewport bounds for spawn/despawn tolerance. */
+const VIEWPORT_MARGIN = 100;
+
+/**
+ * Create a camera state object.
+ */
+function createCamera(x, y, rotation) {
+  return { x, y, rotation };
+}
+
+/**
+ * Apply camera transform to a canvas context.
+ * Saves context, then applies: translate to screen center →
+ * rotate by -rotation → translate by (-x, -y).
+ */
+function applyCameraTransform(ctx, camera, viewportW, viewportH) {
+  ctx.save();
+  ctx.translate(viewportW / 2, viewportH / 2);
+  ctx.rotate(-camera.rotation);
+  ctx.translate(-camera.x, -camera.y);
+}
+
+/**
+ * Reset camera transform by restoring the saved context.
+ */
+function resetCameraTransform(ctx) {
+  ctx.restore();
+}
+
+/**
+ * Compute the axis-aligned bounding box of the rotated viewport in world-space.
+ * Returns { minX, maxX, minY, maxY } with VIEWPORT_MARGIN padding.
+ */
+function getViewportBounds(camera, viewportW, viewportH) {
+  const cosA = Math.abs(Math.cos(camera.rotation));
+  const sinA = Math.abs(Math.sin(camera.rotation));
+  const halfW = (viewportW * cosA + viewportH * sinA) / 2;
+  const halfH = (viewportW * sinA + viewportH * cosA) / 2;
+  return {
+    minX: camera.x - halfW - VIEWPORT_MARGIN,
+    maxX: camera.x + halfW + VIEWPORT_MARGIN,
+    minY: camera.y - halfH - VIEWPORT_MARGIN,
+    maxY: camera.y + halfH + VIEWPORT_MARGIN,
+  };
+}
+
+/**
+ * Convert a world-space coordinate to screen-space.
+ * Returns [screenX, screenY].
+ */
+function worldToScreen(wx, wy, camera, viewportW, viewportH) {
+  // Translate by (-camera.x, -camera.y)
+  const dx = wx - camera.x;
+  const dy = wy - camera.y;
+  // Rotate by -camera.rotation
+  const cosR = Math.cos(-camera.rotation);
+  const sinR = Math.sin(-camera.rotation);
+  const rx = dx * cosR - dy * sinR;
+  const ry = dx * sinR + dy * cosR;
+  // Translate to screen center
+  return [rx + viewportW / 2, ry + viewportH / 2];
+}
+
+/**
+ * Convert a screen-space coordinate to world-space.
+ * Returns [worldX, worldY]. Inverse of worldToScreen.
+ */
+function screenToWorld(sx, sy, camera, viewportW, viewportH) {
+  // Reverse translate from screen center
+  const cx = sx - viewportW / 2;
+  const cy = sy - viewportH / 2;
+  // Reverse rotate (rotate by +camera.rotation)
+  const cosR = Math.cos(camera.rotation);
+  const sinR = Math.sin(camera.rotation);
+  const rx = cx * cosR - cy * sinR;
+  const ry = cx * sinR + cy * cosR;
+  // Reverse translate
+  return [rx + camera.x, ry + camera.y];
+}
+
 // ===== energy.js =====
 /**
  * Compute kinetic energy for a single asteroid.
@@ -204,6 +285,7 @@ function applyInput(inputState, ship) {
 
 // ===== main.js =====
 
+
 /**
  * Calculate delta time in seconds between two timestamps (ms).
  * Caps at 0.1s to avoid spiral-of-death after tab backgrounding.
@@ -264,6 +346,7 @@ function startApp() {
     y: logicalSize.height / 2,
     heading: -Math.PI / 2,
   });
+  const camera = createCamera(playerShip.x, playerShip.y, playerShip.heading);
   const inputState = createInputState();
   const loaded = loadSettings();
   const settings = createSettings(loaded);
@@ -375,6 +458,11 @@ function startApp() {
     applyInput(inputState, playerShip);
     updateShip(playerShip, scaledDt);
 
+    // Camera follows ship
+    camera.x = playerShip.x;
+    camera.y = playerShip.y;
+    camera.rotation = playerShip.heading;
+
     for (const layer of starLayers) {
       updateStarLayerDirectional(
         layer,
@@ -391,11 +479,15 @@ function startApp() {
 
     drawParallaxLayers(ctx, starLayers, elapsedTime);
 
+    applyCameraTransform(ctx, camera, logicalSize.width, logicalSize.height);
+
     for (const asteroid of sim.asteroids) {
       drawAsteroid(ctx, asteroid);
     }
 
     drawShip(ctx, playerShip);
+
+    resetCameraTransform(ctx);
 
     requestAnimationFrame(frame);
   }
@@ -540,7 +632,13 @@ const SETTINGS_CONFIG = {
     label: 'Speed',
   },
   starLayers: { min: 3, max: 6, step: 1, default: 3, label: 'Star Layers' },
-  thrustPower: { min: 1000, max: 5000, step: 50, default: 2000, label: 'Thrust' },
+  thrustPower: {
+    min: 1000,
+    max: 5000,
+    step: 50,
+    default: 2000,
+    label: 'Thrust',
+  },
   starDirection: {
     options: ['left', 'right', 'up', 'down', 'radial'],
     default: 'left',
