@@ -1,3 +1,4 @@
+import { createAIState, spawnEnemyPosition, updateAI } from './ai.js';
 import { drawAsteroid } from './asteroid.js';
 import {
   checkBulletAsteroidCollisions,
@@ -122,6 +123,15 @@ export function startApp() {
     playerShip.heading + Math.PI / 2,
   );
   const playerTrail = createTrail();
+  const enemySpawn = spawnEnemyPosition(playerShip.x, playerShip.y);
+  const enemyShip = createShip({
+    x: enemySpawn.x,
+    y: enemySpawn.y,
+    heading: Math.random() * 2 * Math.PI - Math.PI,
+    owner: 'enemy',
+  });
+  const aiState = createAIState();
+  const enemyTrail = createTrail();
   let bullets = [];
   let prevCameraX = camera.x;
   let prevCameraY = camera.y;
@@ -133,9 +143,10 @@ export function startApp() {
 
   // Settings UI
   const ui = createSettingsUI(document.body, settings);
-  // Apply loaded settings to simulation, ship, and starfield
+  // Apply loaded settings to simulation, ships, and starfield
   sim.targetCount = Math.round(BASE_ASTEROID_COUNT * settings.asteroidDensity);
   playerShip.thrustPower = settings.thrustPower;
+  enemyShip.thrustPower = settings.thrustPower;
   if (settings.starLayers !== 3) {
     starLayers = createParallaxLayers(
       logicalSize.width,
@@ -163,6 +174,7 @@ export function startApp() {
     }
     if (name === 'thrustPower') {
       playerShip.thrustPower = value;
+      enemyShip.thrustPower = value;
     }
     if (name === 'starDirection') {
       redistributeStars(
@@ -234,6 +246,10 @@ export function startApp() {
     applyInput(inputState, playerShip);
     updateShip(playerShip, scaledDt);
 
+    // AI update + enemy ship physics
+    updateAI(aiState, enemyShip, playerShip, sim.asteroids, scaledDt);
+    updateShip(enemyShip, scaledDt);
+
     // Bullet firing
     playerShip.fireCooldown = Math.max(playerShip.fireCooldown - scaledDt, 0);
     if (playerShip.fire && playerShip.fireCooldown <= 0 && playerShip.alive) {
@@ -258,6 +274,13 @@ export function startApp() {
       playerShip.y,
       playerShip.heading,
       playerShip.thrustIntensity,
+    );
+    updateTrail(
+      enemyTrail,
+      enemyShip.x,
+      enemyShip.y,
+      enemyShip.heading,
+      enemyShip.thrustIntensity,
     );
 
     // Camera follows ship (PI/2 offset so ship nose points UP on screen)
@@ -333,6 +356,8 @@ export function startApp() {
       drawAsteroid(ctx, asteroid);
     }
 
+    drawTrail(ctx, enemyTrail);
+    drawShip(ctx, enemyShip);
     drawTrail(ctx, playerTrail);
     drawShip(ctx, playerShip);
 

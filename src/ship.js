@@ -52,7 +52,7 @@ function normalizeAngle(angle) {
 /**
  * Create a ship entity.
  */
-export function createShip({ x, y, heading }) {
+export function createShip({ x, y, heading, owner = 'player' }) {
   return {
     x,
     y,
@@ -67,6 +67,7 @@ export function createShip({ x, y, heading }) {
     fire: false,
     thrustIntensity: 0,
     fireCooldown: 0,
+    owner,
   };
 }
 
@@ -142,6 +143,10 @@ export function drawShip(ctx, ship) {
   ctx.strokeStyle = '#FFFFFF';
   ctx.lineWidth = 1.5;
 
+  if (ship.owner === 'enemy') {
+    ctx.setLineDash([4, 4]);
+  }
+
   // Chevron shape: nose at right (+x), two rear points, notch in back
   ctx.beginPath();
   ctx.moveTo(s, 0); // nose
@@ -150,6 +155,10 @@ export function drawShip(ctx, ship) {
   ctx.lineTo(-s, s * 0.7); // bottom-left wing
   ctx.closePath();
   ctx.stroke();
+
+  if (ship.owner === 'enemy') {
+    ctx.setLineDash([]);
+  }
 
   ctx.restore();
 }

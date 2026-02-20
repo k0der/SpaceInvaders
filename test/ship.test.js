@@ -80,7 +80,23 @@ describe('Increment 17: Static Ship at Screen Center', () => {
         fire: false,
         thrustIntensity: 0,
         fireCooldown: 0,
+        owner: 'player',
       });
+    });
+
+    it('defaults owner to "player" when not specified', () => {
+      const ship = createShip({ x: 0, y: 0, heading: 0 });
+      expect(ship.owner).toBe('player');
+    });
+
+    it('accepts owner: "enemy"', () => {
+      const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+      expect(ship.owner).toBe('enemy');
+    });
+
+    it('accepts owner: "player" explicitly', () => {
+      const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'player' });
+      expect(ship.owner).toBe('player');
     });
   });
 
@@ -159,6 +175,38 @@ describe('Increment 17: Static Ship at Screen Center', () => {
 
       expect(ctx.save).not.toHaveBeenCalled();
       expect(ctx.stroke).not.toHaveBeenCalled();
+    });
+
+    it('uses solid lines for player ships (no setLineDash)', () => {
+      const ctx = createFakeCtx();
+      ctx.setLineDash = vi.fn();
+      const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'player' });
+      drawShip(ctx, ship);
+
+      // Should not set dashed lines for player
+      expect(ctx.setLineDash).not.toHaveBeenCalled();
+    });
+
+    it('uses dashed lines for enemy ships', () => {
+      const ctx = createFakeCtx();
+      ctx.setLineDash = vi.fn();
+      const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+      drawShip(ctx, ship);
+
+      expect(ctx.setLineDash).toHaveBeenCalledWith([4, 4]);
+    });
+
+    it('resets line dash after drawing enemy ship', () => {
+      const dashCalls = [];
+      const ctx = createFakeCtx();
+      ctx.setLineDash = vi.fn((pattern) => dashCalls.push([...pattern]));
+      const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+      drawShip(ctx, ship);
+
+      // Should have called setLineDash twice: once to set, once to reset
+      expect(ctx.setLineDash).toHaveBeenCalledTimes(2);
+      expect(dashCalls[0]).toEqual([4, 4]);
+      expect(dashCalls[1]).toEqual([]);
     });
   });
 

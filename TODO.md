@@ -530,17 +530,23 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 **Goal**: Second ship appears, controlled by AI that chases the player.
 
 **New modules**: `src/ai.js`, `test/ai.test.js`
-**Modify**: `src/main.js`
+**Modify**: `src/ship.js`, `test/ship.test.js`, `src/main.js`
 
 **Acceptance Criteria**:
-- [ ] `createAIState()` returns AI decision state object
+- [ ] `createAIState()` returns AI decision state object (minimal for pursuit; expandable for combat)
 - [ ] `updateAI(aiState, aiShip, targetShip, asteroids, dt)` sets aiShip's control flags:
-  - Rotates toward target's predicted position (leads the target based on velocity)
-  - Thrusts when roughly facing target
-  - Brakes when overshooting
+  - Computes predicted target position using velocity-based lead (`lookAheadTime = min(dist / PREDICTION_SPEED, MAX_PREDICTION_TIME)`)
+  - Rotates toward predicted position with dead zone to prevent oscillation
+  - Thrusts when roughly facing target (within `THRUST_ANGLE`)
+  - Brakes when not facing target and moving above `BRAKE_SPEED` threshold
+- [ ] When either ship is dead, AI clears all control flags (no zombie steering)
+- [ ] AI constants exported: `ROTATION_DEADZONE`, `THRUST_ANGLE`, `BRAKE_SPEED`, `PREDICTION_SPEED`, `MAX_PREDICTION_TIME`, `MIN_SPAWN_DISTANCE`, `MAX_SPAWN_DISTANCE`
+- [ ] `createShip` accepts optional `owner` field (default `'player'`)
 - [ ] AI ship uses same `createShip` / `updateShip` physics as player (same thrust, drag, max speed)
-- [ ] Enemy visually distinguished (e.g., dashed lines, or slightly different shape/size)
-- [ ] Enemy spawns at a random world position offset from player (far enough to not immediately collide)
+- [ ] Enemy drawn with dashed lines (`ctx.setLineDash([4, 4])`) — visually distinct from player's solid lines
+- [ ] Enemy spawns at random world position `MIN_SPAWN_DISTANCE`–`MAX_SPAWN_DISTANCE` px from player in a random direction
+- [ ] Enemy has its own exhaust trail (same orange color as player)
+- [ ] Enemy uses same `thrustPower` setting as player
 - [ ] Both ships rendered inside camera transform
 - [ ] **Visible**: Two ships flying through the asteroid field. The enemy chases the player with fluid arcs. No shooting or collision yet — just the pursuit.
 

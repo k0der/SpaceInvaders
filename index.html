@@ -14,6 +14,106 @@
   <canvas id="canvas"></canvas>
 
   <script>
+// ===== ai.js =====
+/** Dead zone for rotation — prevents oscillation (~3°). */
+const ROTATION_DEADZONE = 0.05;
+
+/** Thrust engages when heading is within this angle of target (~60°). */
+const THRUST_ANGLE = Math.PI / 3;
+
+/** Brake threshold — brake when not facing target and speed exceeds this. */
+const BRAKE_SPEED = 50;
+
+/** Lead calculation divisor (~MAX_SPEED). */
+const PREDICTION_SPEED = 400;
+
+/** Maximum look-ahead time for target prediction (seconds). */
+const MAX_PREDICTION_TIME = 2.0;
+
+/** Minimum enemy spawn offset from player (px). */
+const MIN_SPAWN_DISTANCE = 600;
+
+/** Maximum enemy spawn offset from player (px). */
+const MAX_SPAWN_DISTANCE = 1000;
+
+/**
+ * Normalize an angle to the range [-PI, PI].
+ */
+function normalizeAngleAI(angle) {
+  while (angle > Math.PI) angle -= 2 * Math.PI;
+  while (angle < -Math.PI) angle += 2 * Math.PI;
+  return angle;
+}
+
+/**
+ * Create AI decision state (minimal for pursuit; expandable for combat).
+ */
+function createAIState() {
+  return {};
+}
+
+/**
+ * Update AI control flags on aiShip to pursue targetShip.
+ *
+ * Sets the same 5 control flags as keyboard input so the ship physics
+ * engine treats AI and player identically.
+ */
+function updateAI(_aiState, aiShip, targetShip, _asteroids, _dt) {
+  // If either ship is dead, clear all flags
+  if (!aiShip.alive || !targetShip.alive) {
+    aiShip.thrust = false;
+    aiShip.rotatingLeft = false;
+    aiShip.rotatingRight = false;
+    aiShip.braking = false;
+    aiShip.fire = false;
+    return;
+  }
+
+  // Distance to target
+  const dx = targetShip.x - aiShip.x;
+  const dy = targetShip.y - aiShip.y;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+
+  // Lead prediction
+  const lookAheadTime = Math.min(dist / PREDICTION_SPEED, MAX_PREDICTION_TIME);
+  const predictedX = targetShip.x + targetShip.vx * lookAheadTime;
+  const predictedY = targetShip.y + targetShip.vy * lookAheadTime;
+
+  // Angle to predicted position
+  const targetAngle = Math.atan2(predictedY - aiShip.y, predictedX - aiShip.x);
+  const headingDiff = normalizeAngleAI(targetAngle - aiShip.heading);
+
+  // Rotation: turn toward predicted position with dead zone
+  aiShip.rotatingLeft = headingDiff < -ROTATION_DEADZONE;
+  aiShip.rotatingRight = headingDiff > ROTATION_DEADZONE;
+
+  // Thrust: engage when roughly facing target
+  const facingTarget = Math.abs(headingDiff) < THRUST_ANGLE;
+  aiShip.thrust = facingTarget;
+
+  // Brake: engage when NOT facing target AND speed exceeds threshold
+  const speed = Math.sqrt(aiShip.vx * aiShip.vx + aiShip.vy * aiShip.vy);
+  aiShip.braking = !facingTarget && speed > BRAKE_SPEED;
+
+  // Fire: disabled in basic pursuit (increment 26)
+  aiShip.fire = false;
+}
+
+/**
+ * Compute a random spawn position for the enemy ship at
+ * MIN_SPAWN_DISTANCE–MAX_SPAWN_DISTANCE from the player.
+ */
+function spawnEnemyPosition(playerX, playerY) {
+  const angle = Math.random() * 2 * Math.PI;
+  const distance =
+    MIN_SPAWN_DISTANCE +
+    Math.random() * (MAX_SPAWN_DISTANCE - MIN_SPAWN_DISTANCE);
+  return {
+    x: playerX + Math.cos(angle) * distance,
+    y: playerY + Math.sin(angle) * distance,
+  };
+}
+
 // ===== asteroid.js =====
 /**
  * Generate an irregular polygon shape for an asteroid.
@@ -439,6 +539,15 @@ function startApp() {
     playerShip.heading + Math.PI / 2,
   );
   const playerTrail = createTrail();
+  const enemySpawn = spawnEnemyPosition(playerShip.x, playerShip.y);
+  const enemyShip = createShip({
+    x: enemySpawn.x,
+    y: enemySpawn.y,
+    heading: Math.random() * 2 * Math.PI - Math.PI,
+    owner: 'enemy',
+  });
+  const aiState = createAIState();
+  const enemyTrail = createTrail();
   let bullets = [];
   let prevCameraX = camera.x;
   let prevCameraY = camera.y;
@@ -450,9 +559,10 @@ function startApp() {
 
   // Settings UI
   const ui = createSettingsUI(document.body, settings);
-  // Apply loaded settings to simulation, ship, and starfield
+  // Apply loaded settings to simulation, ships, and starfield
   sim.targetCount = Math.round(BASE_ASTEROID_COUNT * settings.asteroidDensity);
   playerShip.thrustPower = settings.thrustPower;
+  enemyShip.thrustPower = settings.thrustPower;
   if (settings.starLayers !== 3) {
     starLayers = createParallaxLayers(
       logicalSize.width,
@@ -480,6 +590,7 @@ function startApp() {
     }
     if (name === 'thrustPower') {
       playerShip.thrustPower = value;
+      enemyShip.thrustPower = value;
     }
     if (name === 'starDirection') {
       redistributeStars(
@@ -551,6 +662,10 @@ function startApp() {
     applyInput(inputState, playerShip);
     updateShip(playerShip, scaledDt);
 
+    // AI update + enemy ship physics
+    updateAI(aiState, enemyShip, playerShip, sim.asteroids, scaledDt);
+    updateShip(enemyShip, scaledDt);
+
     // Bullet firing
     playerShip.fireCooldown = Math.max(playerShip.fireCooldown - scaledDt, 0);
     if (playerShip.fire && playerShip.fireCooldown <= 0 && playerShip.alive) {
@@ -575,6 +690,13 @@ function startApp() {
       playerShip.y,
       playerShip.heading,
       playerShip.thrustIntensity,
+    );
+    updateTrail(
+      enemyTrail,
+      enemyShip.x,
+      enemyShip.y,
+      enemyShip.heading,
+      enemyShip.thrustIntensity,
     );
 
     // Camera follows ship (PI/2 offset so ship nose points UP on screen)
@@ -650,6 +772,8 @@ function startApp() {
       drawAsteroid(ctx, asteroid);
     }
 
+    drawTrail(ctx, enemyTrail);
+    drawShip(ctx, enemyShip);
     drawTrail(ctx, playerTrail);
     drawShip(ctx, playerShip);
 
@@ -1151,7 +1275,7 @@ function normalizeAngle(angle) {
 /**
  * Create a ship entity.
  */
-function createShip({ x, y, heading }) {
+function createShip({ x, y, heading, owner = 'player' }) {
   return {
     x,
     y,
@@ -1166,6 +1290,7 @@ function createShip({ x, y, heading }) {
     fire: false,
     thrustIntensity: 0,
     fireCooldown: 0,
+    owner,
   };
 }
 
@@ -1241,6 +1366,10 @@ function drawShip(ctx, ship) {
   ctx.strokeStyle = '#FFFFFF';
   ctx.lineWidth = 1.5;
 
+  if (ship.owner === 'enemy') {
+    ctx.setLineDash([4, 4]);
+  }
+
   // Chevron shape: nose at right (+x), two rear points, notch in back
   ctx.beginPath();
   ctx.moveTo(s, 0); // nose
@@ -1249,6 +1378,10 @@ function drawShip(ctx, ship) {
   ctx.lineTo(-s, s * 0.7); // bottom-left wing
   ctx.closePath();
   ctx.stroke();
+
+  if (ship.owner === 'enemy') {
+    ctx.setLineDash([]);
+  }
 
   ctx.restore();
 }

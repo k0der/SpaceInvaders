@@ -404,7 +404,8 @@ produces a standalone `index.html` with all modules inlined — zero external de
 ### 9.1 Ship Entity
 
 - Ships are classic Asteroids chevron/triangle wireframes — white stroke, no fill
-- Each ship has: `x, y, vx, vy, heading, alive, thrustIntensity`, control booleans (`thrust, rotatingLeft, rotatingRight, braking, fire`), and a `collisionRadius`
+- Each ship has: `x, y, vx, vy, heading, alive, thrustIntensity`, control booleans (`thrust, rotatingLeft, rotatingRight, braking, fire`), a `collisionRadius`, and an `owner` field (`'player'` or `'enemy'`)
+- `owner` field determines visual style (solid vs dashed lines) and is used for bullet collision filtering in later increments
 - Ships use **Newtonian physics**: thrust accelerates in heading direction, drag always applies, braking decelerates opposite to velocity
 - **Thrust ramp**: `thrustIntensity` (0.0–1.0) ramps toward 1.0 when thrusting and toward 0.0 when coasting, at `THRUST_RAMP_SPEED` per second. Thrust force is proportional: `THRUST_POWER * thrustIntensity * dt`. This means the engine spools up/down smoothly rather than snapping to full power.
 - Speed capped at `MAX_SPEED`; a `MIN_SPEED` ensures the ship always drifts forward gently
@@ -421,7 +422,8 @@ produces a standalone `index.html` with all modules inlined — zero external de
 - White wireframe chevron (`strokeStyle = '#FFFFFF'`), `lineWidth ~1.5`
 - Canvas state saved/restored (no transform leak)
 - When thrusting, a flickering engine flame (randomized triangle) drawn behind the ship
-- Enemy ship visually distinguished (e.g., dashed lines or different shape)
+- Enemy ship drawn with dashed line pattern (`ctx.setLineDash([4, 4])`)
+- Ship `owner` field (`'player'` or `'enemy'`) determines visual style and collision filtering
 
 ### 9.4 Exhaust Trail
 
@@ -517,9 +519,23 @@ viewport AABB.
 ### 12.1 AI Steering
 
 - AI controls a ship using the same physics as the player (same thrust, drag, max speed)
-- Rotates toward target's **predicted position** (leads the target based on velocity)
-- Thrusts when roughly facing target
-- Brakes when overshooting
+- AI sets the same 5 control flags as keyboard input — the ship physics engine
+  treats AI and player identically
+- **Target prediction**: AI aims at where the target *will* be, not where it is:
+  - `lookAheadTime = min(distance / PREDICTION_SPEED, MAX_PREDICTION_TIME)`
+  - `predicted = target.pos + target.vel * lookAheadTime`
+- **Rotation**: Turns toward predicted position with a small dead zone
+  (`ROTATION_DEADZONE` ~0.05 rad / ~3°) to prevent oscillation
+- **Thrust**: Engages when heading is within `THRUST_ANGLE` (~60°) of
+  target direction — creates natural arcing pursuit paths
+- **Brake**: Engages when NOT facing target AND speed exceeds
+  `BRAKE_SPEED` — kills wrong-direction momentum after overshooting
+- **State object**: `createAIState()` returns internal decision state
+  (minimal for basic pursuit, expanded for combat/avoidance in later increments)
+- **Constants** (exported from `ai.js`):
+  `ROTATION_DEADZONE`, `THRUST_ANGLE`, `BRAKE_SPEED`,
+  `PREDICTION_SPEED`, `MAX_PREDICTION_TIME`,
+  `MIN_SPAWN_DISTANCE`, `MAX_SPAWN_DISTANCE`
 
 ### 12.2 AI Combat
 
