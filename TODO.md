@@ -361,22 +361,22 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 **Modify**: `src/ship.js`, `test/ship.test.js`
 
 **Acceptance Criteria**:
-- [ ] `updateShip(ship, dt)` now also applies:
+- [x] `updateShip(ship, dt)` now also applies:
   - `thrust` → accelerate in heading direction: `vx += cos(heading) * THRUST_POWER * dt`, `vy += sin(heading) * THRUST_POWER * dt`
   - `braking` → decelerate opposite to velocity direction (stronger than drag)
   - Drag always applied: `vx *= (1 - DRAG * dt)`, `vy *= (1 - DRAG * dt)`
   - Position updates: `x += vx * dt`, `y += vy * dt`
   - Speed capped at `MAX_SPEED`
-- [ ] Constants exported: `THRUST_POWER`, `DRAG`, `BRAKE_POWER`, `MAX_SPEED`
-- [ ] With `dt=0`, no position/velocity changes
-- [ ] Ship drawn at its `(x, y)` which is now changing
-- [ ] Ship can fly off-screen (intentional — camera comes next)
-- [ ] Speed multiplier setting scales ship dt (same `scaledDt` as asteroids)
-- [ ] `SETTINGS_CONFIG` includes `thrustPower` slider (1000–5000, default 2000, step 50)
-- [ ] `thrustPower` persisted to localStorage
-- [ ] Changing slider updates thrust in real-time
-- [ ] `updateShip` uses `ship.thrustPower` instead of bare constant (falls back to exported `THRUST_POWER` default)
-- [ ] **Visible**: W/Up thrusts the ship forward. It drifts with momentum. S/Down brakes. Ship carves fluid arcs when combining rotation + thrust. Can fly off-screen.
+- [x] Constants exported: `THRUST_POWER`, `DRAG`, `BRAKE_POWER`, `MAX_SPEED`
+- [x] With `dt=0`, no position/velocity changes
+- [x] Ship drawn at its `(x, y)` which is now changing
+- [x] Ship can fly off-screen (intentional — camera comes next)
+- [x] Speed multiplier setting scales ship dt (same `scaledDt` as asteroids)
+- [x] `SETTINGS_CONFIG` includes `thrustPower` slider (1000–5000, default 2000, step 50)
+- [x] `thrustPower` persisted to localStorage
+- [x] Changing slider updates thrust in real-time
+- [x] `updateShip` uses `ship.thrustPower` instead of bare constant (falls back to exported `THRUST_POWER` default)
+- [x] **Visible**: W/Up thrusts the ship forward. It drifts with momentum. S/Down brakes. Ship carves fluid arcs when combining rotation + thrust. Can fly off-screen.
 
 ---
 
@@ -388,22 +388,22 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 **Modify**: `src/main.js`
 
 **Acceptance Criteria**:
-- [ ] `createCamera(x, y, rotation)` returns `{ x, y, rotation }`
-- [ ] `applyCameraTransform(ctx, camera, viewportW, viewportH)` saves context and applies: translate to screen center → rotate by `-camera.rotation` → translate by `(-camera.x, -camera.y)`
-- [ ] `resetCameraTransform(ctx)` restores context
-- [ ] `getViewportBounds(camera, viewportW, viewportH)` returns the AABB of the rotated viewport in world-space: `{ minX, maxX, minY, maxY }` with padding margin
-- [ ] Each frame: `camera.x = ship.x`, `camera.y = ship.y`, `camera.rotation = ship.heading`
-- [ ] Render pipeline becomes:
+- [x] `createCamera(x, y, rotation)` returns `{ x, y, rotation }`
+- [x] `applyCameraTransform(ctx, camera, viewportW, viewportH)` saves context and applies: translate to screen center → rotate by `-camera.rotation` → translate by `(-camera.x, -camera.y)`
+- [x] `resetCameraTransform(ctx)` restores context
+- [x] `getViewportBounds(camera, viewportW, viewportH)` returns the AABB of the rotated viewport in world-space: `{ minX, maxX, minY, maxY }` with padding margin
+- [x] Each frame: `camera.x = ship.x`, `camera.y = ship.y`, `camera.rotation = ship.heading`
+- [x] Render pipeline becomes:
   1. Clear canvas
   2. Draw starfield (screen-space, before camera transform)
   3. `applyCameraTransform(ctx, camera, ...)`
   4. Draw asteroids (unchanged `drawAsteroid(ctx, asteroid)`)
   5. Draw ship (at its world x,y — maps to screen center)
   6. `resetCameraTransform(ctx)`
-- [ ] Ship always points "up" on screen (camera rotation cancels heading)
-- [ ] Ship can no longer fly off-screen (camera follows it)
-- [ ] Round-trip test: world → screen → world preserves coordinates
-- [ ] **Visible**: Ship locked at center pointing up. Rotating makes asteroids spin around you. Thrusting makes them scroll past. The "world rotates around you" effect.
+- [x] Ship always points "up" on screen (camera rotation cancels heading)
+- [x] Ship can no longer fly off-screen (camera follows it)
+- [x] Round-trip test: world → screen → world preserves coordinates
+- [x] **Visible**: Ship locked at center pointing up. Rotating makes asteroids spin around you. Thrusting makes them scroll past. The "world rotates around you" effect.
 
 ---
 
