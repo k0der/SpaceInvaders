@@ -43,14 +43,17 @@ const FIRE_ANGLE = 0.15;
 /** Max distance (px) at which AI will fire. */
 const MAX_FIRE_RANGE = 500;
 
-/** How far ahead (px) the AI scans for obstacles along its heading. */
-const AVOID_LOOKAHEAD = 300;
+/** How far ahead (px) the AI scans for obstacles along its predicted path. */
+const AVOID_LOOKAHEAD = 500;
 
 /** Buffer (px) around obstacle collision radius for avoidance. */
-const AVOID_MARGIN = 30;
+const AVOID_MARGIN = 50;
 
 /** Maximum steering offset (rad) from avoidance. */
-const AVOID_STRENGTH = 1.5;
+const AVOID_STRENGTH = 2.5;
+
+/** Proximity detection radius (px) — catches obstacles the cylinder misses. */
+const AVOID_PROXIMITY = 80;
 
 /** Time horizon (seconds) for predicting future velocity in avoidance. */
 const AVOID_PREDICT_TIME = 0.3;
@@ -112,24 +115,35 @@ function computeAvoidanceOffset(aiShip, obstacles) {
   for (const obs of obstacles) {
     const dx = obs.x - aiShip.x;
     const dy = obs.y - aiShip.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
 
     // Project onto predicted velocity axis (ahead) and perpendicular (lateral)
     const ahead = dx * dirX + dy * dirY;
     const lateral = -dx * dirY + dy * dirX;
 
-    // Skip obstacles behind the ship or beyond lookahead
-    if (ahead <= 0 || ahead >= AVOID_LOOKAHEAD) continue;
+    // --- Cylinder threat ---
+    let cylinderUrgency = 0;
+    if (ahead > 0 && ahead < AVOID_LOOKAHEAD) {
+      const dangerRadius = obs.radius + AVOID_MARGIN;
+      if (Math.abs(lateral) < dangerRadius) {
+        cylinderUrgency = 1 - ahead / AVOID_LOOKAHEAD;
+      }
+    }
 
-    const dangerRadius = obs.radius + AVOID_MARGIN;
+    // --- Proximity threat ---
+    let proximityUrgency = 0;
+    const proximityRadius = obs.radius + AVOID_PROXIMITY;
+    if (dist < proximityRadius) {
+      proximityUrgency = 1 - dist / proximityRadius;
+    }
 
-    // Skip if lateral distance exceeds danger zone
-    if (Math.abs(lateral) >= dangerRadius) continue;
+    // Combined urgency: take the stronger signal, then square for nonlinear response
+    const rawUrgency = Math.max(cylinderUrgency, proximityUrgency);
+    if (rawUrgency <= 0) continue;
+    const urgency = rawUrgency * rawUrgency;
 
-    // Collision course detected — compute steering offset
-    const urgency = 1 - ahead / AVOID_LOOKAHEAD;
-
-    // Steer away from obstacle: if lateral > 0 (obstacle to right), steer left (negative)
-    // If lateral ≈ 0 (dead center), default to steering right (positive offset)
+    // Steer away from obstacle: obstacle to right (lateral > 0) → steer left (negative)
+    // Dead center (lateral ≈ 0) → default to steering right (positive)
     const steerDirection = lateral > 0 ? -1 : 1;
 
     totalOffset += steerDirection * AVOID_STRENGTH * urgency;

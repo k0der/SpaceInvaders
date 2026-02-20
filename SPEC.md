@@ -583,14 +583,19 @@ predictedVy = vy + sin(heading) * thrustPower * thrustIntensity * AVOID_PREDICT_
 2. For each obstacle `{ x, y, radius }`, compute the vector from AI to obstacle
 3. Project onto predicted velocity axis → `ahead` (forward distance) and
    perpendicular axis → `lateral` (side distance)
-4. **Collision course** detected when:
-   - `ahead > 0` (obstacle is ahead along predicted path)
-   - `ahead < AVOID_LOOKAHEAD` (300px — within look-ahead range)
-   - `|lateral| < obstacle.radius + AVOID_MARGIN` (30px buffer)
-5. For each collision-course obstacle, compute a lateral steering offset:
+4. **Threat detection** — two complementary methods per obstacle:
+   - **Cylinder threat**: `ahead > 0`, `ahead < AVOID_LOOKAHEAD` (500px),
+     `|lateral| < obstacle.radius + AVOID_MARGIN` (50px buffer).
+     Urgency = `1 - ahead / AVOID_LOOKAHEAD`
+   - **Proximity threat**: `distance < obstacle.radius + AVOID_PROXIMITY` (80px).
+     Urgency = `1 - distance / proximityRadius`
+   - Final urgency = `max(cylinderUrgency, proximityUrgency)²` (squared for
+     nonlinear response — exponentially stronger at close range)
+5. For each threatening obstacle, compute a lateral steering offset:
    - Direction: perpendicular to predicted velocity, pushing away from obstacle
-   - Strength: `AVOID_STRENGTH * (1 - ahead / AVOID_LOOKAHEAD)` — closer = stronger
+   - Strength: `AVOID_STRENGTH (2.5 rad) * urgency²`
    - When lateral ≈ 0 (dead center), default to steering right to break symmetry
+   - Proximity-only threats (not in cylinder) use angle-to-obstacle for steer direction
 6. Sum all offsets → total `avoidanceOffset` (radians)
 
 **Blending with pursuit**:
@@ -611,7 +616,8 @@ This creates natural strafing/orbiting behavior: the AI approaches to firing
 range but curves around the player ship instead of charging head-on.
 
 **Constants** (exported from `ai.js`):
-`FIRE_ANGLE`, `MAX_FIRE_RANGE`, `AVOID_LOOKAHEAD`, `AVOID_MARGIN`, `AVOID_STRENGTH`
+`FIRE_ANGLE`, `MAX_FIRE_RANGE`, `AVOID_LOOKAHEAD` (500px), `AVOID_MARGIN` (50px),
+`AVOID_STRENGTH` (2.5 rad), `AVOID_PROXIMITY` (80px), `AVOID_PREDICT_TIME` (0.3s)
 
 ---
 

@@ -576,8 +576,11 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 - [ ] Predicted velocity: `predV = velocity + thrustAccel * AVOID_PREDICT_TIME`; falls back to heading when speed < 1
 - [ ] `AVOID_PREDICT_TIME` (0.3s) exported from `ai.js`
 - [ ] Look-ahead cylinder: obstacle is a threat when `ahead > 0`, `ahead < AVOID_LOOKAHEAD`, and `|lateral| < obstacle.radius + AVOID_MARGIN`
-- [x] `AVOID_LOOKAHEAD` (300px), `AVOID_MARGIN` (30px), `AVOID_STRENGTH` (1.5 rad) exported from `ai.js`
-- [x] Closer obstacles produce stronger steering offset: strength scales with `(1 - ahead / AVOID_LOOKAHEAD)`
+- [ ] Proximity detection: obstacle is a threat when `distance < obstacle.radius + AVOID_PROXIMITY` (catches obstacles the cylinder misses, e.g., when circling)
+- [ ] `AVOID_PROXIMITY` (80px) exported from `ai.js`
+- [ ] `AVOID_LOOKAHEAD` (500px), `AVOID_MARGIN` (50px), `AVOID_STRENGTH` (2.5 rad) exported from `ai.js`
+- [ ] Nonlinear urgency: final urgency is squared for exponentially stronger close-range response
+- [ ] Closer obstacles produce stronger steering offset: strength scales with `max(cylinderUrgency, proximityUrgency)²`
 - [x] Dead-center obstacle (lateral ≈ 0) defaults to steering right (breaks symmetry)
 - [x] Returns 0 when no obstacles are on collision course
 - [x] `updateAI` builds obstacle list from asteroids (`collisionRadius`) + target ship (`SHIP_SIZE` as proxy radius)

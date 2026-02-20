@@ -3,6 +3,7 @@ import {
   AVOID_LOOKAHEAD,
   AVOID_MARGIN,
   AVOID_PREDICT_TIME,
+  AVOID_PROXIMITY,
   AVOID_STRENGTH,
   BRAKE_SPEED,
   computeAvoidanceOffset,
@@ -325,24 +326,29 @@ describe('Increment 26: AI Fires Bullets + Asteroid Avoidance', () => {
   });
 
   describe('AI avoidance constants', () => {
-    it('exports AVOID_LOOKAHEAD as a positive number (300px)', () => {
+    it('exports AVOID_LOOKAHEAD as 500px', () => {
       expect(typeof AVOID_LOOKAHEAD).toBe('number');
-      expect(AVOID_LOOKAHEAD).toBe(300);
+      expect(AVOID_LOOKAHEAD).toBe(500);
     });
 
-    it('exports AVOID_MARGIN as a positive number (30px)', () => {
+    it('exports AVOID_MARGIN as 50px', () => {
       expect(typeof AVOID_MARGIN).toBe('number');
-      expect(AVOID_MARGIN).toBe(30);
+      expect(AVOID_MARGIN).toBe(50);
     });
 
-    it('exports AVOID_STRENGTH as a positive number (1.5 rad)', () => {
+    it('exports AVOID_STRENGTH as 2.5 rad', () => {
       expect(typeof AVOID_STRENGTH).toBe('number');
-      expect(AVOID_STRENGTH).toBe(1.5);
+      expect(AVOID_STRENGTH).toBe(2.5);
     });
 
-    it('exports AVOID_PREDICT_TIME as a positive number (0.3s)', () => {
+    it('exports AVOID_PREDICT_TIME as 0.3s', () => {
       expect(typeof AVOID_PREDICT_TIME).toBe('number');
       expect(AVOID_PREDICT_TIME).toBeCloseTo(0.3, 1);
+    });
+
+    it('exports AVOID_PROXIMITY as 80px', () => {
+      expect(typeof AVOID_PROXIMITY).toBe('number');
+      expect(AVOID_PROXIMITY).toBe(80);
     });
   });
 
@@ -433,10 +439,10 @@ describe('Increment 26: AI Fires Bullets + Asteroid Avoidance', () => {
       expect(offset).toBe(0);
     });
 
-    it('returns 0 when obstacle is behind the ship', () => {
+    it('returns 0 when obstacle is behind the ship and beyond proximity', () => {
       const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
-      // Obstacle behind: negative x
-      const obstacles = [{ x: -100, y: 0, radius: 30 }];
+      // Obstacle behind and beyond proximity range (radius 30 + AVOID_PROXIMITY 80 = 110 < 200)
+      const obstacles = [{ x: -200, y: 0, radius: 30 }];
       const offset = computeAvoidanceOffset(ai, obstacles);
       expect(offset).toBe(0);
     });
@@ -534,6 +540,46 @@ describe('Increment 26: AI Fires Bullets + Asteroid Avoidance', () => {
 
       // Large obstacle should trigger avoidance, small one might not at y=50
       expect(largeOffset).toBeGreaterThanOrEqual(smallOffset);
+    });
+  });
+
+  describe('computeAvoidanceOffset — proximity detection', () => {
+    it('detects obstacle to the side via proximity even when not in cylinder', () => {
+      // Ship heading right, obstacle directly to the side (not ahead in cylinder)
+      const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+      // Obstacle at (0, 60) — perpendicular, not ahead at all (ahead ≈ 0)
+      // But within AVOID_PROXIMITY (80) + radius (30) = 110px, and distance is 60
+      const obstacles = [{ x: 0, y: 60, radius: 30 }];
+      const offset = computeAvoidanceOffset(ai, obstacles);
+
+      // Should detect via proximity even though cylinder projection misses it
+      expect(offset).not.toBe(0);
+    });
+
+    it('does not trigger proximity for distant obstacles', () => {
+      const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+      // Obstacle far to the side — beyond proximity range
+      const obstacles = [{ x: 0, y: 200, radius: 30 }];
+      const offset = computeAvoidanceOffset(ai, obstacles);
+
+      expect(offset).toBe(0);
+    });
+
+    it('produces nonlinear urgency (squared): very close is disproportionately strong', () => {
+      const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+      // Very close obstacle (high urgency)
+      const veryClose = [{ x: 30, y: 0, radius: 30 }];
+      // Moderately close obstacle (medium urgency)
+      const moderate = [{ x: 150, y: 0, radius: 30 }];
+
+      const veryCloseOffset = Math.abs(computeAvoidanceOffset(ai, veryClose));
+      const moderateOffset = Math.abs(computeAvoidanceOffset(ai, moderate));
+
+      // With squared urgency, the ratio should be much larger than linear
+      // Very close urgency ≈ 0.88, squared ≈ 0.77
+      // Moderate urgency ≈ 0.70, squared ≈ 0.49
+      // Ratio should be > 1.5 (linear would give ~1.26)
+      expect(veryCloseOffset / moderateOffset).toBeGreaterThan(1.4);
     });
   });
 
@@ -694,19 +740,24 @@ describe('Increment 26: AI Fires Bullets + Asteroid Avoidance', () => {
 
     it('does not avoid asteroids that are off to the side (no false positives)', () => {
       const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
-      const target = createShip({ x: 300, y: 0, heading: 0, owner: 'player' });
-      // Asteroid far to the side, not on collision course
+      // Target far enough to be beyond AVOID_LOOKAHEAD for target-ship obstacle
+      const target = createShip({
+        x: 1000,
+        y: 0,
+        heading: 0,
+        owner: 'player',
+      });
+      // Asteroid far to the side, not on collision course and beyond proximity
       const asteroids = [
-        { x: 100, y: 300, collisionRadius: 30, radius: 40, vx: 0, vy: 0 },
+        { x: 200, y: 400, collisionRadius: 30, radius: 40, vx: 0, vy: 0 },
       ];
       const state = createAIState();
 
       updateAI(state, ai, target, asteroids, 0.016);
 
-      // Should aim straight at target, no avoidance needed
+      // Should aim straight at target, no avoidance from side asteroid
       expect(ai.rotatingLeft).toBe(false);
       expect(ai.rotatingRight).toBe(false);
-      expect(ai.fire).toBe(true);
     });
   });
 });
