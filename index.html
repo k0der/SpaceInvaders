@@ -216,13 +216,14 @@ function updateAI(_aiState, aiShip, targetShip, asteroids, _dt) {
   aiShip.rotatingLeft = headingDiff < -ROTATION_DEADZONE;
   aiShip.rotatingRight = headingDiff > ROTATION_DEADZONE;
 
-  // Thrust: engage only when facing effective direction (turned toward escape route)
+  // Thrust: engage when roughly facing effective direction, or during active avoidance
   const facingEffective = Math.abs(headingDiff) < THRUST_ANGLE;
-  aiShip.thrust = facingEffective;
+  const avoidanceActive = avoidanceOffset !== 0;
+  aiShip.thrust = facingEffective || avoidanceActive;
 
-  // Brake: engage when NOT facing effective direction AND speed exceeds threshold
+  // Brake: engage when NOT facing target AND speed exceeds threshold AND no avoidance
   const speed = Math.sqrt(aiShip.vx * aiShip.vx + aiShip.vy * aiShip.vy);
-  aiShip.braking = !facingEffective && speed > BRAKE_SPEED;
+  aiShip.braking = !facingEffective && !avoidanceActive && speed > BRAKE_SPEED;
 
   // Fire: aimed within FIRE_ANGLE of predicted target AND within range
   aiShip.fire =

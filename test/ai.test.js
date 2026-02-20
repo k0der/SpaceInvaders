@@ -705,7 +705,7 @@ describe('Increment 26: AI Fires Bullets + Asteroid Avoidance', () => {
       expect(ai.rotatingLeft || ai.rotatingRight).toBe(true);
     });
 
-    it('does not thrust during close avoidance until turned toward escape direction', () => {
+    it('maintains thrust during avoidance to escape danger zone', () => {
       const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
       const target = createShip({
         x: 1000,
@@ -713,7 +713,7 @@ describe('Increment 26: AI Fires Bullets + Asteroid Avoidance', () => {
         heading: 0,
         owner: 'player',
       });
-      // Asteroid directly ahead, close — large avoidance offset, not yet facing escape
+      // Asteroid directly ahead
       const asteroids = [
         { x: 100, y: 0, collisionRadius: 40, radius: 50, vx: 0, vy: 0 },
       ];
@@ -721,8 +721,8 @@ describe('Increment 26: AI Fires Bullets + Asteroid Avoidance', () => {
 
       updateAI(state, ai, target, asteroids, 0.016);
 
-      // AI should NOT thrust while still facing the asteroid — turns first, thrusts later
-      expect(ai.thrust).toBe(false);
+      // Thrust maintained during avoidance for agility (braking removes dodge ability)
+      expect(ai.thrust).toBe(true);
     });
 
     it('thrusts during avoidance when near escape direction (mild avoidance)', () => {
@@ -758,18 +758,18 @@ describe('Increment 26: AI Fires Bullets + Asteroid Avoidance', () => {
       expect(ai.rotatingRight).toBe(false);
     });
 
-    it('brakes during avoidance when not facing escape direction and speed exceeds threshold', () => {
+    it('does not brake during active avoidance even at high speed', () => {
       const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
       ai.vx = BRAKE_SPEED + 100;
       ai.vy = 0;
-      // Target behind
+      // Target behind (would normally trigger braking)
       const target = createShip({
         x: -500,
         y: 0,
         heading: 0,
         owner: 'player',
       });
-      // Asteroid directly ahead — AI not yet facing escape direction
+      // But asteroid directly ahead triggers avoidance
       const asteroids = [
         { x: 100, y: 0, collisionRadius: 40, radius: 50, vx: 0, vy: 0 },
       ];
@@ -777,9 +777,9 @@ describe('Increment 26: AI Fires Bullets + Asteroid Avoidance', () => {
 
       updateAI(state, ai, target, asteroids, 0.016);
 
-      // Not facing escape direction → brake to slow down while turning
-      expect(ai.braking).toBe(true);
-      expect(ai.thrust).toBe(false);
+      // Avoidance active → braking suppressed, thrust maintained for agility
+      expect(ai.braking).toBe(false);
+      expect(ai.thrust).toBe(true);
     });
 
     it('survival-first: avoidance overrides pursuit when obstacle is between AI and target', () => {

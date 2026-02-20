@@ -614,10 +614,10 @@ obstacles.
 - Final heading diff: `pursuitInfluence + avoidanceOffset`
 - At zero threat: pure pursuit (survivalWeight = 0)
 - At moderate+ threat: pure avoidance (survivalWeight = 1)
-- Thrust only engages when facing the effective heading direction (turned
-  toward escape route); the AI does not accelerate toward obstacles
-- Braking engages when not facing effective direction and speed exceeds
-  `BRAKE_SPEED` — slows down while turning, then accelerates once clear
+- Thrust is maintained when avoidance is active — the AI needs speed to
+  curve around obstacles (braking removes dodge agility in Newtonian physics)
+- Braking is suppressed during avoidance (only engages during pure pursuit
+  when not facing target and no obstacles are threatening)
 - Firing decision uses raw pursuit heading diff (unaffected by avoidance)
 
 **Obstacle list** (built in `updateAI`):

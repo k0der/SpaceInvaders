@@ -588,7 +588,7 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 - [ ] `AVOIDANCE_PRIORITY` (3) exported — controls how aggressively pursuit is suppressed when avoiding
 - [ ] Survival-first blending: `survivalWeight = clamp(maxUrgency * AVOIDANCE_PRIORITY, 0, 1)`; pursuit scaled by `(1 - survivalWeight)`. At zero threat → pure pursuit; at moderate threat → pure avoidance
 - [ ] Pursuit cannot override avoidance: when obstacles are close, ship steers to avoid regardless of target direction
-- [x] During avoidance, thrust engages only when facing the effective heading (turned toward escape direction); AI brakes when not facing it and speed exceeds threshold
+- [x] Thrust maintained during avoidance for agility (braking suppressed — speed enables dodging)
 - [x] Avoidance and pursuit blend smoothly (no jittering between states)
 
 ### Visible
