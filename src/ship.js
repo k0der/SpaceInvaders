@@ -34,8 +34,8 @@ export const TRAIL_BASE_WIDTH = 1;
 /** Line width for thrust trail segments. */
 export const TRAIL_THRUST_WIDTH = 2.5;
 
-/** Thrust intensity ramp speed (per second). Full transition ~0.33s. */
-export const TRAIL_RAMP_SPEED = 3.0;
+/** Thrust intensity ramp speed (per second). Full transition ~0.17s. */
+export const TRAIL_RAMP_SPEED = 6.0;
 
 /** Dark orange exhaust color. */
 export const TRAIL_COLOR = { r: 255, g: 120, b: 0 };

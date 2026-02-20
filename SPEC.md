@@ -450,7 +450,7 @@ screen-locked ship — providing a strong local motion cue.
   Drawn inside camera transform, before the ship body.
 - **Constants**: `TRAIL_MAX_LENGTH = 240`, `TRAIL_BASE_OPACITY = 0.2`,
   `TRAIL_THRUST_OPACITY = 0.6`, `TRAIL_BASE_WIDTH = 1`,
-  `TRAIL_THRUST_WIDTH = 2.5`, `TRAIL_RAMP_SPEED = 3.0`,
+  `TRAIL_THRUST_WIDTH = 2.5`, `TRAIL_RAMP_SPEED = 6.0`,
   `TRAIL_COLOR = { r: 255, g: 120, b: 0 }`
 
 ---

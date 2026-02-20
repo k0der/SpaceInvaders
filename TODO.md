@@ -461,7 +461,7 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 - [ ] `TRAIL_MAX_LENGTH` (240) exported from `ship.js`
 - [ ] `TRAIL_BASE_OPACITY` (0.2) and `TRAIL_THRUST_OPACITY` (0.6) exported from `ship.js`
 - [ ] `TRAIL_BASE_WIDTH` (1) and `TRAIL_THRUST_WIDTH` (2.5) exported from `ship.js`
-- [ ] `TRAIL_RAMP_SPEED` (3.0) exported from `ship.js`
+- [ ] `TRAIL_RAMP_SPEED` (6.0) exported from `ship.js`
 - [ ] `TRAIL_COLOR` (`{ r: 255, g: 120, b: 0 }`) exported from `ship.js`
 - [ ] `createTrail()` returns `{ points: [], thrustIntensity: 0 }`
 - [ ] `updateTrail(trail, x, y, heading, isThrusting, dt)` ramps `trail.thrustIntensity` toward 1.0 (thrusting) or 0.0 (coasting) at `TRAIL_RAMP_SPEED * dt`, then pushes `{ x, y, intensity }` with nozzle offset

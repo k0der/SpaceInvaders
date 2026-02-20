@@ -528,8 +528,8 @@ describe('Increment 22b: Ship Exhaust Trail', () => {
       expect(TRAIL_THRUST_WIDTH).toBe(2.5);
     });
 
-    it('TRAIL_RAMP_SPEED is 3.0', () => {
-      expect(TRAIL_RAMP_SPEED).toBe(3.0);
+    it('TRAIL_RAMP_SPEED is 6.0', () => {
+      expect(TRAIL_RAMP_SPEED).toBe(6.0);
     });
 
     it('TRAIL_COLOR is dark orange { r: 255, g: 120, b: 0 }', () => {
@@ -569,18 +569,18 @@ describe('Increment 22b: Ship Exhaust Trail', () => {
     it('ramps intensity up when thrusting', () => {
       const trail = createTrail();
       updateTrail(trail, 0, 0, 0, true, 0.1);
-      // After 0.1s at TRAIL_RAMP_SPEED=3.0: intensity = min(0 + 3*0.1, 1) = 0.3
-      expect(trail.thrustIntensity).toBeCloseTo(0.3, 5);
-      expect(trail.points[0].intensity).toBeCloseTo(0.3, 5);
+      // After 0.1s at TRAIL_RAMP_SPEED=6.0: intensity = min(0 + 6*0.1, 1) = 0.6
+      expect(trail.thrustIntensity).toBeCloseTo(0.6, 5);
+      expect(trail.points[0].intensity).toBeCloseTo(0.6, 5);
     });
 
     it('ramps intensity down when not thrusting', () => {
       const trail = createTrail();
       trail.thrustIntensity = 1.0;
       updateTrail(trail, 0, 0, 0, false, 0.1);
-      // After 0.1s: intensity = max(1.0 - 3*0.1, 0) = 0.7
-      expect(trail.thrustIntensity).toBeCloseTo(0.7, 5);
-      expect(trail.points[0].intensity).toBeCloseTo(0.7, 5);
+      // After 0.1s: intensity = max(1.0 - 6*0.1, 0) = 0.4
+      expect(trail.thrustIntensity).toBeCloseTo(0.4, 5);
+      expect(trail.points[0].intensity).toBeCloseTo(0.4, 5);
     });
 
     it('clamps intensity at 1.0 when thrusting for a long time', () => {
@@ -596,13 +596,13 @@ describe('Increment 22b: Ship Exhaust Trail', () => {
       expect(trail.thrustIntensity).toBe(0.0);
     });
 
-    it('reaches full intensity in about 0.33s of sustained thrust', () => {
+    it('reaches full intensity in about 0.17s of sustained thrust', () => {
       const trail = createTrail();
-      // 20 frames at 60fps ≈ 0.333s, each at dt=0.016
-      for (let i = 0; i < 21; i++) {
+      // 11 frames at 60fps ≈ 0.176s, each at dt=0.016
+      for (let i = 0; i < 11; i++) {
         updateTrail(trail, i, i, 0, true, 0.016);
       }
-      // 21 * 0.016 * 3.0 = 1.008, should clamp to 1.0
+      // 11 * 0.016 * 6.0 = 1.056, should clamp to 1.0
       expect(trail.thrustIntensity).toBe(1.0);
     });
 
