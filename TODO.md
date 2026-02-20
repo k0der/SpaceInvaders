@@ -479,7 +479,11 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 
 ---
 
-## Increment 23: Minimum Forward Velocity + Thrust Flame
+## Increment 23: Minimum Forward Velocity + Thrust Flame *(DEFERRED — review later)*
+
+> **Review needed before implementing:**
+> 1. Validate whether `MIN_SPEED` forward drift is a fun addition or feels forced
+> 2. Review how the classic Asteroids thrust flame integrates visually with the existing exhaust trail (22b) — may be redundant
 
 **Goal**: Ship always drifts forward and shows a flame when boosting.
 
