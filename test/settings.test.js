@@ -973,4 +973,139 @@ describe('Increment 15: Star Field Direction Setting', () => {
       expect(changes[0].value).toBe('radial');
     });
   });
+
+  describe('SETTINGS_CONFIG — aiStrategy', () => {
+    it('defines aiStrategy with options array containing reactive and predictive', () => {
+      const c = SETTINGS_CONFIG.aiStrategy;
+      expect(c).toBeDefined();
+      expect(c.options).toEqual(['reactive', 'predictive']);
+    });
+
+    it('aiStrategy default is "predictive"', () => {
+      expect(SETTINGS_CONFIG.aiStrategy.default).toBe('predictive');
+    });
+
+    it('aiStrategy has a label', () => {
+      expect(typeof SETTINGS_CONFIG.aiStrategy.label).toBe('string');
+    });
+  });
+
+  describe('createSettings — aiStrategy', () => {
+    it('defaults aiStrategy to "predictive"', () => {
+      const s = createSettings();
+      expect(s.aiStrategy).toBe('predictive');
+    });
+
+    it('accepts aiStrategy override', () => {
+      const s = createSettings({ aiStrategy: 'reactive' });
+      expect(s.aiStrategy).toBe('reactive');
+    });
+  });
+
+  describe('persistence — aiStrategy', () => {
+    it('saveSettings persists aiStrategy', () => {
+      const s = createSettings({ aiStrategy: 'reactive' });
+      saveSettings(s);
+      const stored = JSON.parse(localStorage.getItem('asteroidSettings'));
+      expect(stored.aiStrategy).toBe('reactive');
+    });
+
+    it('loadSettings restores aiStrategy', () => {
+      localStorage.setItem(
+        'asteroidSettings',
+        JSON.stringify({
+          asteroidDensity: 1.0,
+          speedMultiplier: 1.0,
+          starLayers: 3,
+          starDirection: 'left',
+          aiStrategy: 'reactive',
+        }),
+      );
+      const loaded = loadSettings();
+      expect(loaded.aiStrategy).toBe('reactive');
+    });
+
+    it('loadSettings defaults aiStrategy when missing from storage', () => {
+      localStorage.setItem(
+        'asteroidSettings',
+        JSON.stringify({
+          asteroidDensity: 1.0,
+          speedMultiplier: 1.0,
+          starLayers: 3,
+          starDirection: 'left',
+        }),
+      );
+      const loaded = loadSettings();
+      expect(loaded.aiStrategy).toBe('predictive');
+    });
+
+    it('loadSettings defaults aiStrategy when stored value is invalid', () => {
+      localStorage.setItem(
+        'asteroidSettings',
+        JSON.stringify({
+          asteroidDensity: 1.0,
+          speedMultiplier: 1.0,
+          starLayers: 3,
+          starDirection: 'left',
+          aiStrategy: 'nonexistent',
+        }),
+      );
+      const loaded = loadSettings();
+      expect(loaded.aiStrategy).toBe('predictive');
+    });
+
+    it('round-trip: save then load preserves aiStrategy', () => {
+      const s = createSettings({ aiStrategy: 'reactive' });
+      saveSettings(s);
+      const loaded = loadSettings();
+      expect(loaded.aiStrategy).toBe('reactive');
+    });
+  });
+
+  describe('createSettingsUI — AI strategy selector', () => {
+    let container;
+    let settings;
+
+    beforeEach(() => {
+      container = document.createElement('div');
+      document.body.appendChild(container);
+      settings = createSettings();
+    });
+
+    it('creates an AI strategy selector in selects map', () => {
+      const ui = createSettingsUI(container, settings);
+      expect(ui.selects.aiStrategy).toBeDefined();
+    });
+
+    it('AI strategy selector has 2 options', () => {
+      const ui = createSettingsUI(container, settings);
+      const options = ui.selects.aiStrategy.querySelectorAll('option');
+      const values = Array.from(options).map((o) => o.value);
+      expect(values).toEqual(['reactive', 'predictive']);
+    });
+
+    it('AI strategy selector defaults to "predictive"', () => {
+      const ui = createSettingsUI(container, settings);
+      expect(ui.selects.aiStrategy.value).toBe('predictive');
+    });
+
+    it('AI strategy selector reflects non-default settings on creation', () => {
+      const s = createSettings({ aiStrategy: 'reactive' });
+      const ui = createSettingsUI(container, s);
+      expect(ui.selects.aiStrategy.value).toBe('reactive');
+    });
+
+    it('changing AI strategy fires onChange with name and value', () => {
+      const ui = createSettingsUI(container, settings);
+      const changes = [];
+      ui.onChange = (name, value) => changes.push({ name, value });
+
+      ui.selects.aiStrategy.value = 'reactive';
+      ui.selects.aiStrategy.dispatchEvent(new Event('change'));
+
+      expect(changes.length).toBe(1);
+      expect(changes[0].name).toBe('aiStrategy');
+      expect(changes[0].value).toBe('reactive');
+    });
+  });
 });

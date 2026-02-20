@@ -14,7 +14,287 @@
   <canvas id="canvas"></canvas>
 
   <script>
-// ===== ai.js =====
+// ===== ai-core.js =====
+/**
+ * AI Strategy Registry
+ *
+ * Pluggable AI system — register named strategies and retrieve them at runtime.
+ * Each strategy implements { createState(), update(state, ship, target, asteroids, dt) }.
+ */
+
+const strategies = new Map();
+
+/**
+ * Register a named AI strategy.
+ */
+function registerStrategy(name, strategy) {
+  strategies.set(name, strategy);
+}
+
+/**
+ * Retrieve a registered strategy by name.
+ * Throws if the name is not registered.
+ */
+function getStrategy(name) {
+  const strategy = strategies.get(name);
+  if (!strategy) {
+    throw new Error(`Unknown AI strategy: "${name}"`);
+  }
+  return strategy;
+}
+
+/**
+ * Return the names of all registered strategies.
+ */
+function listStrategies() {
+  return [...strategies.keys()];
+}
+
+/**
+ * Clear all registered strategies (for testing).
+ */
+function resetRegistry() {
+  strategies.clear();
+}
+
+// ===== ai-predictive.js =====
+/**
+ * Predictive AI — trajectory simulation strategy.
+ *
+ * Each frame, generates 7 candidate actions, simulates each forward ~1.5s
+ * using real ship physics, scores the outcomes, and picks the best action.
+ * Firing is a separate snap decision based on current aim geometry.
+ */
+
+
+/** Number of simulation steps per candidate. */
+const SIM_STEPS = 15;
+
+/** Time step for each simulation step (seconds). */
+const SIM_DT = 0.1;
+
+/** Score penalty for a collision during simulation. */
+const COLLISION_PENALTY = -10000;
+
+/** Weight applied to distance-to-target (negative = closer is better). */
+const DISTANCE_WEIGHT = -1;
+
+/** Bonus for aiming toward target at end of trajectory. */
+const AIM_BONUS = 500;
+
+/**
+ * Clone only the physics-relevant fields of a ship for simulation.
+ */
+function cloneShipForSim(ship) {
+  return {
+    x: ship.x,
+    y: ship.y,
+    vx: ship.vx,
+    vy: ship.vy,
+    heading: ship.heading,
+    thrustIntensity: ship.thrustIntensity,
+    thrustPower: ship.thrustPower,
+    alive: true,
+    thrust: false,
+    rotatingLeft: false,
+    rotatingRight: false,
+    braking: false,
+  };
+}
+
+/**
+ * Linearly extrapolate an asteroid's position at time t.
+ * Returns { x, y, radius } for collision checking.
+ */
+function predictAsteroidAt(asteroid, t) {
+  return {
+    x: asteroid.x + asteroid.vx * t,
+    y: asteroid.y + asteroid.vy * t,
+    radius: asteroid.collisionRadius,
+  };
+}
+
+/**
+ * Define the 7 candidate actions for trajectory simulation.
+ */
+function defineCandidates() {
+  return [
+    { thrust: true, rotatingLeft: false, rotatingRight: false, braking: false },
+    { thrust: true, rotatingLeft: true, rotatingRight: false, braking: false },
+    { thrust: true, rotatingLeft: false, rotatingRight: true, braking: false },
+    {
+      thrust: false,
+      rotatingLeft: false,
+      rotatingRight: false,
+      braking: false,
+    },
+    { thrust: false, rotatingLeft: true, rotatingRight: false, braking: false },
+    { thrust: false, rotatingLeft: false, rotatingRight: true, braking: false },
+    { thrust: false, rotatingLeft: false, rotatingRight: false, braking: true },
+  ];
+}
+
+/**
+ * Simulate a ship clone forward for `steps` time steps, applying the given action.
+ * Returns an array of positions (length = steps + 1, including the initial position).
+ */
+function simulateTrajectory(clone, action, steps, dt) {
+  const positions = [{ x: clone.x, y: clone.y, heading: clone.heading }];
+
+  clone.thrust = action.thrust;
+  clone.rotatingLeft = action.rotatingLeft;
+  clone.rotatingRight = action.rotatingRight;
+  clone.braking = action.braking;
+
+  for (let i = 0; i < steps; i++) {
+    updateShip(clone, dt);
+    positions.push({ x: clone.x, y: clone.y, heading: clone.heading });
+  }
+
+  return positions;
+}
+
+/**
+ * Score a simulated trajectory based on:
+ * - Collision with asteroids (huge penalty)
+ * - Closest approach to target across trajectory (lower = better)
+ * - Aim bonus for pointing toward target at closest approach
+ */
+function scoreTrajectory(positions, target, asteroids, simDt) {
+  let score = 0;
+
+  // Check for collisions at each step
+  const shipRadius = SHIP_SIZE;
+  for (let i = 1; i < positions.length; i++) {
+    const t = i * simDt;
+    const pos = positions[i];
+
+    for (const ast of asteroids) {
+      const predicted = predictAsteroidAt(ast, t);
+      const dx = pos.x - predicted.x;
+      const dy = pos.y - predicted.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist < predicted.radius + shipRadius) {
+        score += COLLISION_PENALTY;
+      }
+    }
+  }
+
+  // Find the closest approach to the predicted target across the trajectory
+  let minDist = Infinity;
+  let bestPos = positions[positions.length - 1];
+  let bestT = (positions.length - 1) * simDt;
+  for (let i = 1; i < positions.length; i++) {
+    const t = i * simDt;
+    const predX = target.x + target.vx * t;
+    const predY = target.y + target.vy * t;
+    const ddx = positions[i].x - predX;
+    const ddy = positions[i].y - predY;
+    const d = Math.sqrt(ddx * ddx + ddy * ddy);
+    if (d < minDist) {
+      minDist = d;
+      bestPos = positions[i];
+      bestT = t;
+    }
+  }
+  score += DISTANCE_WEIGHT * minDist;
+
+  // Aim bonus: how well is the ship pointed at the target at closest approach?
+  const targetPredX = target.x + target.vx * bestT;
+  const targetPredY = target.y + target.vy * bestT;
+  const angleToTarget = Math.atan2(
+    targetPredY - bestPos.y,
+    targetPredX - bestPos.x,
+  );
+  let angleDiff = angleToTarget - bestPos.heading;
+  while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+  while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+
+  // cos(angleDiff) = 1 when pointed at target, -1 when pointed away
+  score += AIM_BONUS * Math.cos(angleDiff);
+
+  return score;
+}
+
+/**
+ * Select the best action by simulating all candidates and picking the highest score.
+ */
+function selectBestAction(ship, target, asteroids) {
+  const candidates = defineCandidates();
+  let bestScore = -Infinity;
+  let bestAction = candidates[0];
+
+  for (const action of candidates) {
+    const clone = cloneShipForSim(ship);
+    const positions = simulateTrajectory(clone, action, SIM_STEPS, SIM_DT);
+    const score = scoreTrajectory(positions, target, asteroids, SIM_DT);
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestAction = action;
+    }
+  }
+
+  return bestAction;
+}
+
+/**
+ * Normalize an angle to [-PI, PI].
+ */
+function normalizeAngle(angle) {
+  while (angle > Math.PI) angle -= 2 * Math.PI;
+  while (angle < -Math.PI) angle += 2 * Math.PI;
+  return angle;
+}
+
+/**
+ * Create predictive AI state (currently minimal).
+ */
+function createPredictiveState() {
+  return {};
+}
+
+/**
+ * Predictive AI update function.
+ * Selects the best action via trajectory simulation and applies it.
+ * Firing decision is a separate snap check based on current aim.
+ */
+function updatePredictiveAI(_state, ship, target, asteroids, _dt) {
+  if (!ship.alive || !target.alive) {
+    ship.thrust = false;
+    ship.rotatingLeft = false;
+    ship.rotatingRight = false;
+    ship.braking = false;
+    ship.fire = false;
+    return;
+  }
+
+  const action = selectBestAction(ship, target, asteroids);
+  ship.thrust = action.thrust;
+  ship.rotatingLeft = action.rotatingLeft;
+  ship.rotatingRight = action.rotatingRight;
+  ship.braking = action.braking;
+
+  // Fire decision: snap check based on current aim geometry
+  const dx = target.x - ship.x;
+  const dy = target.y - ship.y;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  const angleToTarget = Math.atan2(dy, dx);
+  const headingDiff = Math.abs(normalizeAngle(angleToTarget - ship.heading));
+
+  ship.fire = headingDiff < FIRE_ANGLE && dist < MAX_FIRE_RANGE;
+}
+
+/**
+ * Predictive AI strategy object — pluggable interface.
+ */
+const predictiveStrategy = {
+  createState: createPredictiveState,
+  update: updatePredictiveAI,
+};
+
+// ===== ai-reactive.js =====
 
 /** Dead zone for rotation — prevents oscillation (~3°). */
 const ROTATION_DEADZONE = 0.05;
@@ -30,12 +310,6 @@ const PREDICTION_SPEED = 400;
 
 /** Maximum look-ahead time for target prediction (seconds). */
 const MAX_PREDICTION_TIME = 2.0;
-
-/** Minimum enemy spawn offset from player (px). */
-const MIN_SPAWN_DISTANCE = 600;
-
-/** Maximum enemy spawn offset from player (px). */
-const MAX_SPAWN_DISTANCE = 1000;
 
 /** Angular threshold for AI firing (~8.6°). */
 const FIRE_ANGLE = 0.15;
@@ -74,9 +348,9 @@ function normalizeAngleAI(angle) {
 }
 
 /**
- * Create AI decision state (minimal for pursuit; expandable for combat).
+ * Create reactive AI decision state.
  */
-function createAIState() {
+function createReactiveState() {
   return {};
 }
 
@@ -160,13 +434,13 @@ function computeAvoidanceOffset(aiShip, obstacles) {
 }
 
 /**
- * Update AI control flags on aiShip to pursue targetShip,
+ * Update reactive AI control flags on aiShip to pursue targetShip,
  * fire when aimed, and avoid obstacles.
  *
  * Sets the same 5 control flags as keyboard input so the ship physics
  * engine treats AI and player identically.
  */
-function updateAI(_aiState, aiShip, targetShip, asteroids, _dt) {
+function updateReactiveAI(_aiState, aiShip, targetShip, asteroids, _dt) {
   // If either ship is dead, clear all flags
   if (!aiShip.alive || !targetShip.alive) {
     aiShip.thrust = false;
@@ -228,6 +502,41 @@ function updateAI(_aiState, aiShip, targetShip, asteroids, _dt) {
   aiShip.fire =
     Math.abs(pursuitHeadingDiff) < FIRE_ANGLE && dist < MAX_FIRE_RANGE;
 }
+
+/**
+ * Reactive AI strategy object — pluggable interface.
+ */
+const reactiveStrategy = {
+  createState: createReactiveState,
+  update: updateReactiveAI,
+};
+
+// ===== ai.js =====
+/**
+ * AI Facade — registers strategies and provides backward-compatible aliases.
+ *
+ * Registers all available AI strategies in the ai-core registry. Provides
+ * createAIState/updateAI as backward-compatible aliases for the reactive
+ * strategy, and spawnEnemyPosition for enemy ship placement.
+ *
+ * In ES module mode, consumers import getStrategy/listStrategies from
+ * ai-core.js and reactive constants from ai-reactive.js directly.
+ * In the build (single scope), all symbols are already global.
+ */
+
+// ── Register strategies ──────────────────────────────────────────────
+registerStrategy('reactive', reactiveStrategy);
+registerStrategy('predictive', predictiveStrategy);
+
+// ── Backward-compatible aliases (new names — no redeclaration conflict) ──
+const createAIState = createReactiveState;
+const updateAI = updateReactiveAI;
+
+/** Minimum enemy spawn offset from player (px). */
+const MIN_SPAWN_DISTANCE = 600;
+
+/** Maximum enemy spawn offset from player (px). */
+const MAX_SPAWN_DISTANCE = 1000;
 
 /**
  * Compute a random spawn position for the enemy ship at
@@ -670,13 +979,16 @@ function startApp() {
   );
   const playerTrail = createTrail();
   const enemySpawn = spawnEnemyPosition(playerShip.x, playerShip.y);
+  const headingToPlayer = Math.atan2(
+    playerShip.y - enemySpawn.y,
+    playerShip.x - enemySpawn.x,
+  );
   const enemyShip = createShip({
     x: enemySpawn.x,
     y: enemySpawn.y,
-    heading: Math.random() * 2 * Math.PI - Math.PI,
+    heading: headingToPlayer,
     owner: 'enemy',
   });
-  const aiState = createAIState();
   const enemyTrail = createTrail(ENEMY_TRAIL_COLOR);
   let bullets = [];
   let prevCameraX = camera.x;
@@ -685,6 +997,8 @@ function startApp() {
   const inputState = createInputState();
   const loaded = loadSettings();
   const settings = createSettings(loaded);
+  let aiStrategy = getStrategy(settings.aiStrategy);
+  let aiState = aiStrategy.createState();
   let elapsedTime = 0;
 
   // Settings UI
@@ -729,6 +1043,10 @@ function startApp() {
         logicalSize.height,
         value,
       );
+    }
+    if (name === 'aiStrategy') {
+      aiStrategy = getStrategy(value);
+      aiState = aiStrategy.createState();
     }
     saveSettings(settings);
   };
@@ -793,7 +1111,7 @@ function startApp() {
     updateShip(playerShip, scaledDt);
 
     // AI update + enemy ship physics
-    updateAI(aiState, enemyShip, playerShip, sim.asteroids, scaledDt);
+    aiStrategy.update(aiState, enemyShip, playerShip, sim.asteroids, scaledDt);
     updateShip(enemyShip, scaledDt);
 
     // Bullet firing — player
@@ -1092,6 +1410,11 @@ const SETTINGS_CONFIG = {
     default: 'left',
     label: 'Direction',
   },
+  aiStrategy: {
+    options: ['reactive', 'predictive'],
+    default: 'predictive',
+    label: 'AI Strategy',
+  },
 };
 
 const STORAGE_KEY = 'asteroidSettings';
@@ -1109,6 +1432,7 @@ function createSettings(overrides = {}) {
     thrustPower: overrides.thrustPower ?? SETTINGS_CONFIG.thrustPower.default,
     starDirection:
       overrides.starDirection ?? SETTINGS_CONFIG.starDirection.default,
+    aiStrategy: overrides.aiStrategy ?? SETTINGS_CONFIG.aiStrategy.default,
     panelOpen: false,
     gearVisible: true,
     gearHovered: false,
@@ -1127,6 +1451,7 @@ function saveSettings(settings) {
     starLayers: settings.starLayers,
     thrustPower: settings.thrustPower,
     starDirection: settings.starDirection,
+    aiStrategy: settings.aiStrategy,
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
@@ -1142,6 +1467,7 @@ function loadSettings() {
     starLayers: SETTINGS_CONFIG.starLayers.default,
     thrustPower: SETTINGS_CONFIG.thrustPower.default,
     starDirection: SETTINGS_CONFIG.starDirection.default,
+    aiStrategy: SETTINGS_CONFIG.aiStrategy.default,
   };
 
   try {
@@ -1259,7 +1585,7 @@ function createSettingsUI(container, settings) {
   const sliders = {};
   const valueDisplays = {};
 
-  let directionSelect;
+  const selects = {};
 
   for (const [name, config] of Object.entries(SETTINGS_CONFIG)) {
     if (config.options) {
@@ -1282,7 +1608,7 @@ function createSettingsUI(container, settings) {
         select.appendChild(option);
       }
       select.value = settings[name];
-      directionSelect = select;
+      selects[name] = select;
 
       select.addEventListener('change', () => {
         _onChange(name, select.value);
@@ -1355,7 +1681,8 @@ function createSettingsUI(container, settings) {
     panel,
     sliders,
     valueDisplays,
-    directionSelect,
+    selects,
+    directionSelect: selects.starDirection,
     set onChange(fn) {
       _onChange = fn;
     },

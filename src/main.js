@@ -1,4 +1,5 @@
-import { createAIState, spawnEnemyPosition, updateAI } from './ai.js';
+import { spawnEnemyPosition } from './ai.js';
+import { getStrategy } from './ai-core.js';
 import { drawAsteroid } from './asteroid.js';
 import {
   checkBulletAsteroidCollisions,
@@ -125,13 +126,16 @@ export function startApp() {
   );
   const playerTrail = createTrail();
   const enemySpawn = spawnEnemyPosition(playerShip.x, playerShip.y);
+  const headingToPlayer = Math.atan2(
+    playerShip.y - enemySpawn.y,
+    playerShip.x - enemySpawn.x,
+  );
   const enemyShip = createShip({
     x: enemySpawn.x,
     y: enemySpawn.y,
-    heading: Math.random() * 2 * Math.PI - Math.PI,
+    heading: headingToPlayer,
     owner: 'enemy',
   });
-  const aiState = createAIState();
   const enemyTrail = createTrail(ENEMY_TRAIL_COLOR);
   let bullets = [];
   let prevCameraX = camera.x;
@@ -140,6 +144,8 @@ export function startApp() {
   const inputState = createInputState();
   const loaded = loadSettings();
   const settings = createSettings(loaded);
+  let aiStrategy = getStrategy(settings.aiStrategy);
+  let aiState = aiStrategy.createState();
   let elapsedTime = 0;
 
   // Settings UI
@@ -184,6 +190,10 @@ export function startApp() {
         logicalSize.height,
         value,
       );
+    }
+    if (name === 'aiStrategy') {
+      aiStrategy = getStrategy(value);
+      aiState = aiStrategy.createState();
     }
     saveSettings(settings);
   };
@@ -248,7 +258,7 @@ export function startApp() {
     updateShip(playerShip, scaledDt);
 
     // AI update + enemy ship physics
-    updateAI(aiState, enemyShip, playerShip, sim.asteroids, scaledDt);
+    aiStrategy.update(aiState, enemyShip, playerShip, sim.asteroids, scaledDt);
     updateShip(enemyShip, scaledDt);
 
     // Bullet firing — player

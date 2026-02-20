@@ -29,6 +29,11 @@ export const SETTINGS_CONFIG = {
     default: 'left',
     label: 'Direction',
   },
+  aiStrategy: {
+    options: ['reactive', 'predictive'],
+    default: 'predictive',
+    label: 'AI Strategy',
+  },
 };
 
 const STORAGE_KEY = 'asteroidSettings';
@@ -46,6 +51,7 @@ export function createSettings(overrides = {}) {
     thrustPower: overrides.thrustPower ?? SETTINGS_CONFIG.thrustPower.default,
     starDirection:
       overrides.starDirection ?? SETTINGS_CONFIG.starDirection.default,
+    aiStrategy: overrides.aiStrategy ?? SETTINGS_CONFIG.aiStrategy.default,
     panelOpen: false,
     gearVisible: true,
     gearHovered: false,
@@ -64,6 +70,7 @@ export function saveSettings(settings) {
     starLayers: settings.starLayers,
     thrustPower: settings.thrustPower,
     starDirection: settings.starDirection,
+    aiStrategy: settings.aiStrategy,
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
@@ -79,6 +86,7 @@ export function loadSettings() {
     starLayers: SETTINGS_CONFIG.starLayers.default,
     thrustPower: SETTINGS_CONFIG.thrustPower.default,
     starDirection: SETTINGS_CONFIG.starDirection.default,
+    aiStrategy: SETTINGS_CONFIG.aiStrategy.default,
   };
 
   try {
@@ -196,7 +204,7 @@ export function createSettingsUI(container, settings) {
   const sliders = {};
   const valueDisplays = {};
 
-  let directionSelect;
+  const selects = {};
 
   for (const [name, config] of Object.entries(SETTINGS_CONFIG)) {
     if (config.options) {
@@ -219,7 +227,7 @@ export function createSettingsUI(container, settings) {
         select.appendChild(option);
       }
       select.value = settings[name];
-      directionSelect = select;
+      selects[name] = select;
 
       select.addEventListener('change', () => {
         _onChange(name, select.value);
@@ -292,7 +300,8 @@ export function createSettingsUI(container, settings) {
     panel,
     sliders,
     valueDisplays,
-    directionSelect,
+    selects,
+    directionSelect: selects.starDirection,
     set onChange(fn) {
       _onChange = fn;
     },

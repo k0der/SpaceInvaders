@@ -293,6 +293,7 @@ rather than a fixed direction:
 | Star Parallax Layers | Slider   | 3 – 6                         | 3       | 1    |
 | Thrust Power         | Slider   | 1000 – 5000                       | 2000    | 50   |
 | Star Field Direction | Select   | left / right / up / down / radial | left    | —    |
+| AI Strategy          | Select   | reactive / predictive             | predictive | —  |
 
 - Each slider shows its **current value** as a label
 - Changes are applied **immediately** (live preview)
@@ -385,7 +386,10 @@ SpaceInvaders/
     input.js        ← keyboard state tracking (WASD + arrows + space)
     camera.js       ← camera state, canvas transform, viewport bounds
     bullet.js       ← bullet entity: creation, movement, lifetime
-    ai.js           ← AI steering, combat, and obstacle avoidance
+    ai-core.js      ← pluggable AI strategy registry
+    ai-predictive.js ← predictive AI: trajectory simulation
+    ai-reactive.js  ← reactive AI: pursuit, combat, obstacle avoidance
+    ai.js           ← AI facade: registers strategies, re-exports for compat
     game.js         ← game state: phases, collisions, HUD, restart
   test/             ← Vitest test files (one per module)
   dev.html          ← development entry point (ES module imports)
@@ -626,10 +630,91 @@ obstacles.
 - Target ship is **not** included — the AI's goal is to approach and shoot
   the target, not avoid it. Anti-ramming comes from bullet combat.
 
-**Constants** (exported from `ai.js`):
+**Constants** (exported from `ai-reactive.js`):
 `FIRE_ANGLE`, `MAX_FIRE_RANGE`, `AVOID_LOOKAHEAD` (800px), `AVOID_MARGIN` (50px),
 `AVOID_STRENGTH` (2.5 rad), `AVOID_PROXIMITY` (80px), `AVOID_PREDICT_TIME` (0.3s),
 `AVOIDANCE_PRIORITY` (2)
+
+### 12.4 Pluggable AI Architecture
+
+AI strategies are **pluggable** — different algorithms can be registered, swapped
+at runtime via a settings dropdown, and compared side by side.
+
+**Strategy interface** — every strategy exports an object with two methods:
+
+```js
+{
+  createState()                                    → {}    // per-ship opaque state
+  update(state, ship, target, asteroids, dt)        → void  // sets 5 control flags
+}
+```
+
+- `createState()` returns an opaque state object for per-ship bookkeeping
+- `update()` receives the ship, target, asteroids, and delta time, and sets
+  the ship's 5 control flags (`thrust`, `rotatingLeft`, `rotatingRight`,
+  `braking`, `fire`) — identical to how keyboard input works
+
+**Strategy registry** (`ai-core.js`):
+
+- `registerStrategy(name, strategy)` — registers a named strategy
+- `getStrategy(name)` — returns a registered strategy by name
+- `listStrategies()` — returns all registered strategy names
+
+**Module structure**:
+
+| Module | Role |
+|--------|------|
+| `ai-core.js` | Strategy registry (register, get, list) |
+| `ai-reactive.js` | Reactive AI — the original pursuit/avoidance algorithm (§12.1–12.3) |
+| `ai-predictive.js` | Predictive AI — trajectory simulation (§12.5) |
+| `ai.js` | Facade — registers strategies, re-exports for backward compatibility |
+
+The `ai.js` facade imports both strategies, registers them, and re-exports
+`spawnEnemyPosition`, `getStrategy`, `listStrategies`, and the reactive AI
+functions for backward compatibility with existing code.
+
+**Settings**: `aiStrategy` dropdown with options `['reactive', 'predictive']`,
+default `'predictive'`. Changing the strategy resets the AI state for the
+active ship. Persisted to `localStorage`.
+
+### 12.5 Predictive AI (Trajectory Simulation)
+
+The predictive AI uses **trajectory simulation** to choose the best action
+each frame, instead of reactive rules.
+
+**Algorithm** — each frame:
+
+1. **Generate 7 candidate actions**: thrust+straight, thrust+left, thrust+right,
+   coast+straight, coast+left, coast+right, brake
+2. **Simulate forward ~1.5s** (15 steps × 0.1s) for each candidate:
+   - Clone the AI ship's physics-relevant fields
+   - Apply the candidate's control flags to the clone
+   - Run `updateShip()` physics for each step
+   - Predict asteroid positions linearly: `pos + vel * t`
+   - Check for collisions at each step
+3. **Score each trajectory**:
+   - Collision penalty (large negative) if any step collides with an asteroid
+   - Distance to target at final step (lower = better)
+   - Aim bonus: reward for ending pointed toward the target
+4. **Pick the best-scoring action** and apply its control flags to the real ship
+5. **Fire decision**: separate snap decision based on current aim geometry
+   (same `FIRE_ANGLE` + `MAX_FIRE_RANGE` check as reactive AI)
+
+**Performance**: 7 candidates × 15 steps × ~30 asteroids = ~3,150 distance
+checks per frame. Trivial on modern hardware.
+
+**Pure functions** (all testable without simulation state):
+
+- `cloneShipForSim(ship)` — copies physics-relevant fields only
+- `predictAsteroidAt(asteroid, t)` — linear extrapolation of position
+- `defineCandidates()` — returns 7 action objects with control flag combos
+- `simulateTrajectory(clone, action, steps, dt)` — runs physics forward
+- `scoreTrajectory(positions, target, asteroids, simDt)` — composite scoring
+- `selectBestAction(ship, target, asteroids)` — orchestrator
+
+**Constants** (exported from `ai-predictive.js`):
+`SIM_STEPS` (15), `SIM_DT` (0.1s), `COLLISION_PENALTY` (-10000),
+`DISTANCE_WEIGHT` (-1), `AIM_BONUS` (500)
 
 ---
 

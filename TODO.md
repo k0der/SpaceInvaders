@@ -596,6 +596,57 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 
 ---
 
+## Increment 26b: Pluggable AI System + Trajectory Simulation
+
+**Goal**: Refactor AI into a pluggable strategy system and add a predictive AI that uses trajectory simulation to choose actions. Different AI algorithms can be swapped via a settings dropdown.
+
+**New modules**: `src/ai-core.js`, `src/ai-reactive.js`, `src/ai-predictive.js`
+**Modify**: `src/ai.js`, `src/main.js`, `src/settings.js`, `test/ai.test.js`
+
+**Acceptance Criteria**:
+
+### Strategy Interface
+- [ ] Every AI strategy exports `{ createState, update }` — `createState()` returns per-ship state, `update(state, ship, target, asteroids, dt)` sets 5 control flags
+- [ ] Strategies are registered by name and retrieved via `getStrategy(name)`
+
+### Strategy Registry (`ai-core.js`)
+- [ ] `registerStrategy(name, strategy)` stores a strategy by name
+- [ ] `getStrategy(name)` returns a registered strategy (throws on unknown name)
+- [ ] `listStrategies()` returns array of registered strategy names
+
+### Reactive AI Extraction (`ai-reactive.js`)
+- [ ] All reactive AI logic moved from `ai.js` to `ai-reactive.js` — zero behavior change
+- [ ] Exports `reactiveStrategy = { createState, update }`
+- [ ] All existing AI tests pass with adjusted imports
+- [ ] Constants re-exported: `ROTATION_DEADZONE`, `THRUST_ANGLE`, `BRAKE_SPEED`, `PREDICTION_SPEED`, `MAX_PREDICTION_TIME`, `FIRE_ANGLE`, `MAX_FIRE_RANGE`, `AVOID_LOOKAHEAD`, `AVOID_MARGIN`, `AVOID_STRENGTH`, `AVOID_PROXIMITY`, `AVOIDANCE_PRIORITY`, `AVOID_PREDICT_TIME`
+
+### AI Facade (`ai.js`)
+- [ ] `ai.js` becomes thin facade: imports and registers both strategies
+- [ ] Re-exports `spawnEnemyPosition` (not strategy-specific)
+- [ ] Re-exports `getStrategy`, `listStrategies` from `ai-core.js`
+- [ ] Re-exports reactive AI functions for backward compatibility (`createAIState`, `updateAI`, `computeAvoidanceOffset`, all constants)
+
+### Predictive AI (`ai-predictive.js`)
+- [ ] `cloneShipForSim(ship)` copies physics-relevant fields only
+- [ ] `predictAsteroidAt(asteroid, t)` returns linearly extrapolated `{ x, y, radius }`
+- [ ] `defineCandidates()` returns 7 candidate action objects
+- [ ] `simulateTrajectory(clone, action, steps, dt)` runs `updateShip` forward, returns array of positions
+- [ ] `scoreTrajectory(positions, target, asteroids, simDt)` returns composite score with collision penalty, distance weight, and aim bonus
+- [ ] `selectBestAction(ship, target, asteroids)` picks the best-scoring candidate
+- [ ] `predictiveStrategy = { createState, update }` — sets control flags from best action + fires when aimed
+- [ ] Constants exported: `SIM_STEPS` (15), `SIM_DT` (0.1s), `COLLISION_PENALTY` (-10000), `DISTANCE_WEIGHT` (-1), `AIM_BONUS` (500)
+
+### Settings Integration
+- [ ] `SETTINGS_CONFIG` includes `aiStrategy` with options `['reactive', 'predictive']`, default `'predictive'`
+- [ ] `aiStrategy` persisted to localStorage
+- [ ] Changing dropdown swaps strategy and resets AI state in real-time
+- [ ] Enemy spawn heading: aim toward player instead of random
+
+### Visible
+- [ ] **Visible**: Settings dropdown lets you switch between reactive and predictive AI. Reactive AI behaves identically to before. Predictive AI navigates asteroid fields and pursues the player using path simulation. Both fire bullets when aimed.
+
+---
+
 ## Increment 27: Bullet-Ship Collision (One Kill)
 
 **Goal**: Bullets destroy ships. One bullet = one kill.
