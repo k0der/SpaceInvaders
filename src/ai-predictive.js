@@ -19,16 +19,19 @@ export const SIM_DT = 0.1;
 export const COLLISION_BASE_PENALTY = -5000;
 
 /** Exponential decay rate for collision penalty per step. */
-export const COLLISION_DECAY = 0.4;
+export const COLLISION_DECAY = 1.2;
 
 /** Weight applied to distance-to-target (negative = closer is better). */
-export const DISTANCE_WEIGHT = -3;
+export const DISTANCE_WEIGHT = -8;
 
 /** Bonus for aiming toward target at end of trajectory. */
 export const AIM_BONUS = 200;
 
 /** Weight for closing speed bonus (dot of velocity toward target). */
-export const CLOSING_SPEED_WEIGHT = 4;
+export const CLOSING_SPEED_WEIGHT = 15;
+
+/** Flat bonus for candidates that use thrust (encourages active pursuit). */
+export const THRUST_BIAS = 400;
 
 /**
  * Clone only the physics-relevant fields of a ship for simulation.
@@ -207,7 +210,11 @@ export function selectBestAction(ship, target, asteroids) {
   for (const action of candidates) {
     const clone = cloneShipForSim(ship);
     const positions = simulateTrajectory(clone, action, SIM_STEPS, SIM_DT);
-    const score = scoreTrajectory(positions, target, asteroids, SIM_DT);
+    let score = scoreTrajectory(positions, target, asteroids, SIM_DT);
+
+    if (action.thrust) {
+      score += THRUST_BIAS;
+    }
 
     if (score > bestScore) {
       bestScore = score;

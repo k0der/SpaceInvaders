@@ -14,6 +14,7 @@ import {
   scoreTrajectory,
   selectBestAction,
   simulateTrajectory,
+  THRUST_BIAS,
 } from '../src/ai-predictive.js';
 import { createShip } from '../src/ship.js';
 
@@ -30,20 +31,24 @@ describe('ai-predictive: Constants', () => {
     expect(COLLISION_BASE_PENALTY).toBe(-5000);
   });
 
-  it('exports COLLISION_DECAY as 0.4', () => {
-    expect(COLLISION_DECAY).toBeCloseTo(0.4, 2);
+  it('exports COLLISION_DECAY as 1.2', () => {
+    expect(COLLISION_DECAY).toBeCloseTo(1.2, 2);
   });
 
-  it('exports DISTANCE_WEIGHT as -3', () => {
-    expect(DISTANCE_WEIGHT).toBe(-3);
+  it('exports DISTANCE_WEIGHT as -8', () => {
+    expect(DISTANCE_WEIGHT).toBe(-8);
   });
 
   it('exports AIM_BONUS as 200', () => {
     expect(AIM_BONUS).toBe(200);
   });
 
-  it('exports CLOSING_SPEED_WEIGHT as 4', () => {
-    expect(CLOSING_SPEED_WEIGHT).toBe(4);
+  it('exports CLOSING_SPEED_WEIGHT as 15', () => {
+    expect(CLOSING_SPEED_WEIGHT).toBe(15);
+  });
+
+  it('exports THRUST_BIAS as 400', () => {
+    expect(THRUST_BIAS).toBe(400);
   });
 });
 
@@ -337,30 +342,26 @@ describe('ai-predictive: scoreTrajectory', () => {
 });
 
 describe('ai-predictive: scoreTrajectory — time-decayed collision', () => {
-  it('early collision (step 1) penalizes more than late collision (step 10)', () => {
+  it('early collision (step 1) penalizes more than late collision (step 3)', () => {
     const target = { x: 500, y: 0, vx: 0, vy: 0 };
-    const ast = [{ x: 100, y: 0, vx: 0, vy: 0, collisionRadius: 25 }];
 
-    // Trajectory that collides at step 1 only (then moves away)
-    const collidesStep1 = [
-      { x: 0, y: 0, heading: 0, vx: 0, vy: 0 },
-      { x: 100, y: 0, heading: 0, vx: 100, vy: 0 }, // collides
-      { x: 200, y: 0, heading: 0, vx: 100, vy: 0 }, // no collision
-      { x: 300, y: 0, heading: 0, vx: 100, vy: 0 },
+    // Two asteroids at different positions so we can control collision timing
+    // Both trajectories have identical endpoints and velocities to isolate collision effect
+    const astEarly = [{ x: 50, y: 0, vx: 0, vy: 0, collisionRadius: 25 }];
+    const astLate = [{ x: 150, y: 0, vx: 0, vy: 0, collisionRadius: 25 }];
+
+    // Same trajectory for both — only the asteroid position changes
+    const positions = [
+      { x: 0, y: 0, heading: 0, vx: 100, vy: 0 },
+      { x: 50, y: 0, heading: 0, vx: 100, vy: 0 }, // collides with astEarly
+      { x: 100, y: 0, heading: 0, vx: 100, vy: 0 },
+      { x: 150, y: 0, heading: 0, vx: 100, vy: 0 }, // collides with astLate
     ];
 
-    // Trajectory that collides at step 3 only (starts away, arrives late)
-    const collidesStep3 = [
-      { x: 0, y: 0, heading: 0, vx: 0, vy: 0 },
-      { x: 30, y: 0, heading: 0, vx: 30, vy: 0 }, // no collision
-      { x: 60, y: 0, heading: 0, vx: 30, vy: 0 }, // no collision
-      { x: 100, y: 0, heading: 0, vx: 30, vy: 0 }, // collides
-    ];
+    const scoreEarly = scoreTrajectory(positions, target, astEarly, 0.1);
+    const scoreLate = scoreTrajectory(positions, target, astLate, 0.1);
 
-    const scoreEarly = scoreTrajectory(collidesStep1, target, ast, 0.1);
-    const scoreLate = scoreTrajectory(collidesStep3, target, ast, 0.1);
-
-    // Early collision should be penalized more (lower score)
+    // Early collision (step 1) should be penalized more (lower score)
     expect(scoreEarly).toBeLessThan(scoreLate);
   });
 
@@ -374,9 +375,10 @@ describe('ai-predictive: scoreTrajectory — time-decayed collision', () => {
       COLLISION_BASE_PENALTY * Math.exp(-COLLISION_DECAY * 15);
 
     expect(step1Penalty).toBeLessThan(step15Penalty); // more negative = worse
+    // With 1.2 decay, step 1 is ~1505 and step 15 is ~0.008 — massive ratio
     expect(Math.abs(step1Penalty)).toBeGreaterThan(
-      Math.abs(step15Penalty) * 100,
-    ); // ~403x ratio with 0.4 decay
+      Math.abs(step15Penalty) * 1000,
+    );
   });
 });
 
@@ -483,14 +485,14 @@ describe('ai-predictive: scoreTrajectory — closing velocity bonus', () => {
     // Both end at x=100 with same heading, so distance and aim are identical.
     // The only difference is the retreat penalty on the away trajectory.
     expect(awayScore).toBeLessThan(stationaryScore);
-    // The penalty should be significant: CLOSING_SPEED_WEIGHT * 200 = 800
-    expect(stationaryScore - awayScore).toBeGreaterThan(500);
+    // The penalty should be significant: CLOSING_SPEED_WEIGHT * 200 = 3000
+    expect(stationaryScore - awayScore).toBeGreaterThan(2000);
   });
 
   it('closing velocity bonus scales with CLOSING_SPEED_WEIGHT', () => {
-    expect(CLOSING_SPEED_WEIGHT).toBe(4);
-    // At MAX_SPEED=400 toward target, bonus = 4 * 400 = 1600
-    expect(CLOSING_SPEED_WEIGHT * 400).toBe(1600);
+    expect(CLOSING_SPEED_WEIGHT).toBe(15);
+    // At MAX_SPEED=400 toward target, bonus = 15 * 400 = 6000
+    expect(CLOSING_SPEED_WEIGHT * 400).toBe(6000);
   });
 
   it('handles zero distance to target without error', () => {
