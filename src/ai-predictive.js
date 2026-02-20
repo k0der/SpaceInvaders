@@ -63,6 +63,12 @@ export const FIRE_OPPORTUNITY_BONUS = 300;
 /** Distance below which current scoring balance applies (close-range combat zone). */
 export const ENGAGE_RANGE = 350;
 
+/** Minimum time (seconds) to hold an action before reconsidering. */
+export const HOLD_TIME = 0.15;
+
+/** Simulation steps to check for imminent collision during hold. */
+export const COLLISION_BREAK_STEPS = 3;
+
 /** Score bonus for matching the previous frame's action (reduces oscillation). */
 export const HYSTERESIS_BONUS = 250;
 
@@ -341,6 +347,34 @@ export function simulatePursuitTrajectory(
 }
 
 /**
+ * Check if a held action would cause an imminent collision (within a few steps).
+ * Used as an emergency escape hatch during action hold periods.
+ */
+export function hasImminentCollision(ship, action, asteroids) {
+  const clone = cloneShipForSim(ship);
+  const positions = simulateTrajectory(
+    clone,
+    action,
+    COLLISION_BREAK_STEPS,
+    SIM_DT,
+  );
+  const shipRadius = SHIP_SIZE;
+  for (let i = 1; i < positions.length; i++) {
+    const t = i * SIM_DT;
+    for (const ast of asteroids) {
+      const predicted = predictAsteroidAt(ast, t);
+      const dx = positions[i].x - predicted.x;
+      const dy = positions[i].y - predicted.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < predicted.radius + shipRadius) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/**
  * Check if two action objects have identical control flags.
  */
 function actionsMatch(a, b) {
@@ -464,12 +498,13 @@ function normalizeAngle(angle) {
  * Create predictive AI state.
  */
 function createPredictiveState() {
-  return { prevAction: null };
+  return { prevAction: null, holdTimer: 0 };
 }
 
 /**
  * Predictive AI update function.
- * Selects the best action via trajectory simulation and applies it.
+ * Holds selected action for HOLD_TIME to prevent oscillation, with an
+ * emergency escape if the held action predicts an imminent collision.
  * Firing decision is a separate snap check based on current aim.
  */
 function updatePredictiveAI(state, ship, target, asteroids, _dt) {
@@ -482,12 +517,24 @@ function updatePredictiveAI(state, ship, target, asteroids, _dt) {
     return;
   }
 
-  const action = selectBestAction(ship, target, asteroids, state.prevAction);
-  state.prevAction = action;
-  ship.thrust = action.thrust;
-  ship.rotatingLeft = action.rotatingLeft;
-  ship.rotatingRight = action.rotatingRight;
-  ship.braking = action.braking;
+  state.holdTimer = Math.max(0, state.holdTimer - _dt);
+
+  const holdExpired = state.holdTimer <= 0;
+  const emergency =
+    !holdExpired &&
+    state.prevAction &&
+    hasImminentCollision(ship, state.prevAction, asteroids);
+
+  if (holdExpired || emergency || !state.prevAction) {
+    const action = selectBestAction(ship, target, asteroids, state.prevAction);
+    state.prevAction = action;
+    state.holdTimer = HOLD_TIME;
+  }
+
+  ship.thrust = state.prevAction.thrust;
+  ship.rotatingLeft = state.prevAction.rotatingLeft;
+  ship.rotatingRight = state.prevAction.rotatingRight;
+  ship.braking = state.prevAction.braking;
 
   // Fire decision: snap check based on current aim geometry
   const dx = target.x - ship.x;

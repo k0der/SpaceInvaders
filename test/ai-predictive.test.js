@@ -5,6 +5,7 @@ import {
   BRAKE_PURSUIT_STEPS,
   CLOSING_SPEED_WEIGHT,
   COLLISION_BASE_PENALTY,
+  COLLISION_BREAK_STEPS,
   COLLISION_EARLY_BONUS,
   cloneShipForSim,
   DISTANCE_WEIGHT,
@@ -12,7 +13,9 @@ import {
   ENGAGE_RANGE,
   FIRE_OPPORTUNITY_BONUS,
   getLastDebugInfo,
+  HOLD_TIME,
   HYSTERESIS_BONUS,
+  hasImminentCollision,
   predictAsteroidAt,
   predictiveStrategy,
   SIM_DT,
@@ -43,6 +46,14 @@ describe('ai-predictive: Constants', () => {
 
   it('exports ENGAGE_RANGE as 350', () => {
     expect(ENGAGE_RANGE).toBe(350);
+  });
+
+  it('exports HOLD_TIME as 0.15', () => {
+    expect(HOLD_TIME).toBeCloseTo(0.15, 2);
+  });
+
+  it('exports COLLISION_BREAK_STEPS as 3', () => {
+    expect(COLLISION_BREAK_STEPS).toBe(3);
   });
 
   it('exports HYSTERESIS_BONUS as 250', () => {
@@ -941,6 +952,125 @@ describe('ai-predictive: selectBestAction', () => {
   });
 });
 
+describe('ai-predictive: hasImminentCollision', () => {
+  it('returns false with no asteroids', () => {
+    const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+    const action = {
+      thrust: true,
+      rotatingLeft: false,
+      rotatingRight: false,
+      braking: false,
+    };
+    expect(hasImminentCollision(ship, action, [])).toBe(false);
+  });
+
+  it('returns true when asteroid is directly ahead within 3 steps', () => {
+    const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+    ship.vx = 400; // Already at max speed, heading right
+    const action = {
+      thrust: true,
+      rotatingLeft: false,
+      rotatingRight: false,
+      braking: false,
+    };
+    // Asteroid 50px ahead — ship reaches it in ~1 step at 400px/s
+    const asteroids = [{ x: 50, y: 0, vx: 0, vy: 0, collisionRadius: 20 }];
+    expect(hasImminentCollision(ship, action, asteroids)).toBe(true);
+  });
+
+  it('returns false when asteroid is far away (beyond 3 steps)', () => {
+    const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+    const action = {
+      thrust: true,
+      rotatingLeft: false,
+      rotatingRight: false,
+      braking: false,
+    };
+    // Asteroid 500px away — unreachable in 3 steps from standstill
+    const asteroids = [{ x: 500, y: 0, vx: 0, vy: 0, collisionRadius: 20 }];
+    expect(hasImminentCollision(ship, action, asteroids)).toBe(false);
+  });
+
+  it('returns false when asteroid is off the trajectory path', () => {
+    const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+    ship.vx = 400;
+    const action = {
+      thrust: true,
+      rotatingLeft: false,
+      rotatingRight: false,
+      braking: false,
+    };
+    // Asteroid far to the side — ship passes by
+    const asteroids = [{ x: 50, y: 200, vx: 0, vy: 0, collisionRadius: 20 }];
+    expect(hasImminentCollision(ship, action, asteroids)).toBe(false);
+  });
+});
+
+describe('ai-predictive: action hold behavior', () => {
+  it('createState returns holdTimer of 0', () => {
+    const state = predictiveStrategy.createState();
+    expect(state.holdTimer).toBe(0);
+  });
+
+  it('holds action during hold period (does not oscillate)', () => {
+    const state = predictiveStrategy.createState();
+    const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+    const target = createShip({ x: 500, y: 0, heading: 0, owner: 'player' });
+
+    // First update — selects an action and starts hold
+    predictiveStrategy.update(state, ship, target, [], 0.016);
+    const firstAction = { ...state.prevAction };
+    expect(state.holdTimer).toBeCloseTo(HOLD_TIME, 2);
+
+    // Second update with small dt — still within hold period
+    predictiveStrategy.update(state, ship, target, [], 0.016);
+    expect(state.prevAction.thrust).toBe(firstAction.thrust);
+    expect(state.prevAction.rotatingLeft).toBe(firstAction.rotatingLeft);
+    expect(state.prevAction.rotatingRight).toBe(firstAction.rotatingRight);
+    expect(state.prevAction.braking).toBe(firstAction.braking);
+  });
+
+  it('re-evaluates after hold timer expires', () => {
+    const state = predictiveStrategy.createState();
+    const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+    const target = createShip({ x: 500, y: 0, heading: 0, owner: 'player' });
+
+    // First update
+    predictiveStrategy.update(state, ship, target, [], 0.016);
+    const holdAfterFirst = state.holdTimer;
+    expect(holdAfterFirst).toBeGreaterThan(0);
+
+    // Advance past hold time
+    predictiveStrategy.update(state, ship, target, [], HOLD_TIME + 0.01);
+    // Hold timer was reset after re-evaluation
+    expect(state.holdTimer).toBeCloseTo(HOLD_TIME, 2);
+  });
+
+  it('breaks hold on imminent collision', () => {
+    const state = predictiveStrategy.createState();
+    const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+    const target = createShip({ x: 500, y: 0, heading: 0, owner: 'player' });
+
+    // First update — no asteroids, selects T___ (thrust straight)
+    predictiveStrategy.update(state, ship, target, [], 0.016);
+    expect(state.prevAction.thrust).toBe(true);
+
+    // Now add an asteroid directly ahead — imminent collision
+    ship.vx = 400;
+    const asteroids = [{ x: 50, y: 0, vx: 0, vy: 0, collisionRadius: 30 }];
+
+    // Second update with small dt (still within hold period)
+    predictiveStrategy.update(state, ship, target, asteroids, 0.016);
+
+    // Hold should have broken — action re-evaluated
+    // holdTimer should be reset to HOLD_TIME (re-evaluation happened)
+    expect(state.holdTimer).toBeCloseTo(HOLD_TIME, 2);
+    // The new action should differ from thrusting straight into the asteroid
+    // (though we can't guarantee the exact action, it was re-evaluated)
+    expect(state.prevAction).not.toBeNull();
+  });
+});
+
 describe('ai-predictive: predictiveStrategy', () => {
   it('has createState and update methods', () => {
     expect(typeof predictiveStrategy.createState).toBe('function');
@@ -1161,9 +1291,10 @@ describe('ai-predictive: selectBestAction — hysteresis', () => {
 });
 
 describe('ai-predictive: predictiveStrategy — state management', () => {
-  it('createState returns state with null prevAction', () => {
+  it('createState returns state with null prevAction and zero holdTimer', () => {
     const state = predictiveStrategy.createState();
     expect(state.prevAction).toBeNull();
+    expect(state.holdTimer).toBe(0);
   });
 
   it('update stores chosen action in state.prevAction', () => {
