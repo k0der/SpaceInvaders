@@ -557,23 +557,41 @@ viewport AABB.
 
 ### 12.3 AI Obstacle Avoidance
 
-Avoidance uses a **look-ahead cylinder** projected along the AI ship's heading.
-The system avoids both asteroids and the target ship (ramming is a mutual kill).
+Avoidance uses a **look-ahead cylinder** projected along the AI ship's
+**predicted velocity** direction. The system avoids both asteroids and the
+target ship (ramming is a mutual kill).
+
+**Predicted velocity**: In Newtonian physics, the ship's heading and velocity
+can differ significantly (the ship drifts due to momentum). A heading-based
+look-ahead misses obstacles the ship is drifting toward sideways. The fix:
+compute a predicted velocity that accounts for both current momentum and
+current thrust input:
+
+```
+predictedVx = vx + cos(heading) * thrustPower * thrustIntensity * AVOID_PREDICT_TIME
+predictedVy = vy + sin(heading) * thrustPower * thrustIntensity * AVOID_PREDICT_TIME
+```
+
+- **Coasting**: predicted direction ≈ current velocity (pure momentum)
+- **Thrusting**: predicted direction shifts toward heading (where thrust is pushing)
+- **Stationary** (speed < 1): falls back to heading direction as a safe default
+- `AVOID_PREDICT_TIME` (0.3s) controls how far ahead to predict velocity change
 
 **Algorithm** — `computeAvoidanceOffset(aiShip, obstacles)`:
 
-1. For each obstacle `{ x, y, radius }`, compute the vector from AI to obstacle
-2. Project onto heading axis → `ahead` (forward distance) and perpendicular
-   axis → `lateral` (side distance)
-3. **Collision course** detected when:
-   - `ahead > 0` (obstacle is in front, not behind)
+1. Compute predicted velocity direction from current velocity + thrust input
+2. For each obstacle `{ x, y, radius }`, compute the vector from AI to obstacle
+3. Project onto predicted velocity axis → `ahead` (forward distance) and
+   perpendicular axis → `lateral` (side distance)
+4. **Collision course** detected when:
+   - `ahead > 0` (obstacle is ahead along predicted path)
    - `ahead < AVOID_LOOKAHEAD` (300px — within look-ahead range)
    - `|lateral| < obstacle.radius + AVOID_MARGIN` (30px buffer)
-4. For each collision-course obstacle, compute a lateral steering offset:
-   - Direction: perpendicular to heading, pushing away from the obstacle
+5. For each collision-course obstacle, compute a lateral steering offset:
+   - Direction: perpendicular to predicted velocity, pushing away from obstacle
    - Strength: `AVOID_STRENGTH * (1 - ahead / AVOID_LOOKAHEAD)` — closer = stronger
    - When lateral ≈ 0 (dead center), default to steering right to break symmetry
-5. Sum all offsets → total `avoidanceOffset` (radians)
+6. Sum all offsets → total `avoidanceOffset` (radians)
 
 **Blending with pursuit**:
 

@@ -570,17 +570,20 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 - [ ] AI bullets are added to the shared `bullets` array, updated/drawn/filtered identically
 
 ### AI Obstacle Avoidance
-- [ ] `computeAvoidanceOffset(aiShip, obstacles)` exported from `ai.js` — returns angle offset (radians) for steering away from collision-course obstacles
-- [ ] Obstacles is an array of `{ x, y, radius }` — supports both asteroids and ships
+- [x] `computeAvoidanceOffset(aiShip, obstacles)` exported from `ai.js` — returns angle offset (radians) for steering away from collision-course obstacles
+- [x] Obstacles is an array of `{ x, y, radius }` — supports both asteroids and ships
+- [ ] Look-ahead cylinder projects along **predicted velocity**, not heading — accounts for Newtonian drift and current thrust input
+- [ ] Predicted velocity: `predV = velocity + thrustAccel * AVOID_PREDICT_TIME`; falls back to heading when speed < 1
+- [ ] `AVOID_PREDICT_TIME` (0.3s) exported from `ai.js`
 - [ ] Look-ahead cylinder: obstacle is a threat when `ahead > 0`, `ahead < AVOID_LOOKAHEAD`, and `|lateral| < obstacle.radius + AVOID_MARGIN`
-- [ ] `AVOID_LOOKAHEAD` (300px), `AVOID_MARGIN` (30px), `AVOID_STRENGTH` (1.5 rad) exported from `ai.js`
-- [ ] Closer obstacles produce stronger steering offset: strength scales with `(1 - ahead / AVOID_LOOKAHEAD)`
-- [ ] Dead-center obstacle (lateral ≈ 0) defaults to steering right (breaks symmetry)
-- [ ] Returns 0 when no obstacles are on collision course
-- [ ] `updateAI` builds obstacle list from asteroids (`collisionRadius`) + target ship (`SHIP_SIZE` as proxy radius)
-- [ ] Avoidance offset is added to pursuit target angle before rotation/thrust decisions: `effectiveAngle = pursuitAngle + avoidanceOffset`
-- [ ] When strong avoidance is active, thrust is maintained (don't stop mid-avoidance)
-- [ ] Avoidance and pursuit blend smoothly (no jittering between states)
+- [x] `AVOID_LOOKAHEAD` (300px), `AVOID_MARGIN` (30px), `AVOID_STRENGTH` (1.5 rad) exported from `ai.js`
+- [x] Closer obstacles produce stronger steering offset: strength scales with `(1 - ahead / AVOID_LOOKAHEAD)`
+- [x] Dead-center obstacle (lateral ≈ 0) defaults to steering right (breaks symmetry)
+- [x] Returns 0 when no obstacles are on collision course
+- [x] `updateAI` builds obstacle list from asteroids (`collisionRadius`) + target ship (`SHIP_SIZE` as proxy radius)
+- [x] Avoidance offset is added to pursuit target angle before rotation/thrust decisions: `effectiveAngle = pursuitAngle + avoidanceOffset`
+- [x] When strong avoidance is active, thrust is maintained (don't stop mid-avoidance)
+- [x] Avoidance and pursuit blend smoothly (no jittering between states)
 
 ### Visible
 - [ ] **Visible**: Enemy shoots at the player and navigates around asteroids and the player ship. Bullets fly between both ships. AI curves around obstacles with strafing arcs instead of charging head-on. Dogfight feel emerges.

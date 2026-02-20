@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   AVOID_LOOKAHEAD,
   AVOID_MARGIN,
+  AVOID_PREDICT_TIME,
   AVOID_STRENGTH,
   BRAKE_SPEED,
   computeAvoidanceOffset,
@@ -338,6 +339,11 @@ describe('Increment 26: AI Fires Bullets + Asteroid Avoidance', () => {
       expect(typeof AVOID_STRENGTH).toBe('number');
       expect(AVOID_STRENGTH).toBe(1.5);
     });
+
+    it('exports AVOID_PREDICT_TIME as a positive number (0.3s)', () => {
+      expect(typeof AVOID_PREDICT_TIME).toBe('number');
+      expect(AVOID_PREDICT_TIME).toBeCloseTo(0.3, 1);
+    });
   });
 
   describe('updateAI — firing', () => {
@@ -528,6 +534,82 @@ describe('Increment 26: AI Fires Bullets + Asteroid Avoidance', () => {
 
       // Large obstacle should trigger avoidance, small one might not at y=50
       expect(largeOffset).toBeGreaterThanOrEqual(smallOffset);
+    });
+  });
+
+  describe('computeAvoidanceOffset — velocity-based prediction', () => {
+    it('detects obstacle along velocity when heading points elsewhere', () => {
+      // Ship heading right (0), but drifting upward (negative y)
+      const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+      ai.vx = 0;
+      ai.vy = -200; // Drifting upward fast
+
+      // Obstacle above — on the velocity path, NOT on heading path
+      const obstacles = [{ x: 0, y: -150, radius: 30 }];
+      const offset = computeAvoidanceOffset(ai, obstacles);
+
+      // Should detect collision course via velocity, not heading
+      expect(offset).not.toBe(0);
+    });
+
+    it('does NOT detect obstacle along heading when velocity goes elsewhere', () => {
+      // Ship heading right (0), but moving upward
+      const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+      ai.vx = 0;
+      ai.vy = -200; // Moving upward
+
+      // Obstacle to the right — on heading path but NOT on velocity path
+      const obstacles = [{ x: 150, y: -300, radius: 30 }];
+      const offset = computeAvoidanceOffset(ai, obstacles);
+
+      // Should NOT trigger because velocity doesn't go there
+      expect(offset).toBe(0);
+    });
+
+    it('falls back to heading when stationary (speed < 1)', () => {
+      const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+      // No velocity, no thrust — truly stationary
+      const obstacles = [{ x: 150, y: 0, radius: 30 }];
+      const offset = computeAvoidanceOffset(ai, obstacles);
+
+      // Should fall back to heading-based detection
+      expect(offset).not.toBe(0);
+    });
+
+    it('accounts for thrust when predicting future velocity', () => {
+      // Ship stationary but thrusting rightward — predicted velocity is rightward
+      const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+      ai.thrust = true;
+      ai.thrustIntensity = 1.0;
+
+      // Obstacle to the right — on thrust-predicted path
+      const obstacles = [{ x: 150, y: 0, radius: 30 }];
+      const offset = computeAvoidanceOffset(ai, obstacles);
+
+      // Should detect because thrust predicts rightward velocity
+      expect(offset).not.toBe(0);
+    });
+
+    it('blends velocity and thrust for predicted direction', () => {
+      // Ship moving right, but thrusting upward — predicted path goes up-right
+      // predV = (200+0, 0-600) ≈ direction (0.32, -0.95) — mostly upward
+      const ai = createShip({
+        x: 0,
+        y: 0,
+        heading: -Math.PI / 2,
+        owner: 'enemy',
+      });
+      ai.vx = 200;
+      ai.vy = 0;
+      ai.thrust = true;
+      ai.thrustIntensity = 1.0;
+
+      // Obstacle along the blended predicted direction (up-right)
+      const obstacles = [{ x: 50, y: -150, radius: 40 }];
+      const offset = computeAvoidanceOffset(ai, obstacles);
+
+      // Should detect based on blended velocity + thrust prediction
+      expect(offset).not.toBe(0);
     });
   });
 

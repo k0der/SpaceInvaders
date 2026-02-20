@@ -1,4 +1,4 @@
-import { SHIP_SIZE } from './ship.js';
+import { SHIP_SIZE, THRUST_POWER } from './ship.js';
 
 /** Dead zone for rotation — prevents oscillation (~3°). */
 export const ROTATION_DEADZONE = 0.05;
@@ -36,6 +36,12 @@ export const AVOID_MARGIN = 30;
 /** Maximum steering offset (rad) from avoidance. */
 export const AVOID_STRENGTH = 1.5;
 
+/** Time horizon (seconds) for predicting future velocity in avoidance. */
+export const AVOID_PREDICT_TIME = 0.3;
+
+/** Speed threshold below which avoidance falls back to heading direction. */
+const AVOID_MIN_SPEED = 1;
+
 /**
  * Normalize an angle to the range [-PI, PI].
  */
@@ -55,23 +61,45 @@ export function createAIState() {
 /**
  * Compute a steering angle offset to avoid obstacles on a collision course.
  *
- * Uses a look-ahead cylinder along the ship's heading. For each obstacle
- * in the forward cone within AVOID_LOOKAHEAD, checks if the ship's heading
- * line passes within (obstacle.radius + AVOID_MARGIN). Returns a summed
- * angle offset in radians — positive steers right, negative steers left.
+ * Projects a look-ahead cylinder along the ship's predicted velocity
+ * direction (accounting for current momentum + thrust input). Falls back
+ * to heading when nearly stationary. Returns a summed angle offset in
+ * radians — positive steers right, negative steers left.
  */
 export function computeAvoidanceOffset(aiShip, obstacles) {
   let totalOffset = 0;
-  const cosH = Math.cos(aiShip.heading);
-  const sinH = Math.sin(aiShip.heading);
 
+  // Compute predicted velocity: current velocity + thrust acceleration
+  const power = aiShip.thrustPower ?? THRUST_POWER;
+  const thrustAccel =
+    aiShip.thrust && aiShip.thrustIntensity > 0
+      ? power * aiShip.thrustIntensity
+      : 0;
+  const predVx =
+    aiShip.vx + Math.cos(aiShip.heading) * thrustAccel * AVOID_PREDICT_TIME;
+  const predVy =
+    aiShip.vy + Math.sin(aiShip.heading) * thrustAccel * AVOID_PREDICT_TIME;
+  const predSpeed = Math.sqrt(predVx * predVx + predVy * predVy);
+
+  // Determine look-ahead direction: predicted velocity, or heading fallback
+  let dirX;
+  let dirY;
+  if (predSpeed >= AVOID_MIN_SPEED) {
+    dirX = predVx / predSpeed;
+    dirY = predVy / predSpeed;
+  } else {
+    dirX = Math.cos(aiShip.heading);
+    dirY = Math.sin(aiShip.heading);
+  }
+
+  // dirX, dirY form the forward axis; perpendicular is (-dirY, dirX)
   for (const obs of obstacles) {
     const dx = obs.x - aiShip.x;
     const dy = obs.y - aiShip.y;
 
-    // Project onto heading axis (ahead) and perpendicular axis (lateral)
-    const ahead = dx * cosH + dy * sinH;
-    const lateral = -dx * sinH + dy * cosH;
+    // Project onto predicted velocity axis (ahead) and perpendicular (lateral)
+    const ahead = dx * dirX + dy * dirY;
+    const lateral = -dx * dirY + dy * dirX;
 
     // Skip obstacles behind the ship or beyond lookahead
     if (ahead <= 0 || ahead >= AVOID_LOOKAHEAD) continue;
