@@ -237,7 +237,7 @@
 - [x] Hamburger menu icon (☰) renders in the top-left corner
 - [x] Icon is semi-transparent (~30% opacity), brightens on hover (~80%)
 - [x] Clicking the icon opens a translucent dark panel from the left with white monospace text; icon swaps to ✕
-- [x] Panel has 3 labeled sliders: Asteroid Count [5–50, default 20], Speed [0.2x–3.0x, default 1.0x], Star Layers [3–6, default 3]
+- [x] Panel has 3 labeled sliders: Asteroid Count [5–50, default 20], Speed [0.2x–3.0x, default 1.0x], Star Layers [3–6, default 3] *(Note: Asteroid Count was replaced by Asteroid Density [0.5x–3.0x] in Increment 21)*
 - [x] Each slider shows its current value
 - [x] Moving a slider changes the simulation in real-time (asteroid count adjusts gradually, speed scales all motion, star layers add/remove)
 - [x] Pressing Escape closes the panel
@@ -409,20 +409,26 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 
 ## Increment 21: World-Relative Asteroid Spawning
 
-**Goal**: Asteroids spawn/despawn relative to the camera viewport, creating an infinite field.
+**Goal**: Asteroids spawn/despawn relative to the camera viewport, creating an infinite field. Dynamic density scaling and burst spawning keep the viewport populated at all times.
 
-**Modify**: `src/simulation.js`, `test/simulation.test.js`, `src/main.js`
+**Modify**: `src/simulation.js`, `test/simulation.test.js`, `src/main.js`, `src/settings.js`, `test/settings.test.js`
 
 **Acceptance Criteria**:
-- [ ] `spawnAsteroidFromEdge` accepts viewport bounds `{ minX, maxX, minY, maxY }` instead of `canvasWidth, canvasHeight`
-  - Asteroids spawn just outside the viewport bounds, aimed inward with ±30° spread
-- [ ] `isOffScreen` accepts viewport bounds — asteroids despawn when outside bounds + margin
-- [ ] `createSimulation` takes initial viewport bounds
-- [ ] `updateSimulation` receives current viewport bounds each frame (from `getViewportBounds`)
-- [ ] Energy homeostasis still works (unchanged — based on velocities)
-- [ ] Collision physics unchanged (all in world-space)
-- [ ] When ship flies in any direction, new asteroids appear from the edges
-- [ ] **Visible**: Infinite asteroid field. Fly anywhere — asteroids always populate the viewport. No more empty space at the edges.
+- [x] All simulation functions accept viewport bounds `{ minX, maxX, minY, maxY }` instead of `canvasWidth, canvasHeight`
+- [x] `isOffScreen(asteroid, bounds)` despawns asteroids outside bounds + margin
+- [x] `spawnAsteroidFromEdge(bounds, speedMultiplier)` spawns at bounds edges, aimed toward bounds center with ±30° spread
+- [x] `spawnAsteroidInBounds(bounds, speedMultiplier)` spawns at random positions within bounds (for initial population and burst recovery)
+- [x] `createSimulation(bounds, targetCount)` uses in-bounds spawning for immediate visibility
+- [x] `updateSimulation(sim, dt, bounds)` receives current viewport bounds each frame
+- [x] Burst spawning: when count < 75% of target, up to 5 asteroids/frame spawned within bounds
+- [x] Staggered edge spawning for steady-state replenishment (max 1 per 0.3s)
+- [x] `main.js` computes bounds from `getViewportBounds(camera, ...)` each frame
+- [x] Dynamic target count: `BASE_ASTEROID_COUNT (40) × asteroidDensity × (boundsArea / viewportArea)`
+- [x] "Asteroid Count" slider replaced with "Asteroid Density" multiplier (0.5x–3.0x, default 1.0x, step 0.1)
+- [x] Density setting persisted to localStorage
+- [x] Energy homeostasis unchanged (based on velocities, unaffected by coordinate system)
+- [x] Collision physics unchanged (all in world-space)
+- [x] **Visible**: Infinite asteroid field. Fly anywhere — asteroids always populate the viewport. No empty space when exploring new areas.
 
 ---
 

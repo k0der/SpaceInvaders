@@ -77,15 +77,26 @@ Distribution: ~20% large, ~40% medium, ~40% small.
 
 ### 1.5 Spawning & Despawning
 
-- Asteroids **drift in from off-screen edges** and **drift out** the other side
-- When an asteroid is fully off-screen (all vertices past the boundary + margin),
+All spawning and despawning is relative to the **camera viewport bounds** (an
+axis-aligned bounding box in world-space computed from the camera position and
+rotation). This creates an infinite asteroid field — flying in any direction
+always produces a populated viewport.
+
+- **Despawning**: When an asteroid is fully outside the viewport bounds + margin,
   it is removed
-- New asteroids spawn just outside a random screen edge, aimed roughly toward the
-  opposite side with some angular spread (±30°)
-- The system maintains the **target asteroid count** (default 20, user-configurable)
-  by spawning replacements as asteroids leave or are destroyed
-- Spawning is staggered — no more than 1 new asteroid per 0.3 seconds to avoid
-  clusters appearing at edges
+- **Target count**: The system maintains a dynamic target asteroid count:
+  `BASE_COUNT (40) × density_setting × (boundsArea / viewportArea)`. The area
+  ratio compensates for the AABB being larger than the visible viewport when
+  rotated.
+- **Initial population**: Asteroids are spawned **within the viewport bounds**
+  (random positions, random directions) for immediate visibility on startup
+- **Burst recovery**: When the asteroid count drops below 75% of the target,
+  up to 5 asteroids per frame are spawned **within the viewport bounds** to
+  quickly repopulate (e.g., when flying into unexplored space)
+- **Steady-state edge spawning**: When below the target count but above the
+  burst threshold, new asteroids spawn just outside a random viewport edge,
+  aimed roughly toward the bounds center with ±30° angular spread. Spawning
+  is staggered — max 1 per 0.3 seconds to avoid edge clusters.
 
 ### 1.6 Energy Homeostasis
 
@@ -237,7 +248,7 @@ The star field direction is user-configurable with 5 modes:
 
 | Setting              | Control  | Range                          | Default | Step |
 |----------------------|----------|--------------------------------|---------|------|
-| Asteroid Count       | Slider   | 5 – 50                        | 20      | 1    |
+| Asteroid Density     | Slider   | 0.5x – 3.0x                   | 1.0x    | 0.1  |
 | Speed Multiplier     | Slider   | 0.2 – 3.0                     | 1.0     | 0.1  |
 | Star Parallax Layers | Slider   | 3 – 6                         | 3       | 1    |
 | Thrust Power         | Slider   | 1000 – 5000                       | 2000    | 50   |
@@ -245,9 +256,10 @@ The star field direction is user-configurable with 5 modes:
 
 - Each slider shows its **current value** as a label
 - Changes are applied **immediately** (live preview)
-- When asteroid count is reduced, excess asteroids are allowed to drift off naturally
-  (not removed abruptly)
-- When asteroid count is increased, new ones begin spawning at the staggered rate
+- Asteroid density is a multiplier on the base count (40). The actual target
+  count is computed dynamically each frame as `40 × density × (boundsArea / viewportArea)`.
+  Reducing density lets excess asteroids drift off naturally; increasing it
+  triggers burst spawning to repopulate.
 - Settings are persisted to `localStorage` so they survive page reload
 
 ### 5.3 Visual Style of Menu
@@ -291,14 +303,15 @@ Each frame (`requestAnimationFrame` callback):
 8. Update asteroids:
    a. Move each by velocity * dt
    b. Rotate each by angular velocity * dt
-   c. Remove asteroids outside viewport bounds
-   d. Spawn new asteroids at viewport edges (respecting stagger timer)
-9. Detect & resolve asteroid collisions
-10. Update bullets (move, expire)
-11. Check bullet-ship collisions
-12. Check ship-asteroid collisions
-13. Update game state (phase transitions, explosions)
-14. Render:
+   c. Detect and resolve asteroid collisions
+   d. Remove asteroids outside viewport bounds (AABB from camera)
+   e. Burst-spawn within viewport bounds when count < 75% of target (up to 5/frame)
+   f. Stagger-spawn at viewport edges when below target (max 1 per 0.3s)
+9. Update bullets (move, expire)
+10. Check bullet-ship collisions
+11. Check ship-asteroid collisions
+12. Update game state (phase transitions, explosions)
+13. Render:
     a. Clear canvas
     b. Draw star layers (screen-space)
     c. Apply camera transform
