@@ -29,7 +29,7 @@ import {
   createParallaxLayers,
   drawParallaxLayers,
   redistributeStars,
-  updateStarLayerDirectional,
+  updateStarLayersCamera,
 } from './starfield.js';
 
 /**
@@ -105,6 +105,9 @@ export function startApp() {
     playerShip.y,
     playerShip.heading + Math.PI / 2,
   );
+  let prevCameraX = camera.x;
+  let prevCameraY = camera.y;
+  let prevCameraRotation = camera.rotation;
   const inputState = createInputState();
   const loaded = loadSettings();
   const settings = createSettings(loaded);
@@ -218,15 +221,27 @@ export function startApp() {
     camera.y = playerShip.y;
     camera.rotation = playerShip.heading + Math.PI / 2;
 
-    for (const layer of starLayers) {
-      updateStarLayerDirectional(
-        layer,
-        scaledDt,
-        logicalSize.width,
-        logicalSize.height,
-        settings.starDirection,
-      );
-    }
+    // Compute camera deltas and rotate to screen space for starfield parallax
+    const cameraDeltaX = camera.x - prevCameraX;
+    const cameraDeltaY = camera.y - prevCameraY;
+    const cameraDeltaRotation = camera.rotation - prevCameraRotation;
+    const cosR = Math.cos(-camera.rotation);
+    const sinR = Math.sin(-camera.rotation);
+    const screenDx = cameraDeltaX * cosR - cameraDeltaY * sinR;
+    const screenDy = cameraDeltaX * sinR + cameraDeltaY * cosR;
+
+    updateStarLayersCamera(
+      starLayers,
+      screenDx,
+      screenDy,
+      cameraDeltaRotation,
+      logicalSize.width,
+      logicalSize.height,
+    );
+
+    prevCameraX = camera.x;
+    prevCameraY = camera.y;
+    prevCameraRotation = camera.rotation;
     // Tight viewport bounds (no margin — simulation handles its own zones)
     const viewportBounds = getViewportBounds(
       camera,

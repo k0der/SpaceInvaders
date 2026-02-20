@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   applyTwinkle,
+  CAMERA_PARALLAX_SCALE,
   createParallaxLayers,
   createStar,
   createStarLayer,
@@ -10,6 +11,7 @@ import {
   updateParallaxLayers,
   updateStarLayer,
   updateStarLayerDirectional,
+  updateStarLayersCamera,
 } from '../src/starfield.js';
 
 describe('Increment 2: A Single Star Drifts Across the Void', () => {
@@ -1158,6 +1160,255 @@ describe('Increment 15: Star Field Direction', () => {
       const layers = [createStarLayer(30, 800, 600, { speed: 10 })];
       redistributeStars(layers, 800, 600, 'radial');
       expect(layers[0].stars.length).toBe(30);
+    });
+  });
+});
+
+describe('Increment 22: Starfield Responds to Camera', () => {
+  describe('CAMERA_PARALLAX_SCALE', () => {
+    it('is exported and equals 0.1', () => {
+      expect(CAMERA_PARALLAX_SCALE).toBe(0.1);
+    });
+  });
+
+  describe('updateStarLayersCamera — zero deltas', () => {
+    it('does not move stars when all deltas are zero', () => {
+      const layers = [createStarLayer(3, 800, 600, { speed: 20 })];
+      const positions = layers[0].stars.map((s) => ({ x: s.x, y: s.y }));
+
+      updateStarLayersCamera(layers, 0, 0, 0, 800, 600);
+
+      for (let i = 0; i < layers[0].stars.length; i++) {
+        expect(layers[0].stars[i].x).toBe(positions[i].x);
+        expect(layers[0].stars[i].y).toBe(positions[i].y);
+      }
+    });
+  });
+
+  describe('updateStarLayersCamera — translation', () => {
+    it('positive screenDx shifts stars in -x direction (opposite camera)', () => {
+      const layers = [createStarLayer(1, 800, 600, { speed: 30 })];
+      layers[0].stars[0].x = 400;
+      layers[0].stars[0].y = 300;
+
+      updateStarLayersCamera(layers, 100, 0, 0, 800, 600);
+
+      expect(layers[0].stars[0].x).toBeLessThan(400);
+    });
+
+    it('positive screenDy shifts stars in -y direction (opposite camera)', () => {
+      const layers = [createStarLayer(1, 800, 600, { speed: 30 })];
+      layers[0].stars[0].x = 400;
+      layers[0].stars[0].y = 300;
+
+      updateStarLayersCamera(layers, 0, 100, 0, 800, 600);
+
+      expect(layers[0].stars[0].y).toBeLessThan(300);
+    });
+
+    it('negative screenDx shifts stars in +x direction', () => {
+      const layers = [createStarLayer(1, 800, 600, { speed: 30 })];
+      layers[0].stars[0].x = 400;
+      layers[0].stars[0].y = 300;
+
+      updateStarLayersCamera(layers, -100, 0, 0, 800, 600);
+
+      expect(layers[0].stars[0].x).toBeGreaterThan(400);
+    });
+  });
+
+  describe('updateStarLayersCamera — parallax depth', () => {
+    it('near layer shifts more than far layer for the same delta', () => {
+      const farLayer = createStarLayer(1, 800, 600, { speed: 5 });
+      const nearLayer = createStarLayer(1, 800, 600, { speed: 30 });
+      const layers = [farLayer, nearLayer];
+
+      // Place both at same position
+      farLayer.stars[0].x = 400;
+      farLayer.stars[0].y = 300;
+      nearLayer.stars[0].x = 400;
+      nearLayer.stars[0].y = 300;
+
+      updateStarLayersCamera(layers, 200, 0, 0, 800, 600);
+
+      const farShift = Math.abs(farLayer.stars[0].x - 400);
+      const nearShift = Math.abs(nearLayer.stars[0].x - 400);
+      expect(nearShift).toBeGreaterThan(farShift);
+    });
+
+    it('shift magnitude scales with CAMERA_PARALLAX_SCALE', () => {
+      // Single layer = depth 1.0, shift = screenDx * 1.0 * CAMERA_PARALLAX_SCALE
+      const layers = [createStarLayer(1, 800, 600, { speed: 30 })];
+      layers[0].stars[0].x = 400;
+      layers[0].stars[0].y = 300;
+
+      updateStarLayersCamera(layers, 100, 0, 0, 800, 600);
+
+      // Expected shift: -100 * (30/30) * 0.1 = -10
+      expect(layers[0].stars[0].x).toBeCloseTo(390, 1);
+    });
+  });
+
+  describe('updateStarLayersCamera — rotation', () => {
+    it('rotates stars around screen center', () => {
+      const layers = [createStarLayer(1, 800, 600, { speed: 30 })];
+      // Place star directly to the right of center
+      layers[0].stars[0].x = 500;
+      layers[0].stars[0].y = 300;
+
+      // Rotate 90 degrees (PI/2)
+      updateStarLayersCamera(layers, 0, 0, Math.PI / 2, 800, 600);
+
+      // For single layer, depth = 1.0 * 0.1 = 0.1
+      // rotAngle = -PI/2 * 0.1 = small angle
+      // Star should have moved slightly from (500, 300)
+      const star = layers[0].stars[0];
+      const moved = Math.hypot(star.x - 500, star.y - 300);
+      expect(moved).toBeGreaterThan(0);
+    });
+
+    it('near layer rotates more than far layer', () => {
+      const farLayer = createStarLayer(1, 800, 600, { speed: 5 });
+      const nearLayer = createStarLayer(1, 800, 600, { speed: 30 });
+      const layers = [farLayer, nearLayer];
+
+      // Place both at same offset from center
+      farLayer.stars[0].x = 500;
+      farLayer.stars[0].y = 300;
+      nearLayer.stars[0].x = 500;
+      nearLayer.stars[0].y = 300;
+
+      updateStarLayersCamera(layers, 0, 0, 1.0, 800, 600);
+
+      const farMoved = Math.hypot(
+        farLayer.stars[0].x - 500,
+        farLayer.stars[0].y - 300,
+      );
+      const nearMoved = Math.hypot(
+        nearLayer.stars[0].x - 500,
+        nearLayer.stars[0].y - 300,
+      );
+      expect(nearMoved).toBeGreaterThan(farMoved);
+    });
+  });
+
+  describe('updateStarLayersCamera — wrapping', () => {
+    it('wraps stars that exit the right edge to the left', () => {
+      const layers = [createStarLayer(1, 800, 600, { speed: 30 })];
+      layers[0].stars[0].x = 2;
+      layers[0].stars[0].y = 300;
+
+      // Large positive screenDx → shift star far left → wraps to right
+      updateStarLayersCamera(layers, 10000, 0, 0, 800, 600);
+
+      const star = layers[0].stars[0];
+      expect(star.x).toBeGreaterThanOrEqual(0);
+      expect(star.x).toBeLessThan(800);
+    });
+
+    it('wraps stars that exit the bottom edge to the top', () => {
+      const layers = [createStarLayer(1, 800, 600, { speed: 30 })];
+      layers[0].stars[0].x = 400;
+      layers[0].stars[0].y = 2;
+
+      updateStarLayersCamera(layers, 0, 10000, 0, 800, 600);
+
+      const star = layers[0].stars[0];
+      expect(star.y).toBeGreaterThanOrEqual(0);
+      expect(star.y).toBeLessThan(600);
+    });
+
+    it('wraps stars that exit the left edge to the right', () => {
+      const layers = [createStarLayer(1, 800, 600, { speed: 30 })];
+      layers[0].stars[0].x = 798;
+      layers[0].stars[0].y = 300;
+
+      // Negative screenDx → shift star far right → wraps
+      updateStarLayersCamera(layers, -10000, 0, 0, 800, 600);
+
+      const star = layers[0].stars[0];
+      expect(star.x).toBeGreaterThanOrEqual(0);
+      expect(star.x).toBeLessThan(800);
+    });
+  });
+
+  describe('updateStarLayersCamera — edge cases', () => {
+    it('does not crash on empty layers array', () => {
+      expect(() =>
+        updateStarLayersCamera([], 10, 10, 0.1, 800, 600),
+      ).not.toThrow();
+    });
+
+    it('handles layers with zero speed (maxSpeed=0)', () => {
+      const layers = [createStarLayer(1, 800, 600, { speed: 0 })];
+      layers[0].stars[0].x = 400;
+      layers[0].stars[0].y = 300;
+
+      expect(() =>
+        updateStarLayersCamera(layers, 10, 10, 0.1, 800, 600),
+      ).not.toThrow();
+      // Star should not move when all speeds are 0
+      expect(layers[0].stars[0].x).toBe(400);
+      expect(layers[0].stars[0].y).toBe(300);
+    });
+  });
+
+  describe('updateStarLayersCamera — twinkle preservation', () => {
+    it('does not modify twinkle properties on stars', () => {
+      const layers = [
+        createStarLayer(3, 800, 600, { speed: 10, twinkle: true }),
+      ];
+      const originalTwinkle = layers[0].stars.map((s) => ({
+        phase: s.twinklePhase,
+        freq: s.twinkleFreq,
+        amplitude: s.twinkleAmplitude,
+      }));
+
+      updateStarLayersCamera(layers, 50, 30, 0.5, 800, 600);
+
+      for (let i = 0; i < layers[0].stars.length; i++) {
+        expect(layers[0].stars[i].twinklePhase).toBe(originalTwinkle[i].phase);
+        expect(layers[0].stars[i].twinkleFreq).toBe(originalTwinkle[i].freq);
+        expect(layers[0].stars[i].twinkleAmplitude).toBe(
+          originalTwinkle[i].amplitude,
+        );
+      }
+    });
+  });
+
+  describe('updateStarLayersCamera — clears radialBrightness', () => {
+    it('deletes radialBrightness from stars', () => {
+      const layers = [createStarLayer(2, 800, 600, { speed: 10 })];
+      layers[0].stars[0].radialBrightness = 0.5;
+      layers[0].stars[1].radialBrightness = 0.8;
+
+      updateStarLayersCamera(layers, 10, 10, 0, 800, 600);
+
+      for (const star of layers[0].stars) {
+        expect(star.radialBrightness).toBeUndefined();
+      }
+    });
+  });
+
+  describe('updateStarLayersCamera — multiple layers', () => {
+    it('updates all layers in the array', () => {
+      const layers = createParallaxLayers(800, 600, 3);
+      // Place all stars at center
+      for (const layer of layers) {
+        for (const star of layer.stars) {
+          star.x = 400;
+          star.y = 300;
+        }
+      }
+
+      updateStarLayersCamera(layers, 200, 0, 0, 800, 600);
+
+      // All layers should have moved their stars
+      for (const layer of layers) {
+        for (const star of layer.stars) {
+          expect(star.x).not.toBe(400);
+        }
+      }
     });
   });
 });

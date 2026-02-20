@@ -200,6 +200,24 @@ The star field direction is user-configurable with 5 modes:
   - Parallax is preserved — near-layer stars fly outward faster than far-layer
     stars
 
+#### Camera-Relative Parallax Mode
+
+When ships are active, the starfield switches from directional scrolling to
+**camera-relative parallax**. Stars shift based on camera movement deltas
+rather than a fixed direction:
+
+- **Per-layer depth**: `depth = layer.speed / maxLayerSpeed`, scaled by
+  `CAMERA_PARALLAX_SCALE` (0.1). Near stars shift more than far stars.
+- **Translation**: Stars shift opposite to camera movement in screen space.
+  `main.js` pre-rotates world-space camera deltas into screen space before
+  passing them to the starfield function.
+- **Rotation**: Camera rotation rotates stars around the screen center.
+  Near stars rotate more than far stars: `rotAngle = -deltaRotation * depth`.
+- **Wrapping**: Stars wrap at viewport edges using modulo arithmetic.
+- **Directional modes preserved**: The existing direction modes
+  (`left`/`right`/`up`/`down`/`radial`) remain available for `shipMode='off'`
+  (Increment 30).
+
 ### 3.2 Twinkling
 
 - Each star has a **base brightness** and a **twinkle phase** (random offset)
