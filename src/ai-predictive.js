@@ -27,11 +27,11 @@ export const SIM_STEPS = 15;
 /** Time step for each simulation step (seconds). */
 export const SIM_DT = 0.1;
 
-/** Base penalty for collision (decayed by step index). */
+/** Base penalty for collision — always catastrophic (collision = death). */
 export const COLLISION_BASE_PENALTY = -10000;
 
-/** Exponential decay rate for collision penalty per step. */
-export const COLLISION_DECAY = 0.4;
+/** Linear tiebreaker: later collisions are slightly less bad (more time to re-evaluate). */
+export const COLLISION_EARLY_BONUS = 50;
 
 /** Number of brake steps before pursuit in the brake-pursuit candidate. */
 export const BRAKE_PURSUIT_STEPS = 5;
@@ -59,6 +59,9 @@ export const AIM_PROXIMITY_SCALE = 5;
 
 /** Bonus per sim step where ship has a viable firing solution. */
 export const FIRE_OPPORTUNITY_BONUS = 300;
+
+/** Score bonus for matching the previous frame's action (reduces oscillation). */
+export const HYSTERESIS_BONUS = 80;
 
 /**
  * Clone only the physics-relevant fields of a ship for simulation.
@@ -148,7 +151,7 @@ export function simulateTrajectory(clone, action, steps, dt) {
 
 /**
  * Score a simulated trajectory based on:
- * - Time-decayed collision penalty (first collision only — ship would be dead)
+ * - Catastrophic collision penalty (first collision only — ship would be dead)
  * - Closest approach to target across trajectory (lower = better)
  * - Average aim bonus across all steps (avoids crossover artifact at overshoot)
  * - Approach rate bonus (net distance closed, immune to overshoot terror)
@@ -171,7 +174,7 @@ export function scoreTrajectory(positions, target, asteroids, simDt) {
       const dist = Math.sqrt(dx * dx + dy * dy);
 
       if (dist < predicted.radius + shipRadius) {
-        score += COLLISION_BASE_PENALTY * Math.exp(-COLLISION_DECAY * i);
+        score += COLLISION_BASE_PENALTY + COLLISION_EARLY_BONUS * i;
         collided = true;
         break;
       }
@@ -330,9 +333,23 @@ export function simulatePursuitTrajectory(
 }
 
 /**
- * Select the best action by simulating all candidates and picking the highest score.
+ * Check if two action objects have identical control flags.
  */
-export function selectBestAction(ship, target, asteroids) {
+function actionsMatch(a, b) {
+  return (
+    a.thrust === b.thrust &&
+    a.rotatingLeft === b.rotatingLeft &&
+    a.rotatingRight === b.rotatingRight &&
+    a.braking === b.braking
+  );
+}
+
+/**
+ * Select the best action by simulating all candidates and picking the highest score.
+ * Optional prevAction enables hysteresis — matching candidates get a small bonus
+ * to prevent frame-by-frame oscillation between similar-scoring actions.
+ */
+export function selectBestAction(ship, target, asteroids, prevAction = null) {
   const candidates = defineCandidates();
   let bestScore = -Infinity;
   let bestAction = candidates[0];
@@ -343,7 +360,10 @@ export function selectBestAction(ship, target, asteroids) {
   for (const action of candidates) {
     const clone = cloneShipForSim(ship);
     const positions = simulateTrajectory(clone, action, SIM_STEPS, SIM_DT);
-    const score = scoreTrajectory(positions, target, asteroids, SIM_DT);
+    let score = scoreTrajectory(positions, target, asteroids, SIM_DT);
+    if (prevAction && actionsMatch(action, prevAction)) {
+      score += HYSTERESIS_BONUS;
+    }
     const name = fmtAction(action);
     debugCandidates.push({ name, score });
 
@@ -363,12 +383,19 @@ export function selectBestAction(ship, target, asteroids) {
     SIM_DT,
     0,
   );
-  const pursuitScore = scoreTrajectory(
+  let pursuitScore = scoreTrajectory(
     pursuit.positions,
     target,
     asteroids,
     SIM_DT,
   );
+  if (
+    prevAction &&
+    pursuit.firstAction &&
+    actionsMatch(pursuit.firstAction, prevAction)
+  ) {
+    pursuitScore += HYSTERESIS_BONUS;
+  }
   debugCandidates.push({ name: 'PUR', score: pursuitScore });
   if (pursuitScore > bestScore) {
     bestScore = pursuitScore;
@@ -390,12 +417,19 @@ export function selectBestAction(ship, target, asteroids) {
       SIM_DT,
       BRAKE_PURSUIT_STEPS,
     );
-    const brakeScore = scoreTrajectory(
+    let brakeScore = scoreTrajectory(
       brakePursuit.positions,
       target,
       asteroids,
       SIM_DT,
     );
+    if (
+      prevAction &&
+      brakePursuit.firstAction &&
+      actionsMatch(brakePursuit.firstAction, prevAction)
+    ) {
+      brakeScore += HYSTERESIS_BONUS;
+    }
     debugCandidates.push({ name: 'BRK', score: brakeScore });
     if (brakeScore > bestScore) {
       bestScore = brakeScore;
@@ -419,10 +453,10 @@ function normalizeAngle(angle) {
 }
 
 /**
- * Create predictive AI state (currently minimal).
+ * Create predictive AI state.
  */
 function createPredictiveState() {
-  return {};
+  return { prevAction: null };
 }
 
 /**
@@ -430,7 +464,7 @@ function createPredictiveState() {
  * Selects the best action via trajectory simulation and applies it.
  * Firing decision is a separate snap check based on current aim.
  */
-function updatePredictiveAI(_state, ship, target, asteroids, _dt) {
+function updatePredictiveAI(state, ship, target, asteroids, _dt) {
   if (!ship.alive || !target.alive) {
     ship.thrust = false;
     ship.rotatingLeft = false;
@@ -440,7 +474,8 @@ function updatePredictiveAI(_state, ship, target, asteroids, _dt) {
     return;
   }
 
-  const action = selectBestAction(ship, target, asteroids);
+  const action = selectBestAction(ship, target, asteroids, state.prevAction);
+  state.prevAction = action;
   ship.thrust = action.thrust;
   ship.rotatingLeft = action.rotatingLeft;
   ship.rotatingRight = action.rotatingRight;

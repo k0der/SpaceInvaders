@@ -5,12 +5,13 @@ import {
   BRAKE_PURSUIT_STEPS,
   CLOSING_SPEED_WEIGHT,
   COLLISION_BASE_PENALTY,
-  COLLISION_DECAY,
+  COLLISION_EARLY_BONUS,
   cloneShipForSim,
   DISTANCE_WEIGHT,
   defineCandidates,
   FIRE_OPPORTUNITY_BONUS,
   getLastDebugInfo,
+  HYSTERESIS_BONUS,
   predictAsteroidAt,
   predictiveStrategy,
   SIM_DT,
@@ -35,8 +36,12 @@ describe('ai-predictive: Constants', () => {
     expect(COLLISION_BASE_PENALTY).toBe(-10000);
   });
 
-  it('exports COLLISION_DECAY as 0.4', () => {
-    expect(COLLISION_DECAY).toBeCloseTo(0.4, 2);
+  it('exports COLLISION_EARLY_BONUS as 50', () => {
+    expect(COLLISION_EARLY_BONUS).toBe(50);
+  });
+
+  it('exports HYSTERESIS_BONUS as 80', () => {
+    expect(HYSTERESIS_BONUS).toBe(80);
   });
 
   it('exports DISTANCE_WEIGHT as -8', () => {
@@ -349,12 +354,11 @@ describe('ai-predictive: scoreTrajectory', () => {
   });
 });
 
-describe('ai-predictive: scoreTrajectory — time-decayed collision', () => {
+describe('ai-predictive: scoreTrajectory — catastrophic collision penalty', () => {
   it('early collision (step 1) penalizes more than late collision (step 3)', () => {
     const target = { x: 500, y: 0, vx: 0, vy: 0 };
 
     // Two asteroids at different positions so we can control collision timing
-    // Both trajectories have identical endpoints and velocities to isolate collision effect
     const astEarly = [{ x: 50, y: 0, vx: 0, vy: 0, collisionRadius: 25 }];
     const astLate = [{ x: 150, y: 0, vx: 0, vy: 0, collisionRadius: 25 }];
 
@@ -373,20 +377,21 @@ describe('ai-predictive: scoreTrajectory — time-decayed collision', () => {
     expect(scoreEarly).toBeLessThan(scoreLate);
   });
 
-  it('collision penalty decays exponentially with step index', () => {
-    // Collision at step 1: penalty = BASE * e^(-DECAY * 1)
-    // Collision at step 15: penalty = BASE * e^(-DECAY * 15)
-    // The ratio should match exponential decay
-    const step1Penalty =
-      COLLISION_BASE_PENALTY * Math.exp(-COLLISION_DECAY * 1);
-    const step15Penalty =
-      COLLISION_BASE_PENALTY * Math.exp(-COLLISION_DECAY * 15);
+  it('collision penalty is catastrophic at all steps (linear tiebreaker)', () => {
+    // With linear tiebreaker: penalty = BASE + EARLY_BONUS * step
+    // Step 1: -10000 + 50 = -9950
+    // Step 15: -10000 + 750 = -9250
+    // Both are catastrophic — the difference is only the small tiebreaker
+    const step1Penalty = COLLISION_BASE_PENALTY + COLLISION_EARLY_BONUS * 1;
+    const step15Penalty = COLLISION_BASE_PENALTY + COLLISION_EARLY_BONUS * 15;
 
-    expect(step1Penalty).toBeLessThan(step15Penalty); // more negative = worse
-    // With 0.4 decay, step 1 is ~6703 and step 15 is ~0.025 — massive ratio
+    expect(step1Penalty).toBeLessThan(step15Penalty); // earlier is worse
+    // Both are catastrophic — within 10% of each other
     expect(Math.abs(step1Penalty)).toBeGreaterThan(
-      Math.abs(step15Penalty) * 100,
+      Math.abs(step15Penalty) * 0.9,
     );
+    // Step 15 is still massively negative
+    expect(step15Penalty).toBeLessThan(-9000);
   });
 });
 
@@ -847,20 +852,21 @@ describe('ai-predictive: selectBestAction', () => {
     expect(action.braking).toBe(false);
   });
 
-  it('thrusts aggressively through blocking asteroid toward target', () => {
-    // Ship stationary, heading toward target, asteroid blocking the path.
-    // The predictive AI uses fixed-action candidates over 1.5s, and
-    // thrust+turn candidates spiral (4 rad/s × 1.5s ≈ full circle).
-    // An aggressive AI prefers to ram through the obstacle rather than spiral away.
+  it('avoids asteroid when a clear path exists', () => {
+    // Ship stationary, heading toward target, asteroid slightly ahead and to the
+    // side. T___ (thrust straight) collides, but turning candidates can dodge.
+    // With catastrophic collision penalty, the AI must choose a non-colliding path.
     const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
     const target = createShip({ x: 500, y: 0, heading: 0, owner: 'player' });
-    const asteroids = [{ x: 40, y: 0, vx: 0, vy: 0, collisionRadius: 30 }];
+    // Asteroid ahead at (120, 10) — T___ collides but T_R_ (turning away) clears it
+    const asteroids = [{ x: 120, y: 10, vx: 0, vy: 0, collisionRadius: 30 }];
 
     const action = selectBestAction(ship, target, asteroids);
 
-    // AI should thrust straight through — aggressive pursuit over survival
-    expect(action.thrust).toBe(true);
-    expect(action.braking).toBe(false);
+    // AI must not thrust straight into the asteroid — it should turn to dodge
+    const thrustsDirectlyInto =
+      action.thrust && !action.rotatingLeft && !action.rotatingRight;
+    expect(thrustsDirectlyInto).toBe(false);
   });
 });
 
@@ -1008,5 +1014,98 @@ describe('ai-predictive: getLastDebugInfo', () => {
 
     const best = info.candidates.reduce((a, b) => (a.score > b.score ? a : b));
     expect(info.winner).toBe(best.name);
+  });
+});
+
+describe('ai-predictive: selectBestAction — hysteresis', () => {
+  it('gives bonus to candidate matching previous action', () => {
+    const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+    const target = createShip({ x: 500, y: 0, heading: 0, owner: 'player' });
+
+    // Call without prevAction (baseline)
+    selectBestAction(ship, target, []);
+    const infoWithout = getLastDebugInfo();
+
+    // Call with prevAction matching T___ (thrust straight)
+    const prevAction = {
+      thrust: true,
+      rotatingLeft: false,
+      rotatingRight: false,
+      braking: false,
+    };
+    selectBestAction(ship, target, [], prevAction);
+    const infoWith = getLastDebugInfo();
+
+    // Find T___ score in both
+    const tScoreWithout = infoWithout.candidates.find(
+      (c) => c.name === 'T___',
+    ).score;
+    const tScoreWith = infoWith.candidates.find((c) => c.name === 'T___').score;
+
+    // T___ should score higher when it matches prevAction
+    expect(tScoreWith).toBe(tScoreWithout + HYSTERESIS_BONUS);
+  });
+
+  it('does not give bonus when prevAction is null', () => {
+    const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+    const target = createShip({ x: 500, y: 0, heading: 0, owner: 'player' });
+
+    // Two calls without prevAction should produce identical T___ scores
+    selectBestAction(ship, target, []);
+    const info1 = getLastDebugInfo();
+
+    selectBestAction(ship, target, [], null);
+    const info2 = getLastDebugInfo();
+
+    const score1 = info1.candidates.find((c) => c.name === 'T___').score;
+    const score2 = info2.candidates.find((c) => c.name === 'T___').score;
+    expect(score1).toBe(score2);
+  });
+
+  it('reduces oscillation between similar-scoring candidates', () => {
+    // Set up a scenario where T___ and T_R_ score similarly:
+    // Ship heading slightly off-target, so thrust-straight and thrust-right
+    // are close in score.
+    const ship = createShip({
+      x: 0,
+      y: 0,
+      heading: 0.05,
+      owner: 'enemy',
+    });
+    const target = createShip({ x: 500, y: 0, heading: 0, owner: 'player' });
+
+    // First frame: no prevAction, get baseline winner
+    const action1 = selectBestAction(ship, target, []);
+
+    // Second frame: pass action1 as prevAction — same ship state
+    // Hysteresis should keep the same winner
+    const action2 = selectBestAction(ship, target, [], action1);
+
+    // The same action should be selected both times (hysteresis prevents flip)
+    expect(action2.thrust).toBe(action1.thrust);
+    expect(action2.rotatingLeft).toBe(action1.rotatingLeft);
+    expect(action2.rotatingRight).toBe(action1.rotatingRight);
+    expect(action2.braking).toBe(action1.braking);
+  });
+});
+
+describe('ai-predictive: predictiveStrategy — state management', () => {
+  it('createState returns state with null prevAction', () => {
+    const state = predictiveStrategy.createState();
+    expect(state.prevAction).toBeNull();
+  });
+
+  it('update stores chosen action in state.prevAction', () => {
+    const state = predictiveStrategy.createState();
+    const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+    const target = createShip({ x: 500, y: 0, heading: 0, owner: 'player' });
+
+    predictiveStrategy.update(state, ship, target, [], 0.016);
+
+    expect(state.prevAction).not.toBeNull();
+    expect(typeof state.prevAction.thrust).toBe('boolean');
+    expect(typeof state.prevAction.rotatingLeft).toBe('boolean');
+    expect(typeof state.prevAction.rotatingRight).toBe('boolean');
+    expect(typeof state.prevAction.braking).toBe('boolean');
   });
 });
