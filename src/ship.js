@@ -2,7 +2,7 @@
  * Ship size constant (half-height of the chevron shape).
  * Used for rendering and later for collision radius.
  */
-const SHIP_SIZE = 15;
+export const SHIP_SIZE = 15;
 
 /** Rotation speed in radians per second. */
 export const ROTATION_SPEED = 4.0;
@@ -66,6 +66,7 @@ export function createShip({ x, y, heading }) {
     braking: false,
     fire: false,
     thrustIntensity: 0,
+    fireCooldown: 0,
   };
 }
 

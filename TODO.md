@@ -510,7 +510,7 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 **Modify**: `src/main.js`
 
 **Acceptance Criteria**:
-- [ ] `createBullet(x, y, heading, shipVx, shipVy)` creates a bullet at given position, traveling at `BULLET_SPEED` in heading direction plus ship velocity (bullets inherit momentum)
+- [ ] `createBullet(x, y, heading, shipVx, shipVy, owner)` creates a bullet at given position, traveling at `BULLET_SPEED` in heading direction plus ship velocity (bullets inherit momentum)
 - [ ] `updateBullet(bullet, dt)` moves bullet linearly, increments `age`
 - [ ] `isBulletExpired(bullet)` returns true when `age >= BULLET_LIFETIME` (e.g., 2s)
 - [ ] `drawBullet(ctx, bullet)` draws a small bright dot or short line
@@ -518,7 +518,8 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 - [ ] Fire rate limited by `FIRE_COOLDOWN` (~0.2s between shots)
 - [ ] Bullets rendered inside camera transform (world-space)
 - [ ] Expired bullets removed each frame
-- [ ] Bullets do NOT interact with asteroids (pass through)
+- [ ] Bullets are blocked by asteroids: a bullet within an asteroid's `collisionRadius` is removed; the asteroid is unaffected
+- [ ] `checkBulletAsteroidCollisions(bullets, asteroids)` returns the filtered array of surviving bullets
 - [ ] `owner` field on bullet tracks which ship fired it (for later collision filtering)
 - [ ] **Visible**: Pressing Space fires white projectiles that streak forward from the ship and disappear after a distance.
 

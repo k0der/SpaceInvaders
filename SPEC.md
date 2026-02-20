@@ -345,10 +345,11 @@ Each frame (`requestAnimationFrame` callback):
    d. Remove asteroids outside spawn bounds (aggressive recycling)
    e. Spawn in border ring when below target (up to 10/frame, direction-biased)
 9. Update bullets (move, expire)
-10. Check bullet-ship collisions
-11. Check ship-asteroid collisions
-12. Update game state (phase transitions, explosions)
-13. Render:
+10. Check bullet-asteroid collisions (remove blocked bullets)
+11. Check bullet-ship collisions
+12. Check ship-asteroid collisions
+13. Update game state (phase transitions, explosions)
+14. Render:
     a. Clear canvas
     b. Draw star layers (screen-space)
     c. Apply camera transform
@@ -360,7 +361,7 @@ Each frame (`requestAnimationFrame` callback):
     i. Draw settings menu icon (if visible)
 ```
 
-When `shipMode = 'off'`, steps 2–6, 10–13 are skipped and the camera stays at origin
+When `shipMode = 'off'`, steps 2–6, 10–14 are skipped and the camera stays at origin
 with no rotation. The starfield uses directional scroll mode instead of camera-relative.
 
 ---
@@ -505,7 +506,7 @@ viewport AABB.
 - Move linearly, tracked by `age`; expire after `BULLET_LIFETIME` (~2s)
 - Rendered as small bright dots or short lines
 - Fire rate limited by `FIRE_COOLDOWN` (~0.2s between shots)
-- Bullets do **not** interact with asteroids (pass through — dogfight focus)
+- Bullets are **blocked by asteroids** — a bullet that contacts an asteroid (circle-circle: bullet position within asteroid's `collisionRadius`) is destroyed (removed), but the asteroid is unaffected (keeps drifting)
 - `owner` field tracks which ship fired the bullet (for collision filtering)
 - A ship's own bullets cannot hit itself
 

@@ -8,6 +8,7 @@ import {
   drawTrail,
   MAX_SPEED,
   ROTATION_SPEED,
+  SHIP_SIZE,
   THRUST_POWER,
   THRUST_RAMP_SPEED,
   TRAIL_BASE_OPACITY,
@@ -54,6 +55,15 @@ describe('Increment 17: Static Ship at Screen Center', () => {
       expect(ship.thrustIntensity).toBe(0);
     });
 
+    it('defaults fireCooldown to 0', () => {
+      const ship = createShip({ x: 0, y: 0, heading: 0 });
+      expect(ship.fireCooldown).toBe(0);
+    });
+
+    it('SHIP_SIZE is exported and equals 15', () => {
+      expect(SHIP_SIZE).toBe(15);
+    });
+
     it('returns all expected properties', () => {
       const ship = createShip({ x: 100, y: 200, heading: 1.0 });
       expect(ship).toEqual({
@@ -69,6 +79,7 @@ describe('Increment 17: Static Ship at Screen Center', () => {
         braking: false,
         fire: false,
         thrustIntensity: 0,
+        fireCooldown: 0,
       });
     });
   });

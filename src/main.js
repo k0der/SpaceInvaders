@@ -1,5 +1,13 @@
 import { drawAsteroid } from './asteroid.js';
 import {
+  checkBulletAsteroidCollisions,
+  createBullet,
+  drawBullet,
+  FIRE_COOLDOWN,
+  isBulletExpired,
+  updateBullet,
+} from './bullet.js';
+import {
   applyCameraTransform,
   createCamera,
   getViewportBounds,
@@ -24,6 +32,7 @@ import {
   createTrail,
   drawShip,
   drawTrail,
+  SHIP_SIZE,
   updateShip,
   updateTrail,
 } from './ship.js';
@@ -113,6 +122,7 @@ export function startApp() {
     playerShip.heading + Math.PI / 2,
   );
   const playerTrail = createTrail();
+  let bullets = [];
   let prevCameraX = camera.x;
   let prevCameraY = camera.y;
   let prevCameraRotation = camera.rotation;
@@ -223,6 +233,25 @@ export function startApp() {
     // Ship input + update
     applyInput(inputState, playerShip);
     updateShip(playerShip, scaledDt);
+
+    // Bullet firing
+    playerShip.fireCooldown = Math.max(playerShip.fireCooldown - scaledDt, 0);
+    if (playerShip.fire && playerShip.fireCooldown <= 0 && playerShip.alive) {
+      const noseX = playerShip.x + Math.cos(playerShip.heading) * SHIP_SIZE;
+      const noseY = playerShip.y + Math.sin(playerShip.heading) * SHIP_SIZE;
+      bullets.push(
+        createBullet(
+          noseX,
+          noseY,
+          playerShip.heading,
+          playerShip.vx,
+          playerShip.vy,
+          'player',
+        ),
+      );
+      playerShip.fireCooldown = FIRE_COOLDOWN;
+    }
+
     updateTrail(
       playerTrail,
       playerShip.x,
@@ -286,6 +315,13 @@ export function startApp() {
       playerShip.vy,
     );
 
+    // Bullet update, expiry, and asteroid collisions
+    for (const bullet of bullets) {
+      updateBullet(bullet, scaledDt);
+    }
+    bullets = bullets.filter((b) => !isBulletExpired(b));
+    bullets = checkBulletAsteroidCollisions(bullets, sim.asteroids);
+
     ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, logicalSize.width, logicalSize.height);
 
@@ -299,6 +335,10 @@ export function startApp() {
 
     drawTrail(ctx, playerTrail);
     drawShip(ctx, playerShip);
+
+    for (const bullet of bullets) {
+      drawBullet(ctx, bullet);
+    }
 
     resetCameraTransform(ctx);
 

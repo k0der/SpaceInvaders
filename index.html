@@ -105,6 +105,85 @@ function drawAsteroid(ctx, asteroid) {
   ctx.restore();
 }
 
+// ===== bullet.js =====
+/** Bullet travel speed in pixels/second. */
+const BULLET_SPEED = 600;
+
+/** Bullet lifetime in seconds before expiry. */
+const BULLET_LIFETIME = 2;
+
+/** Minimum interval between shots in seconds. */
+const FIRE_COOLDOWN = 0.2;
+
+/** Visual line length of a bullet in pixels. */
+const BULLET_LENGTH = 4;
+
+/**
+ * Create a bullet entity at the given position, traveling in heading
+ * direction at BULLET_SPEED plus inherited ship velocity.
+ */
+function createBullet(x, y, heading, shipVx, shipVy, owner) {
+  return {
+    x,
+    y,
+    vx: Math.cos(heading) * BULLET_SPEED + shipVx,
+    vy: Math.sin(heading) * BULLET_SPEED + shipVy,
+    heading,
+    age: 0,
+    owner,
+  };
+}
+
+/**
+ * Update bullet position and age for one frame.
+ */
+function updateBullet(bullet, dt) {
+  bullet.x += bullet.vx * dt;
+  bullet.y += bullet.vy * dt;
+  bullet.age += dt;
+}
+
+/**
+ * Returns true when the bullet has exceeded its lifetime.
+ */
+function isBulletExpired(bullet) {
+  return bullet.age >= BULLET_LIFETIME;
+}
+
+/**
+ * Draw a bullet as a short white line segment oriented along its heading.
+ */
+function drawBullet(ctx, bullet) {
+  const halfLen = BULLET_LENGTH / 2;
+  const dx = Math.cos(bullet.heading) * halfLen;
+  const dy = Math.sin(bullet.heading) * halfLen;
+
+  ctx.strokeStyle = '#FFFFFF';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(bullet.x - dx, bullet.y - dy);
+  ctx.lineTo(bullet.x + dx, bullet.y + dy);
+  ctx.stroke();
+}
+
+/**
+ * Remove bullets that are inside any asteroid's collision radius.
+ * Returns the filtered array of surviving bullets. Asteroids are unaffected.
+ */
+function checkBulletAsteroidCollisions(bullets, asteroids) {
+  return bullets.filter((bullet) => {
+    for (const asteroid of asteroids) {
+      const dx = bullet.x - asteroid.x;
+      const dy = bullet.y - asteroid.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < asteroid.collisionRadius) {
+        return false;
+      }
+    }
+    return true;
+  });
+}
+
 // ===== camera.js =====
 /**
  * Create a camera state object.
@@ -286,6 +365,7 @@ function applyInput(inputState, ship) {
 
 
 
+
 /**
  * Calculate delta time in seconds between two timestamps (ms).
  * Caps at 0.1s to avoid spiral-of-death after tab backgrounding.
@@ -359,6 +439,7 @@ function startApp() {
     playerShip.heading + Math.PI / 2,
   );
   const playerTrail = createTrail();
+  let bullets = [];
   let prevCameraX = camera.x;
   let prevCameraY = camera.y;
   let prevCameraRotation = camera.rotation;
@@ -469,6 +550,25 @@ function startApp() {
     // Ship input + update
     applyInput(inputState, playerShip);
     updateShip(playerShip, scaledDt);
+
+    // Bullet firing
+    playerShip.fireCooldown = Math.max(playerShip.fireCooldown - scaledDt, 0);
+    if (playerShip.fire && playerShip.fireCooldown <= 0 && playerShip.alive) {
+      const noseX = playerShip.x + Math.cos(playerShip.heading) * SHIP_SIZE;
+      const noseY = playerShip.y + Math.sin(playerShip.heading) * SHIP_SIZE;
+      bullets.push(
+        createBullet(
+          noseX,
+          noseY,
+          playerShip.heading,
+          playerShip.vx,
+          playerShip.vy,
+          'player',
+        ),
+      );
+      playerShip.fireCooldown = FIRE_COOLDOWN;
+    }
+
     updateTrail(
       playerTrail,
       playerShip.x,
@@ -532,6 +632,13 @@ function startApp() {
       playerShip.vy,
     );
 
+    // Bullet update, expiry, and asteroid collisions
+    for (const bullet of bullets) {
+      updateBullet(bullet, scaledDt);
+    }
+    bullets = bullets.filter((b) => !isBulletExpired(b));
+    bullets = checkBulletAsteroidCollisions(bullets, sim.asteroids);
+
     ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, logicalSize.width, logicalSize.height);
 
@@ -545,6 +652,10 @@ function startApp() {
 
     drawTrail(ctx, playerTrail);
     drawShip(ctx, playerShip);
+
+    for (const bullet of bullets) {
+      drawBullet(ctx, bullet);
+    }
 
     resetCameraTransform(ctx);
 
@@ -1054,6 +1165,7 @@ function createShip({ x, y, heading }) {
     braking: false,
     fire: false,
     thrustIntensity: 0,
+    fireCooldown: 0,
   };
 }
 
