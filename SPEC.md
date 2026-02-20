@@ -598,13 +598,24 @@ predictedVy = vy + sin(heading) * thrustPower * thrustIntensity * AVOID_PREDICT_
    - Proximity-only threats (not in cylinder) use angle-to-obstacle for steer direction
 6. Sum all offsets → total `avoidanceOffset` (radians)
 
-**Blending with pursuit**:
+**Survival-first priority blending**:
 
-- The avoidance offset is added to the pursuit target angle before rotation
-  and thrust decisions: `effectiveAngle = pursuitAngle + avoidanceOffset`
-- When no obstacles are nearby, offset is 0 → pure pursuit
-- When obstacles are detected, offset curves the AI around them
-- When strong avoidance is active, thrust is maintained to escape the danger zone
+Avoidance takes priority over pursuit — the AI's first objective is surviving,
+and only pursues when safe. This prevents pursuit from pulling the AI through
+obstacles.
+
+- `computeAvoidanceOffset` returns both the steering offset and the maximum
+  raw urgency across all threatening obstacles
+- The pursuit component of heading is scaled down proportionally to threat:
+  `pursuitInfluence = pursuitDiff * (1 - survivalWeight)`, where
+  `survivalWeight = clamp(maxUrgency * AVOIDANCE_PRIORITY, 0, 1)`
+- `AVOIDANCE_PRIORITY` (3) controls how aggressively pursuit is suppressed:
+  at urgency ≈ 0.33 (moderate threat), pursuit is fully suppressed
+- Final heading diff: `pursuitInfluence + avoidanceOffset`
+- At zero threat: pure pursuit (survivalWeight = 0)
+- At moderate+ threat: pure avoidance (survivalWeight = 1)
+- Thrust is maintained when avoidance is active (escape the danger zone)
+- Firing decision uses raw pursuit heading diff (unaffected by avoidance)
 
 **Obstacle list** (built in `updateAI`):
 
@@ -617,7 +628,8 @@ range but curves around the player ship instead of charging head-on.
 
 **Constants** (exported from `ai.js`):
 `FIRE_ANGLE`, `MAX_FIRE_RANGE`, `AVOID_LOOKAHEAD` (500px), `AVOID_MARGIN` (50px),
-`AVOID_STRENGTH` (2.5 rad), `AVOID_PROXIMITY` (80px), `AVOID_PREDICT_TIME` (0.3s)
+`AVOID_STRENGTH` (2.5 rad), `AVOID_PROXIMITY` (80px), `AVOID_PREDICT_TIME` (0.3s),
+`AVOIDANCE_PRIORITY` (3)
 
 ---
 

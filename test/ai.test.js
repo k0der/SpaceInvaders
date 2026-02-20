@@ -5,6 +5,7 @@ import {
   AVOID_PREDICT_TIME,
   AVOID_PROXIMITY,
   AVOID_STRENGTH,
+  AVOIDANCE_PRIORITY,
   BRAKE_SPEED,
   computeAvoidanceOffset,
   createAIState,
@@ -350,6 +351,11 @@ describe('Increment 26: AI Fires Bullets + Asteroid Avoidance', () => {
       expect(typeof AVOID_PROXIMITY).toBe('number');
       expect(AVOID_PROXIMITY).toBe(80);
     });
+
+    it('exports AVOIDANCE_PRIORITY as 3', () => {
+      expect(typeof AVOIDANCE_PRIORITY).toBe('number');
+      expect(AVOIDANCE_PRIORITY).toBe(3);
+    });
   });
 
   describe('updateAI — firing', () => {
@@ -433,59 +439,60 @@ describe('Increment 26: AI Fires Bullets + Asteroid Avoidance', () => {
   });
 
   describe('computeAvoidanceOffset', () => {
-    it('returns 0 when no obstacles are present', () => {
+    it('returns { offset: 0, maxUrgency: 0 } when no obstacles are present', () => {
       const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
-      const offset = computeAvoidanceOffset(ai, []);
-      expect(offset).toBe(0);
+      const result = computeAvoidanceOffset(ai, []);
+      expect(result.offset).toBe(0);
+      expect(result.maxUrgency).toBe(0);
     });
 
-    it('returns 0 when obstacle is behind the ship and beyond proximity', () => {
+    it('returns offset 0 when obstacle is behind the ship and beyond proximity', () => {
       const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
       // Obstacle behind and beyond proximity range (radius 30 + AVOID_PROXIMITY 80 = 110 < 200)
       const obstacles = [{ x: -200, y: 0, radius: 30 }];
-      const offset = computeAvoidanceOffset(ai, obstacles);
-      expect(offset).toBe(0);
+      const result = computeAvoidanceOffset(ai, obstacles);
+      expect(result.offset).toBe(0);
     });
 
-    it('returns 0 when obstacle is ahead but far outside lateral range', () => {
+    it('returns offset 0 when obstacle is ahead but far outside lateral range', () => {
       const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
       // Obstacle 200px ahead but 200px off to the side (well beyond radius+margin)
       const obstacles = [{ x: 200, y: 200, radius: 20 }];
-      const offset = computeAvoidanceOffset(ai, obstacles);
-      expect(offset).toBe(0);
+      const result = computeAvoidanceOffset(ai, obstacles);
+      expect(result.offset).toBe(0);
     });
 
-    it('returns 0 when obstacle is beyond AVOID_LOOKAHEAD', () => {
+    it('returns offset 0 when obstacle is beyond AVOID_LOOKAHEAD', () => {
       const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
       // Obstacle directly ahead but too far away
       const obstacles = [{ x: AVOID_LOOKAHEAD + 100, y: 0, radius: 20 }];
-      const offset = computeAvoidanceOffset(ai, obstacles);
-      expect(offset).toBe(0);
+      const result = computeAvoidanceOffset(ai, obstacles);
+      expect(result.offset).toBe(0);
     });
 
     it('returns negative offset (steer left) for obstacle to the right', () => {
       const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
       // Obstacle ahead and slightly to the right (positive y)
       const obstacles = [{ x: 150, y: 20, radius: 30 }];
-      const offset = computeAvoidanceOffset(ai, obstacles);
-      expect(offset).toBeLessThan(0);
+      const result = computeAvoidanceOffset(ai, obstacles);
+      expect(result.offset).toBeLessThan(0);
     });
 
     it('returns positive offset (steer right) for obstacle to the left', () => {
       const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
       // Obstacle ahead and slightly to the left (negative y)
       const obstacles = [{ x: 150, y: -20, radius: 30 }];
-      const offset = computeAvoidanceOffset(ai, obstacles);
-      expect(offset).toBeGreaterThan(0);
+      const result = computeAvoidanceOffset(ai, obstacles);
+      expect(result.offset).toBeGreaterThan(0);
     });
 
     it('defaults to steering right when obstacle is dead center (lateral ≈ 0)', () => {
       const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
       // Obstacle directly ahead, dead center
       const obstacles = [{ x: 150, y: 0, radius: 30 }];
-      const offset = computeAvoidanceOffset(ai, obstacles);
+      const result = computeAvoidanceOffset(ai, obstacles);
       // Positive offset = steer right (clockwise), negative = steer left
-      expect(offset).toBeGreaterThan(0);
+      expect(result.offset).toBeGreaterThan(0);
     });
 
     it('produces stronger offset for closer obstacles', () => {
@@ -493,8 +500,12 @@ describe('Increment 26: AI Fires Bullets + Asteroid Avoidance', () => {
       const nearObstacle = [{ x: 50, y: 10, radius: 30 }];
       const farObstacle = [{ x: 250, y: 10, radius: 30 }];
 
-      const nearOffset = Math.abs(computeAvoidanceOffset(ai, nearObstacle));
-      const farOffset = Math.abs(computeAvoidanceOffset(ai, farObstacle));
+      const nearOffset = Math.abs(
+        computeAvoidanceOffset(ai, nearObstacle).offset,
+      );
+      const farOffset = Math.abs(
+        computeAvoidanceOffset(ai, farObstacle).offset,
+      );
 
       expect(nearOffset).toBeGreaterThan(farOffset);
     });
@@ -508,8 +519,12 @@ describe('Increment 26: AI Fires Bullets + Asteroid Avoidance', () => {
         { x: 100, y: 15, radius: 25 },
       ];
 
-      const singleOffset = Math.abs(computeAvoidanceOffset(ai, oneObstacle));
-      const doubleOffset = Math.abs(computeAvoidanceOffset(ai, twoObstacles));
+      const singleOffset = Math.abs(
+        computeAvoidanceOffset(ai, oneObstacle).offset,
+      );
+      const doubleOffset = Math.abs(
+        computeAvoidanceOffset(ai, twoObstacles).offset,
+      );
 
       expect(doubleOffset).toBeGreaterThan(singleOffset);
     });
@@ -524,8 +539,8 @@ describe('Increment 26: AI Fires Bullets + Asteroid Avoidance', () => {
       });
       // Obstacle above and slightly to the right (in screen: positive x)
       const obstacles = [{ x: 10, y: -150, radius: 30 }];
-      const offset = computeAvoidanceOffset(ai, obstacles);
-      expect(offset).not.toBe(0);
+      const result = computeAvoidanceOffset(ai, obstacles);
+      expect(result.offset).not.toBe(0);
     });
 
     it('works with obstacles that have varying radius', () => {
@@ -535,11 +550,19 @@ describe('Increment 26: AI Fires Bullets + Asteroid Avoidance', () => {
       // Small radius obstacle at same position — narrower danger zone
       const smallObs = [{ x: 150, y: 50, radius: 10 }];
 
-      const largeOffset = Math.abs(computeAvoidanceOffset(ai, largeObs));
-      const smallOffset = Math.abs(computeAvoidanceOffset(ai, smallObs));
+      const largeOffset = Math.abs(computeAvoidanceOffset(ai, largeObs).offset);
+      const smallOffset = Math.abs(computeAvoidanceOffset(ai, smallObs).offset);
 
       // Large obstacle should trigger avoidance, small one might not at y=50
       expect(largeOffset).toBeGreaterThanOrEqual(smallOffset);
+    });
+
+    it('returns maxUrgency reflecting the closest threatening obstacle', () => {
+      const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+      // Close obstacle → high urgency
+      const obstacles = [{ x: 50, y: 0, radius: 30 }];
+      const result = computeAvoidanceOffset(ai, obstacles);
+      expect(result.maxUrgency).toBeGreaterThan(0.5);
     });
   });
 
@@ -550,19 +573,19 @@ describe('Increment 26: AI Fires Bullets + Asteroid Avoidance', () => {
       // Obstacle at (0, 60) — perpendicular, not ahead at all (ahead ≈ 0)
       // But within AVOID_PROXIMITY (80) + radius (30) = 110px, and distance is 60
       const obstacles = [{ x: 0, y: 60, radius: 30 }];
-      const offset = computeAvoidanceOffset(ai, obstacles);
+      const result = computeAvoidanceOffset(ai, obstacles);
 
       // Should detect via proximity even though cylinder projection misses it
-      expect(offset).not.toBe(0);
+      expect(result.offset).not.toBe(0);
     });
 
     it('does not trigger proximity for distant obstacles', () => {
       const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
       // Obstacle far to the side — beyond proximity range
       const obstacles = [{ x: 0, y: 200, radius: 30 }];
-      const offset = computeAvoidanceOffset(ai, obstacles);
+      const result = computeAvoidanceOffset(ai, obstacles);
 
-      expect(offset).toBe(0);
+      expect(result.offset).toBe(0);
     });
 
     it('produces nonlinear urgency (squared): very close is disproportionately strong', () => {
@@ -572,13 +595,14 @@ describe('Increment 26: AI Fires Bullets + Asteroid Avoidance', () => {
       // Moderately close obstacle (medium urgency)
       const moderate = [{ x: 150, y: 0, radius: 30 }];
 
-      const veryCloseOffset = Math.abs(computeAvoidanceOffset(ai, veryClose));
-      const moderateOffset = Math.abs(computeAvoidanceOffset(ai, moderate));
+      const veryCloseOffset = Math.abs(
+        computeAvoidanceOffset(ai, veryClose).offset,
+      );
+      const moderateOffset = Math.abs(
+        computeAvoidanceOffset(ai, moderate).offset,
+      );
 
       // With squared urgency, the ratio should be much larger than linear
-      // Very close urgency ≈ 0.88, squared ≈ 0.77
-      // Moderate urgency ≈ 0.70, squared ≈ 0.49
-      // Ratio should be > 1.5 (linear would give ~1.26)
       expect(veryCloseOffset / moderateOffset).toBeGreaterThan(1.4);
     });
   });
@@ -592,10 +616,10 @@ describe('Increment 26: AI Fires Bullets + Asteroid Avoidance', () => {
 
       // Obstacle above — on the velocity path, NOT on heading path
       const obstacles = [{ x: 0, y: -150, radius: 30 }];
-      const offset = computeAvoidanceOffset(ai, obstacles);
+      const result = computeAvoidanceOffset(ai, obstacles);
 
       // Should detect collision course via velocity, not heading
-      expect(offset).not.toBe(0);
+      expect(result.offset).not.toBe(0);
     });
 
     it('does NOT detect obstacle along heading when velocity goes elsewhere', () => {
@@ -606,20 +630,20 @@ describe('Increment 26: AI Fires Bullets + Asteroid Avoidance', () => {
 
       // Obstacle to the right — on heading path but NOT on velocity path
       const obstacles = [{ x: 150, y: -300, radius: 30 }];
-      const offset = computeAvoidanceOffset(ai, obstacles);
+      const result = computeAvoidanceOffset(ai, obstacles);
 
       // Should NOT trigger because velocity doesn't go there
-      expect(offset).toBe(0);
+      expect(result.offset).toBe(0);
     });
 
     it('falls back to heading when stationary (speed < 1)', () => {
       const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
       // No velocity, no thrust — truly stationary
       const obstacles = [{ x: 150, y: 0, radius: 30 }];
-      const offset = computeAvoidanceOffset(ai, obstacles);
+      const result = computeAvoidanceOffset(ai, obstacles);
 
       // Should fall back to heading-based detection
-      expect(offset).not.toBe(0);
+      expect(result.offset).not.toBe(0);
     });
 
     it('accounts for thrust when predicting future velocity', () => {
@@ -630,10 +654,10 @@ describe('Increment 26: AI Fires Bullets + Asteroid Avoidance', () => {
 
       // Obstacle to the right — on thrust-predicted path
       const obstacles = [{ x: 150, y: 0, radius: 30 }];
-      const offset = computeAvoidanceOffset(ai, obstacles);
+      const result = computeAvoidanceOffset(ai, obstacles);
 
       // Should detect because thrust predicts rightward velocity
-      expect(offset).not.toBe(0);
+      expect(result.offset).not.toBe(0);
     });
 
     it('blends velocity and thrust for predicted direction', () => {
@@ -652,10 +676,10 @@ describe('Increment 26: AI Fires Bullets + Asteroid Avoidance', () => {
 
       // Obstacle along the blended predicted direction (up-right)
       const obstacles = [{ x: 50, y: -150, radius: 40 }];
-      const offset = computeAvoidanceOffset(ai, obstacles);
+      const result = computeAvoidanceOffset(ai, obstacles);
 
       // Should detect based on blended velocity + thrust prediction
-      expect(offset).not.toBe(0);
+      expect(result.offset).not.toBe(0);
     });
   });
 
@@ -736,6 +760,34 @@ describe('Increment 26: AI Fires Bullets + Asteroid Avoidance', () => {
       // Avoidance active → braking suppressed, thrust maintained
       expect(ai.braking).toBe(false);
       expect(ai.thrust).toBe(true);
+    });
+
+    it('survival-first: avoidance overrides pursuit when obstacle is between AI and target', () => {
+      // AI heading right, target directly behind (pursuit says turn around)
+      // Asteroid directly ahead — avoidance says steer right
+      // Without survival-first, pursuit (PI) + avoidance (+2) = partial cancel
+      // With survival-first, avoidance dominates and ship steers RIGHT to dodge
+      const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+      ai.vx = 200;
+      ai.vy = 0;
+      const target = createShip({
+        x: -500,
+        y: 0,
+        heading: 0,
+        owner: 'player',
+      });
+      // Asteroid directly ahead, close — high urgency
+      const asteroids = [
+        { x: 80, y: 0, collisionRadius: 30, radius: 40, vx: 0, vy: 0 },
+      ];
+      const state = createAIState();
+
+      updateAI(state, ai, target, asteroids, 0.016);
+
+      // Ship should steer to avoid the asteroid (rotating right for dead-center),
+      // NOT turn around toward the target (which would go through the asteroid)
+      expect(ai.rotatingRight).toBe(true);
+      expect(ai.rotatingLeft).toBe(false);
     });
 
     it('does not avoid asteroids that are off to the side (no false positives)', () => {

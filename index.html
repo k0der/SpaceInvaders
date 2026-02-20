@@ -55,6 +55,9 @@ const AVOID_STRENGTH = 2.5;
 /** Proximity detection radius (px) — catches obstacles the cylinder misses. */
 const AVOID_PROXIMITY = 80;
 
+/** How aggressively avoidance suppresses pursuit (urgency * this >= 1 → pure avoidance). */
+const AVOIDANCE_PRIORITY = 3;
+
 /** Time horizon (seconds) for predicting future velocity in avoidance. */
 const AVOID_PREDICT_TIME = 0.3;
 
@@ -82,11 +85,15 @@ function createAIState() {
  *
  * Projects a look-ahead cylinder along the ship's predicted velocity
  * direction (accounting for current momentum + thrust input). Falls back
- * to heading when nearly stationary. Returns a summed angle offset in
- * radians — positive steers right, negative steers left.
+ * to heading when nearly stationary.
+ *
+ * Returns { offset, maxUrgency } where offset is the summed angle in
+ * radians (positive = steer right, negative = steer left) and maxUrgency
+ * is the highest raw urgency (before squaring) across all obstacles.
  */
 function computeAvoidanceOffset(aiShip, obstacles) {
   let totalOffset = 0;
+  let maxRawUrgency = 0;
 
   // Compute predicted velocity: current velocity + thrust acceleration
   const power = aiShip.thrustPower ?? THRUST_POWER;
@@ -140,6 +147,7 @@ function computeAvoidanceOffset(aiShip, obstacles) {
     // Combined urgency: take the stronger signal, then square for nonlinear response
     const rawUrgency = Math.max(cylinderUrgency, proximityUrgency);
     if (rawUrgency <= 0) continue;
+    maxRawUrgency = Math.max(maxRawUrgency, rawUrgency);
     const urgency = rawUrgency * rawUrgency;
 
     // Steer away from obstacle: obstacle to right (lateral > 0) → steer left (negative)
@@ -149,7 +157,7 @@ function computeAvoidanceOffset(aiShip, obstacles) {
     totalOffset += steerDirection * AVOID_STRENGTH * urgency;
   }
 
-  return totalOffset;
+  return { offset: totalOffset, maxUrgency: maxRawUrgency };
 }
 
 /**
@@ -191,13 +199,19 @@ function updateAI(_aiState, aiShip, targetShip, asteroids, _dt) {
   }));
   obstacles.push({ x: targetShip.x, y: targetShip.y, radius: SHIP_SIZE });
 
-  // Compute avoidance offset and blend with pursuit
-  const avoidanceOffset = computeAvoidanceOffset(aiShip, obstacles);
-  const effectiveAngle = pursuitAngle + avoidanceOffset;
-  const headingDiff = normalizeAngleAI(effectiveAngle - aiShip.heading);
+  // Compute avoidance offset and survival-first blending
+  const { offset: avoidanceOffset, maxUrgency } = computeAvoidanceOffset(
+    aiShip,
+    obstacles,
+  );
 
   // Heading diff to raw pursuit target (for firing decision — fire at target, not avoidance direction)
   const pursuitHeadingDiff = normalizeAngleAI(pursuitAngle - aiShip.heading);
+
+  // Survival-first: suppress pursuit proportionally to threat urgency
+  const survivalWeight = Math.min(maxUrgency * AVOIDANCE_PRIORITY, 1.0);
+  const pursuitDiff = pursuitHeadingDiff * (1 - survivalWeight);
+  const headingDiff = normalizeAngleAI(pursuitDiff + avoidanceOffset);
 
   // Rotation: turn toward effective angle with dead zone
   aiShip.rotatingLeft = headingDiff < -ROTATION_DEADZONE;
