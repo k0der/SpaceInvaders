@@ -462,20 +462,20 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 - [x] `TRAIL_BASE_OPACITY` (0.2) and `TRAIL_THRUST_OPACITY` (0.6) exported from `ship.js`
 - [x] `TRAIL_BASE_WIDTH` (1) and `TRAIL_THRUST_WIDTH` (2.5) exported from `ship.js`
 - [x] `THRUST_RAMP_SPEED` (6.0) exported from `ship.js` (physics constant — controls engine spool rate)
-- [x] `TRAIL_COLOR` (`{ r: 255, g: 120, b: 0 }`) exported from `ship.js`
+- [x] `PLAYER_TRAIL_COLOR` (`{ r: 80, g: 140, b: 255 }`) and `ENEMY_TRAIL_COLOR` (`{ r: 255, g: 50, b: 30 }`) exported from `ship.js` *(updated from single `TRAIL_COLOR` in Increment 25)*
 - [x] `createShip` returns `thrustIntensity: 0` (ramp state lives on ship, not trail)
 - [x] `updateShip` ramps `ship.thrustIntensity` toward 1.0 (thrusting) or 0.0 (coasting) at `THRUST_RAMP_SPEED * dt`; thrust force scales by `thrustIntensity`
-- [x] `createTrail()` returns `{ points: [] }` (no independent ramp state)
+- [x] `createTrail(color)` returns `{ points: [], color }` — accepts per-ship color, defaults to `PLAYER_TRAIL_COLOR`
 - [x] `updateTrail(trail, x, y, heading, thrustIntensity)` — receives intensity from ship, no `dt` param, no ramping; pushes `{ x, y, intensity }` with nozzle offset
 - [x] Trail point is offset to the ship's rear nozzle: `x - cos(heading) * SHIP_SIZE * 0.5`, `y - sin(heading) * SHIP_SIZE * 0.5`
 - [x] Each point stores `intensity` float (0.0–1.0) for per-segment interpolation
 - [x] Evicts oldest point when length exceeds `TRAIL_MAX_LENGTH`
 - [x] `drawTrail(ctx, trail)` interpolates width and opacity per-segment using stored `intensity`: `width = BASE + (THRUST - BASE) * intensity`, `maxAlpha = BASE_OPACITY + (THRUST_OPACITY - BASE_OPACITY) * intensity`
-- [x] Trail drawn with dark orange stroke using `TRAIL_COLOR`
+- [x] Trail drawn using per-trail `trail.color` (blue for player, red for enemy)
 - [x] Trail with fewer than 2 points draws nothing (no crash)
 - [x] Trail drawn inside camera transform, before ship body (ship renders on top)
 - [x] `main.js` creates a trail, updates it each frame with ship position/heading/`ship.thrustIntensity`, and draws it
-- [x] **Visible**: Dark orange trail always visible behind the ship. Thrusting gradually brightens and widens the trail. Releasing thrust smoothly fades to thinner dimmer trail (~0.17s transition). Turning carves visible arcs. Clear throttle feedback with no binary snapping.
+- [x] **Visible**: Colored trail always visible behind the ship (blue for player, red for enemy). Thrusting gradually brightens and widens the trail. Releasing thrust smoothly fades to thinner dimmer trail (~0.17s transition). Turning carves visible arcs. Clear throttle feedback with no binary snapping.
 
 ---
 
@@ -533,22 +533,22 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 **Modify**: `src/ship.js`, `test/ship.test.js`, `src/main.js`
 
 **Acceptance Criteria**:
-- [ ] `createAIState()` returns AI decision state object (minimal for pursuit; expandable for combat)
-- [ ] `updateAI(aiState, aiShip, targetShip, asteroids, dt)` sets aiShip's control flags:
+- [x] `createAIState()` returns AI decision state object (minimal for pursuit; expandable for combat)
+- [x] `updateAI(aiState, aiShip, targetShip, asteroids, dt)` sets aiShip's control flags:
   - Computes predicted target position using velocity-based lead (`lookAheadTime = min(dist / PREDICTION_SPEED, MAX_PREDICTION_TIME)`)
   - Rotates toward predicted position with dead zone to prevent oscillation
   - Thrusts when roughly facing target (within `THRUST_ANGLE`)
   - Brakes when not facing target and moving above `BRAKE_SPEED` threshold
-- [ ] When either ship is dead, AI clears all control flags (no zombie steering)
-- [ ] AI constants exported: `ROTATION_DEADZONE`, `THRUST_ANGLE`, `BRAKE_SPEED`, `PREDICTION_SPEED`, `MAX_PREDICTION_TIME`, `MIN_SPAWN_DISTANCE`, `MAX_SPAWN_DISTANCE`
-- [ ] `createShip` accepts optional `owner` field (default `'player'`)
-- [ ] AI ship uses same `createShip` / `updateShip` physics as player (same thrust, drag, max speed)
-- [ ] Enemy drawn with dashed lines (`ctx.setLineDash([4, 4])`) — visually distinct from player's solid lines
-- [ ] Enemy spawns at random world position `MIN_SPAWN_DISTANCE`–`MAX_SPAWN_DISTANCE` px from player in a random direction
-- [ ] Enemy has its own exhaust trail (same orange color as player)
-- [ ] Enemy uses same `thrustPower` setting as player
-- [ ] Both ships rendered inside camera transform
-- [ ] **Visible**: Two ships flying through the asteroid field. The enemy chases the player with fluid arcs. No shooting or collision yet — just the pursuit.
+- [x] When either ship is dead, AI clears all control flags (no zombie steering)
+- [x] AI constants exported: `ROTATION_DEADZONE`, `THRUST_ANGLE`, `BRAKE_SPEED`, `PREDICTION_SPEED`, `MAX_PREDICTION_TIME`, `MIN_SPAWN_DISTANCE`, `MAX_SPAWN_DISTANCE`
+- [x] `createShip` accepts optional `owner` field (default `'player'`)
+- [x] AI ship uses same `createShip` / `updateShip` physics as player (same thrust, drag, max speed)
+- [x] Enemy drawn with dark red dashed lines (`#CC3333`, `ctx.setLineDash([4, 4])`) — visually distinct from player's white solid lines
+- [x] Enemy spawns at random world position `MIN_SPAWN_DISTANCE`–`MAX_SPAWN_DISTANCE` px from player in a random direction
+- [x] Enemy has its own exhaust trail (red `rgb(255, 50, 30)` vs player blue `rgb(80, 140, 255)` — Star Wars faction colors)
+- [x] Enemy uses same `thrustPower` setting as player
+- [x] Both ships rendered inside camera transform
+- [x] **Visible**: Two ships flying through the asteroid field. The enemy chases the player with fluid arcs. No shooting or collision yet — just the pursuit.
 
 ---
 

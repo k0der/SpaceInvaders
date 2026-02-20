@@ -27,10 +27,12 @@ arena, AI-vs-AI screensaver, or classic asteroid screensaver (ships off).
 
 ## Visual Style
 
-- **Black background**, white vector-style line art
+- **Black background**, white vector-style line art for asteroids and player ship
 - **No fill** on asteroids — wireframe outlines only (1–2px stroke)
-- Aesthetic: monochrome vector graphics, faithful to the original CRT look
-- No textures, no gradients, no colors
+- Aesthetic: vector graphics with Star Wars-inspired faction colors
+- **Player**: white wireframe, blue exhaust trail (Rebel)
+- **Enemy**: dark red wireframe (`#CC3333`) with dashed lines, red exhaust trail (Empire)
+- No textures, no gradients
 
 ---
 
@@ -403,9 +405,10 @@ produces a standalone `index.html` with all modules inlined — zero external de
 
 ### 9.1 Ship Entity
 
-- Ships are classic Asteroids chevron/triangle wireframes — white stroke, no fill
+- Ships are classic Asteroids chevron/triangle wireframes, no fill
+- Player ship: white stroke (`#FFFFFF`); enemy ship: dark red stroke (`#CC3333`)
 - Each ship has: `x, y, vx, vy, heading, alive, thrustIntensity`, control booleans (`thrust, rotatingLeft, rotatingRight, braking, fire`), a `collisionRadius`, and an `owner` field (`'player'` or `'enemy'`)
-- `owner` field determines visual style (solid vs dashed lines) and is used for bullet collision filtering in later increments
+- `owner` field determines visual style (stroke color, solid vs dashed lines) and is used for bullet collision filtering in later increments
 - Ships use **Newtonian physics**: thrust accelerates in heading direction, drag always applies, braking decelerates opposite to velocity
 - **Thrust ramp**: `thrustIntensity` (0.0–1.0) ramps toward 1.0 when thrusting and toward 0.0 when coasting, at `THRUST_RAMP_SPEED` per second. Thrust force is proportional: `THRUST_POWER * thrustIntensity * dt`. This means the engine spools up/down smoothly rather than snapping to full power.
 - Speed capped at `MAX_SPEED`; a `MIN_SPEED` ensures the ship always drifts forward gently
@@ -419,11 +422,11 @@ produces a standalone `index.html` with all modules inlined — zero external de
 
 ### 9.3 Ship Rendering
 
-- White wireframe chevron (`strokeStyle = '#FFFFFF'`), `lineWidth ~1.5`
+- Player: white wireframe chevron (`strokeStyle = '#FFFFFF'`), `lineWidth ~1.5`
+- Enemy: dark red wireframe (`strokeStyle = '#CC3333'`), dashed line pattern (`ctx.setLineDash([4, 4])`)
 - Canvas state saved/restored (no transform leak)
 - When thrusting, a flickering engine flame (randomized triangle) drawn behind the ship
-- Enemy ship drawn with dashed line pattern (`ctx.setLineDash([4, 4])`)
-- Ship `owner` field (`'player'` or `'enemy'`) determines visual style and collision filtering
+- Ship `owner` field (`'player'` or `'enemy'`) determines stroke color, dash pattern, and collision filtering
 
 ### 9.4 Exhaust Trail
 
@@ -447,14 +450,20 @@ screen-locked ship — providing a strong local motion cue.
 - **Data**: Ring buffer of recent nozzle positions
   (`{ x, y, intensity }`), max `TRAIL_MAX_LENGTH` entries
   (240 — ~4 seconds at 60 fps)
+- **Per-ship color**: Each trail stores its own color. Player exhaust is
+  blue (`rgb(80, 140, 255)`) and enemy exhaust is red (`rgb(255, 50, 30)`),
+  evoking Star Wars faction colors. `createTrail(color)` accepts an RGB
+  object; defaults to player blue.
 - **Rendering**: Drawn as consecutive line segments with linearly
   decreasing alpha. Maximum opacity and width are interpolated per-segment
-  using the point's `intensity`. Dark orange stroke (`rgb(255, 120, 0)`).
-  Drawn inside camera transform, before the ship body.
+  using the point's `intensity`. Drawn inside camera transform, before
+  the ship body.
 - **Constants**: `TRAIL_MAX_LENGTH = 240`, `TRAIL_BASE_OPACITY = 0.2`,
   `TRAIL_THRUST_OPACITY = 0.6`, `TRAIL_BASE_WIDTH = 1`,
   `TRAIL_THRUST_WIDTH = 2.5`,
-  `TRAIL_COLOR = { r: 255, g: 120, b: 0 }`
+  `PLAYER_TRAIL_COLOR = { r: 80, g: 140, b: 255 }`,
+  `ENEMY_TRAIL_COLOR = { r: 255, g: 50, b: 30 }`,
+  `ENEMY_SHIP_COLOR = '#CC3333'`
 
 ---
 
