@@ -418,17 +418,17 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 - [x] Density setting persisted to localStorage
 - [x] Energy homeostasis unchanged (based on velocities, unaffected by coordinate system)
 - [x] Collision physics unchanged (all in world-space)
-- [ ] `getViewportBounds(camera, vw, vh, margin)` accepts optional margin parameter (default 0), `VIEWPORT_MARGIN` constant removed
-- [ ] `computeSpawnBounds(viewportBounds)` expands viewport bounds by `SPAWN_BORDER` (300px) on each side
-- [ ] `computeEdgeWeights(shipVx, shipVy)` returns direction-biased weights: `max(dot(velocity, edgeOutward), 0) + BASE_EDGE_WEIGHT`, normalized to sum to 1.0; stationary → ~0.25 each; no weight ever 0
-- [ ] `pickWeightedEdge(weights)` returns 0–3 using cumulative weighted random selection
-- [ ] `isOutsideZone(asteroid, spawnBounds)` replaces `isOffScreen`: removes asteroids past spawn bounds + `RECYCLE_MARGIN` (5px)
-- [ ] `spawnAsteroidInBorder(viewportBounds, spawnBounds, edgeWeights, speedMultiplier)` spawns ONLY in the border ring (outside viewport, inside spawn bounds), aimed inward with ±30° spread, direction-biased by edge weights
-- [ ] `spawnAsteroidInZone(spawnBounds, speedMultiplier)` replaces `spawnAsteroidInBounds`: random position within full zone, random direction
-- [ ] `createSimulation(viewportBounds, targetCount)` populates entire zone (viewport + border) for immediate visibility; records `baselineKEPerAsteroid`; no `spawnTimer`
-- [ ] `updateSimulation(sim, dt, viewportBounds, shipVx, shipVy)` — moves, collides, recycles outside zone, spawns in border when below target (up to `MAX_SPAWN_PER_FRAME` = 10/frame), direction-biased; no stagger timer
-- [ ] `main.js` passes tight viewport bounds (margin=0) + ship velocity to simulation; target count uses zone area ratio
-- [ ] **Visible**: Infinite asteroid field. No asteroids pop into view inside screen. Fly any direction at full speed — viewport always populated. Asteroids visible immediately on load.
+- [x] `getViewportBounds(camera, vw, vh, margin)` accepts optional margin parameter (default 0), `VIEWPORT_MARGIN` constant removed
+- [x] `computeSpawnBounds(viewportBounds)` expands viewport bounds by `SPAWN_BORDER` (300px) on each side
+- [x] `computeEdgeWeights(shipVx, shipVy)` returns direction-biased weights: `max(dot(velocity, edgeOutward), 0) + BASE_EDGE_WEIGHT`, normalized to sum to 1.0; stationary → ~0.25 each; no weight ever 0
+- [x] `pickWeightedEdge(weights)` returns 0–3 using cumulative weighted random selection
+- [x] `isOutsideZone(asteroid, spawnBounds)` replaces `isOffScreen`: removes asteroids past spawn bounds + `RECYCLE_MARGIN` (5px)
+- [x] `spawnAsteroidInBorder(viewportBounds, spawnBounds, edgeWeights, speedMultiplier)` spawns ONLY in the border ring (outside viewport, inside spawn bounds), aimed inward with ±30° spread, direction-biased by edge weights
+- [x] `spawnAsteroidInZone(spawnBounds, speedMultiplier)` replaces `spawnAsteroidInBounds`: random position within full zone, random direction
+- [x] `createSimulation(viewportBounds, targetCount)` populates entire zone (viewport + border) for immediate visibility; records `baselineKEPerAsteroid`; no `spawnTimer`
+- [x] `updateSimulation(sim, dt, viewportBounds, shipVx, shipVy)` — moves, collides, recycles outside zone, spawns in border when below target (up to `MAX_SPAWN_PER_FRAME` = 10/frame), direction-biased; no stagger timer
+- [x] `main.js` passes tight viewport bounds (margin=0) + ship velocity to simulation; target count uses zone area ratio
+- [x] **Visible**: Infinite asteroid field. No asteroids pop into view inside screen. Fly any direction at full speed — viewport always populated. Asteroids visible immediately on load.
 
 ---
 
