@@ -584,16 +584,16 @@ predictedVy = vy + sin(heading) * thrustPower * thrustIntensity * AVOID_PREDICT_
 3. Project onto predicted velocity axis → `ahead` (forward distance) and
    perpendicular axis → `lateral` (side distance)
 4. **Threat detection** — two complementary methods per obstacle:
-   - **Cylinder threat**: `ahead > 0`, `ahead < AVOID_LOOKAHEAD` (500px),
+   - **Cylinder threat**: `ahead > 0`, `ahead < AVOID_LOOKAHEAD` (800px),
      `|lateral| < obstacle.radius + AVOID_MARGIN` (50px buffer).
      Urgency = `1 - ahead / AVOID_LOOKAHEAD`
    - **Proximity threat**: `distance < obstacle.radius + AVOID_PROXIMITY` (80px).
      Urgency = `1 - distance / proximityRadius`
-   - Final urgency = `max(cylinderUrgency, proximityUrgency)²` (squared for
-     nonlinear response — exponentially stronger at close range)
+   - Final urgency = `max(cylinderUrgency, proximityUrgency)` (linear — gives
+     strong medium-range response so the AI reacts early, not just at close range)
 5. For each threatening obstacle, compute a lateral steering offset:
    - Direction: perpendicular to predicted velocity, pushing away from obstacle
-   - Strength: `AVOID_STRENGTH (2.5 rad) * urgency²`
+   - Strength: `AVOID_STRENGTH (2.5 rad) * urgency`
    - When lateral ≈ 0 (dead center), default to steering right to break symmetry
    - Proximity-only threats (not in cylinder) use angle-to-obstacle for steer direction
 6. Sum all offsets → total `avoidanceOffset` (radians)
@@ -609,8 +609,8 @@ obstacles.
 - The pursuit component of heading is scaled down proportionally to threat:
   `pursuitInfluence = pursuitDiff * (1 - survivalWeight)`, where
   `survivalWeight = clamp(maxUrgency * AVOIDANCE_PRIORITY, 0, 1)`
-- `AVOIDANCE_PRIORITY` (3) controls how aggressively pursuit is suppressed:
-  at urgency ≈ 0.33 (moderate threat), pursuit is fully suppressed
+- `AVOIDANCE_PRIORITY` (2) controls how aggressively pursuit is suppressed:
+  at urgency ≈ 0.5 (moderate threat), pursuit is fully suppressed
 - Final heading diff: `pursuitInfluence + avoidanceOffset`
 - At zero threat: pure pursuit (survivalWeight = 0)
 - At moderate+ threat: pure avoidance (survivalWeight = 1)
@@ -627,9 +627,9 @@ obstacles.
   the target, not avoid it. Anti-ramming comes from bullet combat.
 
 **Constants** (exported from `ai.js`):
-`FIRE_ANGLE`, `MAX_FIRE_RANGE`, `AVOID_LOOKAHEAD` (500px), `AVOID_MARGIN` (50px),
+`FIRE_ANGLE`, `MAX_FIRE_RANGE`, `AVOID_LOOKAHEAD` (800px), `AVOID_MARGIN` (50px),
 `AVOID_STRENGTH` (2.5 rad), `AVOID_PROXIMITY` (80px), `AVOID_PREDICT_TIME` (0.3s),
-`AVOIDANCE_PRIORITY` (3)
+`AVOIDANCE_PRIORITY` (2)
 
 ---
 

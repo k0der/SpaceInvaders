@@ -578,14 +578,14 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 - [ ] Look-ahead cylinder: obstacle is a threat when `ahead > 0`, `ahead < AVOID_LOOKAHEAD`, and `|lateral| < obstacle.radius + AVOID_MARGIN`
 - [ ] Proximity detection: obstacle is a threat when `distance < obstacle.radius + AVOID_PROXIMITY` (catches obstacles the cylinder misses, e.g., when circling)
 - [ ] `AVOID_PROXIMITY` (80px) exported from `ai.js`
-- [ ] `AVOID_LOOKAHEAD` (500px), `AVOID_MARGIN` (50px), `AVOID_STRENGTH` (2.5 rad) exported from `ai.js`
-- [ ] Nonlinear urgency: final urgency is squared for exponentially stronger close-range response
-- [ ] Closer obstacles produce stronger steering offset: strength scales with `max(cylinderUrgency, proximityUrgency)²`
+- [ ] `AVOID_LOOKAHEAD` (800px), `AVOID_MARGIN` (50px), `AVOID_STRENGTH` (2.5 rad) exported from `ai.js`
+- [ ] Linear urgency: `max(cylinderUrgency, proximityUrgency)` — strong medium-range response for early reaction
+- [ ] Closer obstacles produce stronger steering offset: strength scales linearly with urgency
 - [x] Dead-center obstacle (lateral ≈ 0) defaults to steering right (breaks symmetry)
 - [x] Returns 0 when no obstacles are on collision course
 - [x] `updateAI` builds obstacle list from asteroids only (`collisionRadius`) — target ship is NOT included (AI approaches to fire, not avoids)
 - [ ] `computeAvoidanceOffset` returns `{ offset, maxUrgency }` — maxUrgency is the highest raw urgency (before squaring) across all obstacles
-- [ ] `AVOIDANCE_PRIORITY` (3) exported — controls how aggressively pursuit is suppressed when avoiding
+- [ ] `AVOIDANCE_PRIORITY` (2) exported — controls how aggressively pursuit is suppressed when avoiding
 - [ ] Survival-first blending: `survivalWeight = clamp(maxUrgency * AVOIDANCE_PRIORITY, 0, 1)`; pursuit scaled by `(1 - survivalWeight)`. At zero threat → pure pursuit; at moderate threat → pure avoidance
 - [ ] Pursuit cannot override avoidance: when obstacles are close, ship steers to avoid regardless of target direction
 - [x] Thrust maintained during avoidance for agility (braking suppressed — speed enables dodging)

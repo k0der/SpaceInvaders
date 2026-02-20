@@ -28,7 +28,7 @@ export const FIRE_ANGLE = 0.15;
 export const MAX_FIRE_RANGE = 500;
 
 /** How far ahead (px) the AI scans for obstacles along its predicted path. */
-export const AVOID_LOOKAHEAD = 500;
+export const AVOID_LOOKAHEAD = 800;
 
 /** Buffer (px) around obstacle collision radius for avoidance. */
 export const AVOID_MARGIN = 50;
@@ -40,7 +40,7 @@ export const AVOID_STRENGTH = 2.5;
 export const AVOID_PROXIMITY = 80;
 
 /** How aggressively avoidance suppresses pursuit (urgency * this >= 1 → pure avoidance). */
-export const AVOIDANCE_PRIORITY = 3;
+export const AVOIDANCE_PRIORITY = 2;
 
 /** Time horizon (seconds) for predicting future velocity in avoidance. */
 export const AVOID_PREDICT_TIME = 0.3;
@@ -128,17 +128,16 @@ export function computeAvoidanceOffset(aiShip, obstacles) {
       proximityUrgency = 1 - dist / proximityRadius;
     }
 
-    // Combined urgency: take the stronger signal, then square for nonlinear response
+    // Combined urgency: take the stronger signal (linear — stronger medium-range response)
     const rawUrgency = Math.max(cylinderUrgency, proximityUrgency);
     if (rawUrgency <= 0) continue;
     maxRawUrgency = Math.max(maxRawUrgency, rawUrgency);
-    const urgency = rawUrgency * rawUrgency;
 
     // Steer away from obstacle: obstacle to right (lateral > 0) → steer left (negative)
     // Dead center (lateral ≈ 0) → default to steering right (positive)
     const steerDirection = lateral > 0 ? -1 : 1;
 
-    totalOffset += steerDirection * AVOID_STRENGTH * urgency;
+    totalOffset += steerDirection * AVOID_STRENGTH * rawUrgency;
   }
 
   return { offset: totalOffset, maxUrgency: maxRawUrgency };

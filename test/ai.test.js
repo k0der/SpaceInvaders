@@ -327,9 +327,9 @@ describe('Increment 26: AI Fires Bullets + Asteroid Avoidance', () => {
   });
 
   describe('AI avoidance constants', () => {
-    it('exports AVOID_LOOKAHEAD as 500px', () => {
+    it('exports AVOID_LOOKAHEAD as 800px', () => {
       expect(typeof AVOID_LOOKAHEAD).toBe('number');
-      expect(AVOID_LOOKAHEAD).toBe(500);
+      expect(AVOID_LOOKAHEAD).toBe(800);
     });
 
     it('exports AVOID_MARGIN as 50px', () => {
@@ -352,9 +352,9 @@ describe('Increment 26: AI Fires Bullets + Asteroid Avoidance', () => {
       expect(AVOID_PROXIMITY).toBe(80);
     });
 
-    it('exports AVOIDANCE_PRIORITY as 3', () => {
+    it('exports AVOIDANCE_PRIORITY as 2', () => {
       expect(typeof AVOIDANCE_PRIORITY).toBe('number');
-      expect(AVOIDANCE_PRIORITY).toBe(3);
+      expect(AVOIDANCE_PRIORITY).toBe(2);
     });
   });
 
@@ -588,9 +588,9 @@ describe('Increment 26: AI Fires Bullets + Asteroid Avoidance', () => {
       expect(result.offset).toBe(0);
     });
 
-    it('produces nonlinear urgency (squared): very close is disproportionately strong', () => {
+    it('produces proportionally stronger response for closer proximity threats', () => {
       const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
-      // Very close obstacle (high urgency)
+      // Very close obstacle (high urgency via proximity)
       const veryClose = [{ x: 30, y: 0, radius: 30 }];
       // Moderately close obstacle (medium urgency)
       const moderate = [{ x: 150, y: 0, radius: 30 }];
@@ -602,8 +602,8 @@ describe('Increment 26: AI Fires Bullets + Asteroid Avoidance', () => {
         computeAvoidanceOffset(ai, moderate).offset,
       );
 
-      // With squared urgency, the ratio should be much larger than linear
-      expect(veryCloseOffset / moderateOffset).toBeGreaterThan(1.4);
+      // Linear urgency: closer is stronger but proportional (not squared)
+      expect(veryCloseOffset).toBeGreaterThan(moderateOffset);
     });
   });
 
