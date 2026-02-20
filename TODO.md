@@ -561,38 +561,38 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 **Acceptance Criteria**:
 
 ### AI Combat (firing)
-- [ ] `updateAI` sets `aiShip.fire = true` when `|headingDiff to predicted target| < FIRE_ANGLE` AND `distance < MAX_FIRE_RANGE`
-- [ ] `FIRE_ANGLE` (~0.15 rad / ~8.6°) exported from `ai.js`
-- [ ] `MAX_FIRE_RANGE` (500px) exported from `ai.js`
-- [ ] AI does not fire when either ship is dead (existing dead-ship guard)
-- [ ] `main.js` manages `enemyShip.fireCooldown` identically to player: decrement each frame, create bullet from enemy nose when `fire && cooldown <= 0 && alive`, reset cooldown to `FIRE_COOLDOWN`
-- [ ] AI bullets use same `createBullet` with `owner: 'enemy'` and same physics
-- [ ] AI bullets are added to the shared `bullets` array, updated/drawn/filtered identically
+- [x] `updateAI` sets `aiShip.fire = true` when `|headingDiff to predicted target| < FIRE_ANGLE` AND `distance < MAX_FIRE_RANGE`
+- [x] `FIRE_ANGLE` (~0.15 rad / ~8.6°) exported from `ai-reactive.js`
+- [x] `MAX_FIRE_RANGE` (500px) exported from `ai-reactive.js`
+- [x] AI does not fire when either ship is dead (existing dead-ship guard)
+- [x] `main.js` manages `enemyShip.fireCooldown` identically to player: decrement each frame, create bullet from enemy nose when `fire && cooldown <= 0 && alive`, reset cooldown to `FIRE_COOLDOWN`
+- [x] AI bullets use same `createBullet` with `owner: 'enemy'` and same physics
+- [x] AI bullets are added to the shared `bullets` array, updated/drawn/filtered identically
 
 ### AI Obstacle Avoidance
-- [x] `computeAvoidanceOffset(aiShip, obstacles)` exported from `ai.js` — returns angle offset (radians) for steering away from collision-course obstacles
+- [x] `computeAvoidanceOffset(aiShip, obstacles)` exported from `ai-reactive.js` — returns `{ offset, maxUrgency }` for steering away from collision-course obstacles
 - [x] Obstacles is an array of `{ x, y, radius }` — supports both asteroids and ships
-- [ ] Look-ahead cylinder projects along **predicted velocity**, not heading — accounts for Newtonian drift and current thrust input
-- [ ] Predicted velocity: `predV = velocity + thrustAccel * AVOID_PREDICT_TIME`; falls back to heading when speed < 1
-- [ ] `AVOID_PREDICT_TIME` (0.3s) exported from `ai.js`
-- [ ] Look-ahead cylinder: obstacle is a threat when `ahead > 0`, `ahead < AVOID_LOOKAHEAD`, and `|lateral| < obstacle.radius + AVOID_MARGIN`
-- [ ] Proximity detection: obstacle is a threat when `distance < obstacle.radius + AVOID_PROXIMITY` (catches obstacles the cylinder misses, e.g., when circling)
-- [ ] `AVOID_PROXIMITY` (80px) exported from `ai.js`
-- [ ] `AVOID_LOOKAHEAD` (800px), `AVOID_MARGIN` (50px), `AVOID_STRENGTH` (2.5 rad) exported from `ai.js`
-- [ ] Linear urgency: `max(cylinderUrgency, proximityUrgency)` — strong medium-range response for early reaction
-- [ ] Closer obstacles produce stronger steering offset: strength scales linearly with urgency
+- [x] Look-ahead cylinder projects along **predicted velocity**, not heading — accounts for Newtonian drift and current thrust input
+- [x] Predicted velocity: `predV = velocity + thrustAccel * AVOID_PREDICT_TIME`; falls back to heading when speed < 1
+- [x] `AVOID_PREDICT_TIME` (0.3s) exported from `ai-reactive.js`
+- [x] Look-ahead cylinder: obstacle is a threat when `ahead > 0`, `ahead < AVOID_LOOKAHEAD`, and `|lateral| < obstacle.radius + AVOID_MARGIN`
+- [x] Proximity detection: obstacle is a threat when `distance < obstacle.radius + AVOID_PROXIMITY` (catches obstacles the cylinder misses, e.g., when circling)
+- [x] `AVOID_PROXIMITY` (80px) exported from `ai-reactive.js`
+- [x] `AVOID_LOOKAHEAD` (800px), `AVOID_MARGIN` (50px), `AVOID_STRENGTH` (2.5 rad) exported from `ai-reactive.js`
+- [x] Linear urgency: `max(cylinderUrgency, proximityUrgency)` — strong medium-range response for early reaction
+- [x] Closer obstacles produce stronger steering offset: strength scales linearly with urgency
 - [x] Dead-center obstacle (lateral ≈ 0) defaults to steering right (breaks symmetry)
 - [x] Returns 0 when no obstacles are on collision course
 - [x] `updateAI` builds obstacle list from asteroids only (`collisionRadius`) — target ship is NOT included (AI approaches to fire, not avoids)
-- [ ] `computeAvoidanceOffset` returns `{ offset, maxUrgency }` — maxUrgency is the highest raw urgency (before squaring) across all obstacles
-- [ ] `AVOIDANCE_PRIORITY` (2) exported — controls how aggressively pursuit is suppressed when avoiding
-- [ ] Survival-first blending: `survivalWeight = clamp(maxUrgency * AVOIDANCE_PRIORITY, 0, 1)`; pursuit scaled by `(1 - survivalWeight)`. At zero threat → pure pursuit; at moderate threat → pure avoidance
-- [ ] Pursuit cannot override avoidance: when obstacles are close, ship steers to avoid regardless of target direction
+- [x] `computeAvoidanceOffset` returns `{ offset, maxUrgency }` — maxUrgency is the highest raw urgency across all obstacles
+- [x] `AVOIDANCE_PRIORITY` (2) exported from `ai-reactive.js` — controls how aggressively pursuit is suppressed when avoiding
+- [x] Survival-first blending: `survivalWeight = clamp(maxUrgency * AVOIDANCE_PRIORITY, 0, 1)`; pursuit scaled by `(1 - survivalWeight)`. At zero threat → pure pursuit; at moderate threat → pure avoidance
+- [x] Pursuit cannot override avoidance: when obstacles are close, ship steers to avoid regardless of target direction
 - [x] Thrust maintained during avoidance for agility (braking suppressed — speed enables dodging)
 - [x] Avoidance and pursuit blend smoothly (no jittering between states)
 
 ### Visible
-- [ ] **Visible**: Enemy shoots at the player and navigates around asteroids and the player ship. Bullets fly between both ships. AI curves around obstacles with strafing arcs instead of charging head-on. Dogfight feel emerges.
+- [x] **Visible**: Enemy shoots at the player and navigates around asteroids. Bullets fly between both ships. AI curves around obstacles. Dogfight feel emerges.
 
 ---
 
@@ -606,44 +606,45 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 **Acceptance Criteria**:
 
 ### Strategy Interface
-- [ ] Every AI strategy exports `{ createState, update }` — `createState()` returns per-ship state, `update(state, ship, target, asteroids, dt)` sets 5 control flags
-- [ ] Strategies are registered by name and retrieved via `getStrategy(name)`
+- [x] Every AI strategy exports `{ createState, update }` — `createState()` returns per-ship state, `update(state, ship, target, asteroids, dt)` sets 5 control flags
+- [x] Strategies are registered by name and retrieved via `getStrategy(name)`
 
 ### Strategy Registry (`ai-core.js`)
-- [ ] `registerStrategy(name, strategy)` stores a strategy by name
-- [ ] `getStrategy(name)` returns a registered strategy (throws on unknown name)
-- [ ] `listStrategies()` returns array of registered strategy names
+- [x] `registerStrategy(name, strategy)` stores a strategy by name
+- [x] `getStrategy(name)` returns a registered strategy (throws on unknown name)
+- [x] `listStrategies()` returns array of registered strategy names
 
 ### Reactive AI Extraction (`ai-reactive.js`)
-- [ ] All reactive AI logic moved from `ai.js` to `ai-reactive.js` — zero behavior change
-- [ ] Exports `reactiveStrategy = { createState, update }`
-- [ ] All existing AI tests pass with adjusted imports
-- [ ] Constants re-exported: `ROTATION_DEADZONE`, `THRUST_ANGLE`, `BRAKE_SPEED`, `PREDICTION_SPEED`, `MAX_PREDICTION_TIME`, `FIRE_ANGLE`, `MAX_FIRE_RANGE`, `AVOID_LOOKAHEAD`, `AVOID_MARGIN`, `AVOID_STRENGTH`, `AVOID_PROXIMITY`, `AVOIDANCE_PRIORITY`, `AVOID_PREDICT_TIME`
+- [x] All reactive AI logic moved from `ai.js` to `ai-reactive.js` — zero behavior change
+- [x] Exports `reactiveStrategy = { createState, update }`
+- [x] All existing AI tests pass with adjusted imports
+- [x] Constants re-exported: `ROTATION_DEADZONE`, `THRUST_ANGLE`, `BRAKE_SPEED`, `PREDICTION_SPEED`, `MAX_PREDICTION_TIME`, `FIRE_ANGLE`, `MAX_FIRE_RANGE`, `AVOID_LOOKAHEAD`, `AVOID_MARGIN`, `AVOID_STRENGTH`, `AVOID_PROXIMITY`, `AVOIDANCE_PRIORITY`, `AVOID_PREDICT_TIME`
 
 ### AI Facade (`ai.js`)
-- [ ] `ai.js` becomes thin facade: imports and registers both strategies
-- [ ] Re-exports `spawnEnemyPosition` (not strategy-specific)
-- [ ] Re-exports `getStrategy`, `listStrategies` from `ai-core.js`
-- [ ] Re-exports reactive AI functions for backward compatibility (`createAIState`, `updateAI`, `computeAvoidanceOffset`, all constants)
+- [x] `ai.js` becomes thin facade: imports and registers both strategies
+- [x] Re-exports `spawnEnemyPosition` (not strategy-specific)
+- [x] Re-exports `getStrategy`, `listStrategies` from `ai-core.js` *(consumers import directly from ai-core.js in ES module mode)*
+- [x] Re-exports reactive AI functions for backward compatibility (`createAIState`, `updateAI`)
 
 ### Predictive AI (`ai-predictive.js`)
-- [ ] `cloneShipForSim(ship)` copies physics-relevant fields only
-- [ ] `predictAsteroidAt(asteroid, t)` returns linearly extrapolated `{ x, y, radius }`
-- [ ] `defineCandidates()` returns 7 candidate action objects
-- [ ] `simulateTrajectory(clone, action, steps, dt)` runs `updateShip` forward, returns array of positions
-- [ ] `scoreTrajectory(positions, target, asteroids, simDt)` returns composite score with collision penalty, distance weight, and aim bonus
-- [ ] `selectBestAction(ship, target, asteroids)` picks the best-scoring candidate
-- [ ] `predictiveStrategy = { createState, update }` — sets control flags from best action + fires when aimed
-- [ ] Constants exported: `SIM_STEPS` (15), `SIM_DT` (0.1s), `COLLISION_PENALTY` (-10000), `DISTANCE_WEIGHT` (-1), `AIM_BONUS` (500)
+- [x] `cloneShipForSim(ship)` copies physics-relevant fields only
+- [x] `predictAsteroidAt(asteroid, t)` returns linearly extrapolated `{ x, y, radius }`
+- [x] `defineCandidates()` returns 7 fixed-action candidate objects
+- [x] `simulateTrajectory(clone, action, steps, dt)` runs `updateShip` forward with a fixed action, returns array of positions
+- [x] `simulatePursuitTrajectory(clone, target, steps, dt, brakeSteps)` runs adaptive pursuit (rotates toward target each step), returns `{ positions, firstAction }`
+- [x] `scoreTrajectory(positions, target, asteroids, simDt)` returns 5-component composite score: time-decayed collision penalty, min-distance weight, average aim bonus, approach rate, proximity-scaled fire opportunity
+- [x] `selectBestAction(ship, target, asteroids)` evaluates 7 fixed + pursuit + brake-pursuit (speed-gated) candidates, picks highest score
+- [x] `predictiveStrategy = { createState, update }` — sets control flags from best action + fires when aimed
+- [x] Constants exported: `SIM_STEPS` (15), `SIM_DT` (0.1s), `COLLISION_BASE_PENALTY` (-10000), `COLLISION_DECAY` (0.4), `DISTANCE_WEIGHT` (-8), `AIM_BONUS` (400), `CLOSING_SPEED_WEIGHT` (8), `FIRE_OPPORTUNITY_BONUS` (300), `BRAKE_PURSUIT_STEPS` (5)
 
 ### Settings Integration
-- [ ] `SETTINGS_CONFIG` includes `aiStrategy` with options `['reactive', 'predictive']`, default `'predictive'`
-- [ ] `aiStrategy` persisted to localStorage
-- [ ] Changing dropdown swaps strategy and resets AI state in real-time
-- [ ] Enemy spawn heading: aim toward player instead of random
+- [x] `SETTINGS_CONFIG` includes `aiStrategy` with options `['reactive', 'predictive']`, default `'predictive'`
+- [x] `aiStrategy` persisted to localStorage
+- [x] Changing dropdown swaps strategy and resets AI state in real-time
+- [x] Enemy spawn heading: aim toward player instead of random
 
 ### Visible
-- [ ] **Visible**: Settings dropdown lets you switch between reactive and predictive AI. Reactive AI behaves identically to before. Predictive AI navigates asteroid fields and pursues the player using path simulation. Both fire bullets when aimed.
+- [x] **Visible**: Settings dropdown lets you switch between reactive and predictive AI. Reactive AI behaves identically to before. Predictive AI navigates asteroid fields and pursues the player using path simulation. Both fire bullets when aimed.
 
 ---
 

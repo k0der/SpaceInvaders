@@ -684,37 +684,65 @@ each frame, instead of reactive rules.
 
 **Algorithm** — each frame:
 
-1. **Generate 7 candidate actions**: thrust+straight, thrust+left, thrust+right,
-   coast+straight, coast+left, coast+right, brake
+1. **Generate 9 candidate actions**:
+   - **7 fixed-action candidates**: thrust+straight, thrust+left, thrust+right,
+     coast+straight, coast+left, coast+right, brake — each applies a single
+     action for the full simulation window
+   - **Dynamic pursuit candidate**: adapts each step — rotates toward predicted
+     target, thrusts when facing within 60°, brakes when not facing and speed > 50
+   - **Brake-pursuit candidate**: brakes for `BRAKE_PURSUIT_STEPS` steps to kill
+     bad momentum, then pursues. Only evaluated when ship speed > 50 px/s to
+     prevent degenerate coast behavior when stationary
 2. **Simulate forward ~1.5s** (15 steps × 0.1s) for each candidate:
    - Clone the AI ship's physics-relevant fields
-   - Apply the candidate's control flags to the clone
+   - Apply the candidate's control flags to the clone (dynamic candidates
+     recompute controls each step using `simulatePursuitTrajectory`)
    - Run `updateShip()` physics for each step
    - Predict asteroid positions linearly: `pos + vel * t`
    - Check for collisions at each step
-3. **Score each trajectory**:
-   - Collision penalty (large negative) if any step collides with an asteroid
-   - Distance to target at final step (lower = better)
-   - Aim bonus: reward for ending pointed toward the target
-4. **Pick the best-scoring action** and apply its control flags to the real ship
+3. **Score each trajectory** (5 components):
+   - **Time-decayed collision penalty**: Only the first collision counts
+     (ship would be dead). Penalty = `COLLISION_BASE_PENALTY * e^(-COLLISION_DECAY * step)`.
+     Early collisions penalize far more than distant-future ones.
+   - **Distance to target**: `DISTANCE_WEIGHT * minDist` across the trajectory
+     (minimum distance, not final step — rewards any close approach)
+   - **Average aim bonus**: `AIM_BONUS * mean(cos(angleDiff))` averaged across
+     all trajectory steps. Averaging avoids the "crossover artifact" where a
+     ship passing through the target gets a negative aim reading at the single
+     crossover point, despite being well-aimed for most of the trajectory.
+   - **Approach rate**: `CLOSING_SPEED_WEIGHT * (initialDist - finalDist) / simTime`.
+     Measures net distance closed rather than instantaneous velocity at a single
+     point, making it immune to "overshoot terror" where passing through the
+     target produces a massive negative closing speed.
+   - **Fire opportunity bonus**: For each step aimed within `FIRE_ANGLE` and within
+     `MAX_FIRE_RANGE`, adds `FIRE_OPPORTUNITY_BONUS * (1 - dist/MAX_FIRE_RANGE)`.
+     Proximity scaling ensures close shots score higher, breaking circular orbits
+     while not rewarding standing still at max range.
+4. **Pick the best-scoring action** and apply its control flags to the real ship.
+   For dynamic candidates, only the first step's action is applied (the AI
+   re-evaluates every frame).
 5. **Fire decision**: separate snap decision based on current aim geometry
    (same `FIRE_ANGLE` + `MAX_FIRE_RANGE` check as reactive AI)
 
-**Performance**: 7 candidates × 15 steps × ~30 asteroids = ~3,150 distance
+**Performance**: 9 candidates × 15 steps × ~30 asteroids = ~4,050 distance
 checks per frame. Trivial on modern hardware.
 
 **Pure functions** (all testable without simulation state):
 
 - `cloneShipForSim(ship)` — copies physics-relevant fields only
 - `predictAsteroidAt(asteroid, t)` — linear extrapolation of position
-- `defineCandidates()` — returns 7 action objects with control flag combos
-- `simulateTrajectory(clone, action, steps, dt)` — runs physics forward
-- `scoreTrajectory(positions, target, asteroids, simDt)` — composite scoring
-- `selectBestAction(ship, target, asteroids)` — orchestrator
+- `defineCandidates()` — returns 7 fixed-action objects with control flag combos
+- `simulateTrajectory(clone, action, steps, dt)` — runs physics forward with a fixed action
+- `simulatePursuitTrajectory(clone, target, steps, dt, brakeSteps)` — runs physics
+  forward with adaptive pursuit (rotates toward target each step)
+- `scoreTrajectory(positions, target, asteroids, simDt)` — 5-component composite scoring
+- `selectBestAction(ship, target, asteroids)` — orchestrator (evaluates all 9 candidates)
 
 **Constants** (exported from `ai-predictive.js`):
-`SIM_STEPS` (15), `SIM_DT` (0.1s), `COLLISION_PENALTY` (-10000),
-`DISTANCE_WEIGHT` (-1), `AIM_BONUS` (500)
+`SIM_STEPS` (15), `SIM_DT` (0.1s), `COLLISION_BASE_PENALTY` (-10000),
+`COLLISION_DECAY` (0.4), `DISTANCE_WEIGHT` (-8), `AIM_BONUS` (400),
+`CLOSING_SPEED_WEIGHT` (8), `FIRE_OPPORTUNITY_BONUS` (300),
+`BRAKE_PURSUIT_STEPS` (5)
 
 ---
 
