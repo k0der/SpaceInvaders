@@ -325,21 +325,20 @@ describe('Increment 20: Camera Follows Ship', () => {
   });
 
   describe('ship points "up" on screen', () => {
-    it('camera.rotation = ship.heading cancels heading in drawShip (net rotation = 0)', () => {
-      // When camera.rotation = ship.heading, the camera rotate(-heading)
-      // combines with drawShip rotate(+heading) to produce net rotation = 0.
-      // This means the ship always points "up" (its default -PI/2 heading
-      // orientation) on screen.
+    it('camera rotation = heading + PI/2 gives net -PI/2 so nose points up', () => {
+      // Ship shape has nose at +x. To appear pointing UP on screen,
+      // the net rotation (camera + drawShip) must be -PI/2.
+      // camera.rotation = heading + PI/2
+      // Camera applies rotate(-(heading + PI/2)), drawShip applies rotate(heading).
+      // Net = -(heading + PI/2) + heading = -PI/2 → nose at +x rotates to UP.
       const heading = 1.3;
-      const cam = createCamera(0, 0, heading);
-      // The camera applies rotate(-heading). drawShip applies rotate(+heading).
-      // Net rotation = -heading + heading = 0.
-      // We verify by checking the transform chain: after applyCameraTransform
-      // applies rotate(-heading), a subsequent rotate(heading) cancels out.
-      expect(-cam.rotation + heading).toBeCloseTo(0, 10);
+      const cameraRotation = heading + Math.PI / 2;
+      const cam = createCamera(0, 0, cameraRotation);
+      const netRotation = -cam.rotation + heading;
+      expect(netRotation).toBeCloseTo(-Math.PI / 2, 10);
     });
 
-    it('ship at any heading always has net zero rotation when camera tracks heading', () => {
+    it('ship at any heading always has net -PI/2 rotation (pointing up)', () => {
       const headings = [
         0,
         Math.PI / 4,
@@ -349,10 +348,10 @@ describe('Increment 20: Camera Follows Ship', () => {
         -1.5,
       ];
       for (const h of headings) {
-        const cam = createCamera(0, 0, h);
-        // Camera applies -cam.rotation, drawShip applies +ship.heading
-        // If cam.rotation === ship.heading, net = 0
-        expect(-cam.rotation + h).toBeCloseTo(0, 10);
+        const cameraRotation = h + Math.PI / 2;
+        const cam = createCamera(0, 0, cameraRotation);
+        const netRotation = -cam.rotation + h;
+        expect(netRotation).toBeCloseTo(-Math.PI / 2, 10);
       }
     });
   });

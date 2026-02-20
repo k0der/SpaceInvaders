@@ -87,7 +87,11 @@ export function startApp() {
     y: logicalSize.height / 2,
     heading: -Math.PI / 2,
   });
-  const camera = createCamera(playerShip.x, playerShip.y, playerShip.heading);
+  const camera = createCamera(
+    playerShip.x,
+    playerShip.y,
+    playerShip.heading + Math.PI / 2,
+  );
   const inputState = createInputState();
   const loaded = loadSettings();
   const settings = createSettings(loaded);
@@ -199,10 +203,10 @@ export function startApp() {
     applyInput(inputState, playerShip);
     updateShip(playerShip, scaledDt);
 
-    // Camera follows ship
+    // Camera follows ship (PI/2 offset so ship nose points UP on screen)
     camera.x = playerShip.x;
     camera.y = playerShip.y;
-    camera.rotation = playerShip.heading;
+    camera.rotation = playerShip.heading + Math.PI / 2;
 
     for (const layer of starLayers) {
       updateStarLayerDirectional(

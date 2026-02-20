@@ -5,7 +5,7 @@
 const SHIP_SIZE = 15;
 
 /** Rotation speed in radians per second. */
-export const ROTATION_SPEED = 8.0;
+export const ROTATION_SPEED = 4.0;
 
 /** Thrust acceleration in pixels/s². */
 export const THRUST_POWER = 2000;
