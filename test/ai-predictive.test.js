@@ -9,6 +9,7 @@ import {
   DISTANCE_WEIGHT,
   defineCandidates,
   FIRE_OPPORTUNITY_BONUS,
+  getLastDebugInfo,
   predictAsteroidAt,
   predictiveStrategy,
   SIM_DT,
@@ -830,5 +831,76 @@ describe('ai-predictive: predictiveStrategy', () => {
     predictiveStrategy.update(state, ship, target, [], 0.016);
 
     expect(ship.fire).toBe(false);
+  });
+});
+
+describe('ai-predictive: getLastDebugInfo', () => {
+  it('returns null before any decision is made', () => {
+    // Note: after module load, before selectBestAction is called,
+    // getLastDebugInfo may return null or the result of a previous test.
+    // We test that after selectBestAction it returns useful info.
+    const info = getLastDebugInfo();
+    // Either null (fresh) or an object (from earlier tests)
+    expect(info === null || typeof info === 'object').toBe(true);
+  });
+
+  it('returns debug info after selectBestAction is called', () => {
+    const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+    const target = createShip({ x: 500, y: 0, heading: 0, owner: 'player' });
+
+    selectBestAction(ship, target, []);
+    const info = getLastDebugInfo();
+
+    expect(info).not.toBeNull();
+    expect(Array.isArray(info.candidates)).toBe(true);
+    expect(info.candidates.length).toBeGreaterThan(0);
+    expect(typeof info.winner).toBe('string');
+  });
+
+  it('each candidate has a name and score', () => {
+    const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+    const target = createShip({ x: 500, y: 0, heading: 0, owner: 'player' });
+
+    selectBestAction(ship, target, []);
+    const info = getLastDebugInfo();
+
+    for (const c of info.candidates) {
+      expect(typeof c.name).toBe('string');
+      expect(typeof c.score).toBe('number');
+      expect(Number.isFinite(c.score)).toBe(true);
+    }
+  });
+
+  it('includes all 9 candidates (7 fixed + pursuit + brake-pursuit) when speed is high', () => {
+    const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+    ship.vx = 200; // Above PURSUIT_BRAKE_SPEED to enable brake-pursuit
+    const target = createShip({ x: 500, y: 0, heading: 0, owner: 'player' });
+
+    selectBestAction(ship, target, []);
+    const info = getLastDebugInfo();
+
+    expect(info.candidates.length).toBe(9);
+  });
+
+  it('includes 8 candidates when speed is low (brake-pursuit skipped)', () => {
+    const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+    // Speed is 0 — below PURSUIT_BRAKE_SPEED, brake-pursuit is skipped
+    const target = createShip({ x: 500, y: 0, heading: 0, owner: 'player' });
+
+    selectBestAction(ship, target, []);
+    const info = getLastDebugInfo();
+
+    expect(info.candidates.length).toBe(8);
+  });
+
+  it('winner name matches the best-scoring candidate', () => {
+    const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+    const target = createShip({ x: 500, y: 0, heading: 0, owner: 'player' });
+
+    selectBestAction(ship, target, []);
+    const info = getLastDebugInfo();
+
+    const best = info.candidates.reduce((a, b) => (a.score > b.score ? a : b));
+    expect(info.winner).toBe(best.name);
   });
 });

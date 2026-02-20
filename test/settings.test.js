@@ -1108,4 +1108,135 @@ describe('Increment 15: Star Field Direction Setting', () => {
       expect(changes[0].value).toBe('reactive');
     });
   });
+
+  describe('SETTINGS_CONFIG — aiDebugLog', () => {
+    it('defines aiDebugLog as a boolean setting with default false', () => {
+      const c = SETTINGS_CONFIG.aiDebugLog;
+      expect(c).toBeDefined();
+      expect(c.default).toBe(false);
+      expect(c.type).toBe('boolean');
+    });
+
+    it('aiDebugLog has a label', () => {
+      expect(typeof SETTINGS_CONFIG.aiDebugLog.label).toBe('string');
+    });
+  });
+
+  describe('createSettings — aiDebugLog', () => {
+    it('defaults aiDebugLog to false', () => {
+      const s = createSettings();
+      expect(s.aiDebugLog).toBe(false);
+    });
+
+    it('accepts aiDebugLog override', () => {
+      const s = createSettings({ aiDebugLog: true });
+      expect(s.aiDebugLog).toBe(true);
+    });
+  });
+
+  describe('persistence — aiDebugLog', () => {
+    it('saveSettings persists aiDebugLog', () => {
+      const s = createSettings({ aiDebugLog: true });
+      saveSettings(s);
+      const stored = JSON.parse(localStorage.getItem('asteroidSettings'));
+      expect(stored.aiDebugLog).toBe(true);
+    });
+
+    it('loadSettings restores aiDebugLog', () => {
+      localStorage.setItem(
+        'asteroidSettings',
+        JSON.stringify({
+          asteroidDensity: 1.0,
+          speedMultiplier: 1.0,
+          starLayers: 3,
+          thrustPower: 2000,
+          starDirection: 'left',
+          aiStrategy: 'predictive',
+          aiDebugLog: true,
+        }),
+      );
+      const loaded = loadSettings();
+      expect(loaded.aiDebugLog).toBe(true);
+    });
+
+    it('loadSettings defaults aiDebugLog when missing from storage', () => {
+      localStorage.setItem(
+        'asteroidSettings',
+        JSON.stringify({
+          asteroidDensity: 1.0,
+          speedMultiplier: 1.0,
+          starLayers: 3,
+          thrustPower: 2000,
+          starDirection: 'left',
+          aiStrategy: 'predictive',
+        }),
+      );
+      const loaded = loadSettings();
+      expect(loaded.aiDebugLog).toBe(false);
+    });
+
+    it('loadSettings defaults aiDebugLog when stored value is not boolean', () => {
+      localStorage.setItem(
+        'asteroidSettings',
+        JSON.stringify({
+          asteroidDensity: 1.0,
+          speedMultiplier: 1.0,
+          starLayers: 3,
+          thrustPower: 2000,
+          starDirection: 'left',
+          aiStrategy: 'predictive',
+          aiDebugLog: 'yes',
+        }),
+      );
+      const loaded = loadSettings();
+      expect(loaded.aiDebugLog).toBe(false);
+    });
+
+    it('round-trip: save then load preserves aiDebugLog', () => {
+      const s = createSettings({ aiDebugLog: true });
+      saveSettings(s);
+      const loaded = loadSettings();
+      expect(loaded.aiDebugLog).toBe(true);
+    });
+  });
+
+  describe('createSettingsUI — aiDebugLog checkbox', () => {
+    let container;
+    let settings;
+
+    beforeEach(() => {
+      container = document.createElement('div');
+      document.body.appendChild(container);
+      settings = createSettings();
+    });
+
+    it('creates a checkbox for aiDebugLog in checkboxes map', () => {
+      const ui = createSettingsUI(container, settings);
+      expect(ui.checkboxes.aiDebugLog).toBeDefined();
+    });
+
+    it('checkbox defaults to unchecked', () => {
+      const ui = createSettingsUI(container, settings);
+      expect(ui.checkboxes.aiDebugLog.checked).toBe(false);
+    });
+
+    it('checkbox reflects non-default settings on creation', () => {
+      const s = createSettings({ aiDebugLog: true });
+      const ui = createSettingsUI(container, s);
+      expect(ui.checkboxes.aiDebugLog.checked).toBe(true);
+    });
+
+    it('changing checkbox fires onChange with name and boolean value', () => {
+      const ui = createSettingsUI(container, settings);
+      const changes = [];
+      ui.onChange = (name, value) => changes.push({ name, value });
+
+      ui.checkboxes.aiDebugLog.checked = true;
+      ui.checkboxes.aiDebugLog.dispatchEvent(new Event('change'));
+
+      expect(changes.length).toBe(1);
+      expect(changes[0].name).toBe('aiDebugLog');
+      expect(changes[0].value).toBe(true);
+    });
+  });
 });

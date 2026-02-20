@@ -34,6 +34,11 @@ export const SETTINGS_CONFIG = {
     default: 'predictive',
     label: 'AI Strategy',
   },
+  aiDebugLog: {
+    type: 'boolean',
+    default: false,
+    label: 'AI Debug Log',
+  },
 };
 
 const STORAGE_KEY = 'asteroidSettings';
@@ -52,6 +57,7 @@ export function createSettings(overrides = {}) {
     starDirection:
       overrides.starDirection ?? SETTINGS_CONFIG.starDirection.default,
     aiStrategy: overrides.aiStrategy ?? SETTINGS_CONFIG.aiStrategy.default,
+    aiDebugLog: overrides.aiDebugLog ?? SETTINGS_CONFIG.aiDebugLog.default,
     panelOpen: false,
     gearVisible: true,
     gearHovered: false,
@@ -61,7 +67,7 @@ export function createSettings(overrides = {}) {
 }
 
 /**
- * Save the 3 tunable settings to localStorage.
+ * Save tunable settings to localStorage.
  */
 export function saveSettings(settings) {
   const data = {
@@ -71,6 +77,7 @@ export function saveSettings(settings) {
     thrustPower: settings.thrustPower,
     starDirection: settings.starDirection,
     aiStrategy: settings.aiStrategy,
+    aiDebugLog: settings.aiDebugLog,
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
@@ -87,6 +94,7 @@ export function loadSettings() {
     thrustPower: SETTINGS_CONFIG.thrustPower.default,
     starDirection: SETTINGS_CONFIG.starDirection.default,
     aiStrategy: SETTINGS_CONFIG.aiStrategy.default,
+    aiDebugLog: SETTINGS_CONFIG.aiDebugLog.default,
   };
 
   try {
@@ -107,7 +115,10 @@ export function loadSettings() {
       const config = SETTINGS_CONFIG[name];
       const val = parsed[name];
 
-      if (config.options) {
+      if (config.type === 'boolean') {
+        // Boolean setting (e.g. aiDebugLog)
+        result[name] = typeof val === 'boolean' ? val : defaults[name];
+      } else if (config.options) {
         // String enum setting (e.g. starDirection)
         result[name] = config.options.includes(val) ? val : defaults[name];
       } else if (typeof val === 'number' && !Number.isNaN(val)) {
@@ -205,8 +216,37 @@ export function createSettingsUI(container, settings) {
   const valueDisplays = {};
 
   const selects = {};
+  const checkboxes = {};
 
   for (const [name, config] of Object.entries(SETTINGS_CONFIG)) {
+    if (config.type === 'boolean') {
+      // Boolean setting — render as a checkbox
+      const row = document.createElement('div');
+      row.style.cssText = 'margin-bottom:20px;';
+
+      const label = document.createElement('label');
+      label.style.cssText = 'display:flex;align-items:center;cursor:pointer;';
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.checked = settings[name];
+      checkbox.style.cssText = 'margin-right:8px;';
+      checkboxes[name] = checkbox;
+
+      checkbox.addEventListener('change', () => {
+        _onChange(name, checkbox.checked);
+      });
+
+      const labelText = document.createElement('span');
+      labelText.textContent = config.label;
+
+      label.appendChild(checkbox);
+      label.appendChild(labelText);
+      row.appendChild(label);
+      panel.appendChild(row);
+      continue;
+    }
+
     if (config.options) {
       // Enum setting — render as a <select> dropdown
       const row = document.createElement('div');
@@ -301,6 +341,7 @@ export function createSettingsUI(container, settings) {
     sliders,
     valueDisplays,
     selects,
+    checkboxes,
     directionSelect: selects.starDirection,
     set onChange(fn) {
       _onChange = fn;

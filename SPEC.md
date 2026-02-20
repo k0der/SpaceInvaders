@@ -294,6 +294,7 @@ rather than a fixed direction:
 | Thrust Power         | Slider   | 1000 – 5000                       | 2000    | 50   |
 | Star Field Direction | Select   | left / right / up / down / radial | left    | —    |
 | AI Strategy          | Select   | reactive / predictive             | predictive | —  |
+| AI Debug Log         | Checkbox | on / off                          | off        | —  |
 
 - Each slider shows its **current value** as a label
 - Changes are applied **immediately** (live preview)
@@ -390,6 +391,7 @@ SpaceInvaders/
     ai-predictive.js ← predictive AI: trajectory simulation
     ai-reactive.js  ← reactive AI: pursuit, combat, obstacle avoidance
     ai.js           ← AI facade: registers strategies, re-exports for compat
+    debug.js        ← AI debug logging (console telemetry, rate-limited)
     game.js         ← game state: phases, collisions, HUD, restart
   test/             ← Vitest test files (one per module)
   dev.html          ← development entry point (ES module imports)
@@ -743,6 +745,50 @@ checks per frame. Trivial on modern hardware.
 `COLLISION_DECAY` (0.4), `DISTANCE_WEIGHT` (-8), `AIM_BONUS` (400),
 `CLOSING_SPEED_WEIGHT` (8), `FIRE_OPPORTUNITY_BONUS` (300),
 `BRAKE_PURSUIT_STEPS` (5)
+
+### 12.6 AI Debug Logging
+
+Structured telemetry output to the browser console for diagnosing AI behavior.
+Toggled via a settings checkbox (default: off). Zero performance cost when disabled
+— all logging functions are no-ops when the logger is not enabled.
+
+**Activation**:
+
+- Settings checkbox "AI Debug Log" (default off), persisted to `localStorage`
+- Also accessible via `window.aiDebug.enable()` / `window.aiDebug.disable()`
+  for quick toggling from the browser console
+
+**Score capture** (`ai-predictive.js`):
+
+- `selectBestAction` populates a module-level debug info object with all
+  candidate names, scores, and the winner name
+- `getLastDebugInfo()` exported — returns the last captured debug info
+  (or `null` if no decision has been made yet)
+
+**Debug logger** (`debug.js`):
+
+- `createDebugLogger()` — returns a logger instance with `enable()`,
+  `disable()`, `isEnabled()`, `logAIFrame(elapsed, enemy, player, debugInfo)`,
+  and `logEvent(elapsed, type, data)`
+- `logAIFrame` is rate-limited to every 0.5s, but always logs immediately
+  on action change (detects when the formatted action string differs from
+  the previous frame)
+- `logEvent` always logs immediately (for fire, collision events)
+- `fmtAction(ship)` — format helper that converts ship control flags to a
+  compact 4-character string: `T` (thrust), `L` (left), `R` (right), `B` (brake),
+  `_` for inactive. Example: `{ thrust: true, rotatingRight: true }` → `"T_R_"`
+- When disabled: all functions are no-ops (zero cost)
+
+**Log format**:
+
+- Periodic: `[AI 1.20s] dist=342 action=T___ spd=180 hdg=0.50 pos=(100,-200) | T___:3090 TL__:-3299 T_R_:-3299 ____:-1900 _L__:-3219 __R_:-3219 ___B:-1900 PUR:3261 BRK:4010`
+- Action change: `[AI 1.50s] CHANGE T___ → __RB dist=45`
+- Fire event: `[FIRE 1.60s] enemy dist=180 angle=0.08`
+
+**Main loop integration** (`main.js`):
+
+- After AI update: calls `logAIFrame` with ship states + `getLastDebugInfo()`
+- On bullet creation: calls `logEvent`
 
 ---
 

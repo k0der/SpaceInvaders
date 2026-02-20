@@ -1,5 +1,6 @@
 import { spawnEnemyPosition } from './ai.js';
 import { getStrategy } from './ai-core.js';
+import { getLastDebugInfo } from './ai-predictive.js';
 import { drawAsteroid } from './asteroid.js';
 import {
   checkBulletAsteroidCollisions,
@@ -15,6 +16,7 @@ import {
   getViewportBounds,
   resetCameraTransform,
 } from './camera.js';
+import { createDebugLogger } from './debug.js';
 import {
   applyInput,
   createInputState,
@@ -147,6 +149,21 @@ export function startApp() {
   let aiStrategy = getStrategy(settings.aiStrategy);
   let aiState = aiStrategy.createState();
   let elapsedTime = 0;
+  const debugLogger = createDebugLogger();
+  if (settings.aiDebugLog) debugLogger.enable();
+  // Expose on window for console access
+  if (typeof window !== 'undefined') {
+    window.aiDebug = {
+      enable: () => {
+        debugLogger.enable();
+        settings.aiDebugLog = true;
+      },
+      disable: () => {
+        debugLogger.disable();
+        settings.aiDebugLog = false;
+      },
+    };
+  }
 
   // Settings UI
   const ui = createSettingsUI(document.body, settings);
@@ -194,6 +211,13 @@ export function startApp() {
     if (name === 'aiStrategy') {
       aiStrategy = getStrategy(value);
       aiState = aiStrategy.createState();
+    }
+    if (name === 'aiDebugLog') {
+      if (value) {
+        debugLogger.enable();
+      } else {
+        debugLogger.disable();
+      }
     }
     saveSettings(settings);
   };
@@ -261,6 +285,14 @@ export function startApp() {
     aiStrategy.update(aiState, enemyShip, playerShip, sim.asteroids, scaledDt);
     updateShip(enemyShip, scaledDt);
 
+    // AI debug logging
+    debugLogger.logAIFrame(
+      elapsedTime,
+      enemyShip,
+      playerShip,
+      getLastDebugInfo(),
+    );
+
     // Bullet firing — player
     playerShip.fireCooldown = Math.max(playerShip.fireCooldown - scaledDt, 0);
     if (playerShip.fire && playerShip.fireCooldown <= 0 && playerShip.alive) {
@@ -277,6 +309,13 @@ export function startApp() {
         ),
       );
       playerShip.fireCooldown = FIRE_COOLDOWN;
+      const pdx = enemyShip.x - playerShip.x;
+      const pdy = enemyShip.y - playerShip.y;
+      debugLogger.logEvent(elapsedTime, 'FIRE', {
+        owner: 'player',
+        dist: Math.round(Math.sqrt(pdx * pdx + pdy * pdy)),
+        angle: Math.abs(Math.atan2(pdy, pdx) - playerShip.heading).toFixed(2),
+      });
     }
 
     // Bullet firing — enemy (AI)
@@ -295,6 +334,13 @@ export function startApp() {
         ),
       );
       enemyShip.fireCooldown = FIRE_COOLDOWN;
+      const edx = playerShip.x - enemyShip.x;
+      const edy = playerShip.y - enemyShip.y;
+      debugLogger.logEvent(elapsedTime, 'FIRE', {
+        owner: 'enemy',
+        dist: Math.round(Math.sqrt(edx * edx + edy * edy)),
+        angle: Math.abs(Math.atan2(edy, edx) - enemyShip.heading).toFixed(2),
+      });
     }
 
     updateTrail(

@@ -68,6 +68,17 @@ function resetRegistry() {
  */
 
 
+
+/** Last debug info captured by selectBestAction. */
+let _lastDebugInfo = null;
+
+/**
+ * Return the last debug info captured by selectBestAction, or null.
+ */
+function getLastDebugInfo() {
+  return _lastDebugInfo;
+}
+
 /** Number of simulation steps per candidate. */
 const SIM_STEPS = 15;
 
@@ -378,16 +389,21 @@ function selectBestAction(ship, target, asteroids) {
   const candidates = defineCandidates();
   let bestScore = -Infinity;
   let bestAction = candidates[0];
+  let bestName = '';
+  const debugCandidates = [];
 
   // Evaluate fixed-action candidates
   for (const action of candidates) {
     const clone = cloneShipForSim(ship);
     const positions = simulateTrajectory(clone, action, SIM_STEPS, SIM_DT);
     const score = scoreTrajectory(positions, target, asteroids, SIM_DT);
+    const name = fmtAction(action);
+    debugCandidates.push({ name, score });
 
     if (score > bestScore) {
       bestScore = score;
       bestAction = action;
+      bestName = name;
     }
   }
 
@@ -406,9 +422,11 @@ function selectBestAction(ship, target, asteroids) {
     asteroids,
     SIM_DT,
   );
+  debugCandidates.push({ name: 'PUR', score: pursuitScore });
   if (pursuitScore > bestScore) {
     bestScore = pursuitScore;
     bestAction = pursuit.firstAction;
+    bestName = 'PUR';
   }
 
   // Evaluate brake-pursuit candidate (brake first, then pursue).
@@ -431,11 +449,15 @@ function selectBestAction(ship, target, asteroids) {
       asteroids,
       SIM_DT,
     );
+    debugCandidates.push({ name: 'BRK', score: brakeScore });
     if (brakeScore > bestScore) {
       bestScore = brakeScore;
       bestAction = brakePursuit.firstAction;
+      bestName = 'BRK';
     }
   }
+
+  _lastDebugInfo = { candidates: debugCandidates, winner: bestName };
 
   return bestAction;
 }
@@ -1002,6 +1024,120 @@ function screenToWorld(sx, sy, camera, viewportW, viewportH) {
   return [rx + camera.x, ry + camera.y];
 }
 
+// ===== debug.js =====
+/**
+ * AI Debug Logger — structured console telemetry for diagnosing AI behavior.
+ *
+ * Toggled via settings checkbox or window.aiDebug.enable()/disable().
+ * Zero cost when disabled — all functions are no-ops.
+ */
+
+/** Rate limit interval for periodic logs (seconds). */
+const LOG_INTERVAL = 0.5;
+
+/**
+ * Format ship control flags as a compact 4-character string.
+ * T=thrust, L=left, R=right, B=brake, _=inactive.
+ */
+function fmtAction(ship) {
+  return (
+    (ship.thrust ? 'T' : '_') +
+    (ship.rotatingLeft ? 'L' : '_') +
+    (ship.rotatingRight ? 'R' : '_') +
+    (ship.braking ? 'B' : '_')
+  );
+}
+
+/**
+ * Create a debug logger instance.
+ */
+function createDebugLogger() {
+  let enabled = false;
+  let lastLogTime = -Infinity;
+  let lastAction = '';
+
+  function enable() {
+    enabled = true;
+  }
+
+  function disable() {
+    enabled = false;
+  }
+
+  function isEnabled() {
+    return enabled;
+  }
+
+  /**
+   * Log AI frame telemetry. Rate-limited to LOG_INTERVAL, but always
+   * logs immediately on action change.
+   */
+  function logAIFrame(elapsed, enemy, player, debugInfo) {
+    if (!enabled) return;
+
+    const action = fmtAction(enemy);
+    const actionChanged = action !== lastAction && lastAction !== '';
+    const timeSinceLastLog = elapsed - lastLogTime;
+
+    if (!actionChanged && timeSinceLastLog < LOG_INTERVAL && lastLogTime >= 0) {
+      return;
+    }
+
+    const dx = player.x - enemy.x;
+    const dy = player.y - enemy.y;
+    const dist = Math.round(Math.sqrt(dx * dx + dy * dy));
+    const spd = Math.round(
+      Math.sqrt(enemy.vx * enemy.vx + enemy.vy * enemy.vy),
+    );
+
+    if (actionChanged) {
+      console.log(
+        `[AI ${elapsed.toFixed(2)}s] CHANGE ${lastAction} → ${action} dist=${dist}`,
+      );
+    } else {
+      let msg = `[AI ${elapsed.toFixed(2)}s] dist=${dist} action=${action} spd=${spd} hdg=${enemy.heading.toFixed(2)} pos=(${Math.round(enemy.x)},${Math.round(enemy.y)})`;
+
+      if (debugInfo?.candidates) {
+        const scores = debugInfo.candidates
+          .map((c) => `${c.name}:${Math.round(c.score)}`)
+          .join(' ');
+        msg += ` | ${scores}`;
+      }
+
+      console.log(msg);
+    }
+
+    lastAction = action;
+    lastLogTime = elapsed;
+  }
+
+  /**
+   * Log an immediate event (fire, collision, etc.).
+   */
+  function logEvent(elapsed, type, data) {
+    if (!enabled) return;
+
+    const parts = Object.entries(data)
+      .map(([k, v]) => {
+        if (typeof v === 'number') {
+          return `${k}=${Number.isInteger(v) ? v : v.toFixed(2)}`;
+        }
+        return `${k}=${v}`;
+      })
+      .join(' ');
+
+    console.log(`[${type} ${elapsed.toFixed(2)}s] ${parts}`);
+  }
+
+  return {
+    enable,
+    disable,
+    isEnabled,
+    logAIFrame,
+    logEvent,
+  };
+}
+
 // ===== energy.js =====
 /**
  * Compute kinetic energy for a single asteroid.
@@ -1105,7 +1241,6 @@ function applyInput(inputState, ship) {
 
 
 
-
 /**
  * Calculate delta time in seconds between two timestamps (ms).
  * Caps at 0.1s to avoid spiral-of-death after tab backgrounding.
@@ -1201,6 +1336,21 @@ function startApp() {
   let aiStrategy = getStrategy(settings.aiStrategy);
   let aiState = aiStrategy.createState();
   let elapsedTime = 0;
+  const debugLogger = createDebugLogger();
+  if (settings.aiDebugLog) debugLogger.enable();
+  // Expose on window for console access
+  if (typeof window !== 'undefined') {
+    window.aiDebug = {
+      enable: () => {
+        debugLogger.enable();
+        settings.aiDebugLog = true;
+      },
+      disable: () => {
+        debugLogger.disable();
+        settings.aiDebugLog = false;
+      },
+    };
+  }
 
   // Settings UI
   const ui = createSettingsUI(document.body, settings);
@@ -1248,6 +1398,13 @@ function startApp() {
     if (name === 'aiStrategy') {
       aiStrategy = getStrategy(value);
       aiState = aiStrategy.createState();
+    }
+    if (name === 'aiDebugLog') {
+      if (value) {
+        debugLogger.enable();
+      } else {
+        debugLogger.disable();
+      }
     }
     saveSettings(settings);
   };
@@ -1315,6 +1472,14 @@ function startApp() {
     aiStrategy.update(aiState, enemyShip, playerShip, sim.asteroids, scaledDt);
     updateShip(enemyShip, scaledDt);
 
+    // AI debug logging
+    debugLogger.logAIFrame(
+      elapsedTime,
+      enemyShip,
+      playerShip,
+      getLastDebugInfo(),
+    );
+
     // Bullet firing — player
     playerShip.fireCooldown = Math.max(playerShip.fireCooldown - scaledDt, 0);
     if (playerShip.fire && playerShip.fireCooldown <= 0 && playerShip.alive) {
@@ -1331,6 +1496,13 @@ function startApp() {
         ),
       );
       playerShip.fireCooldown = FIRE_COOLDOWN;
+      const pdx = enemyShip.x - playerShip.x;
+      const pdy = enemyShip.y - playerShip.y;
+      debugLogger.logEvent(elapsedTime, 'FIRE', {
+        owner: 'player',
+        dist: Math.round(Math.sqrt(pdx * pdx + pdy * pdy)),
+        angle: Math.abs(Math.atan2(pdy, pdx) - playerShip.heading).toFixed(2),
+      });
     }
 
     // Bullet firing — enemy (AI)
@@ -1349,6 +1521,13 @@ function startApp() {
         ),
       );
       enemyShip.fireCooldown = FIRE_COOLDOWN;
+      const edx = playerShip.x - enemyShip.x;
+      const edy = playerShip.y - enemyShip.y;
+      debugLogger.logEvent(elapsedTime, 'FIRE', {
+        owner: 'enemy',
+        dist: Math.round(Math.sqrt(edx * edx + edy * edy)),
+        angle: Math.abs(Math.atan2(edy, edx) - enemyShip.heading).toFixed(2),
+      });
     }
 
     updateTrail(
@@ -1616,6 +1795,11 @@ const SETTINGS_CONFIG = {
     default: 'predictive',
     label: 'AI Strategy',
   },
+  aiDebugLog: {
+    type: 'boolean',
+    default: false,
+    label: 'AI Debug Log',
+  },
 };
 
 const STORAGE_KEY = 'asteroidSettings';
@@ -1634,6 +1818,7 @@ function createSettings(overrides = {}) {
     starDirection:
       overrides.starDirection ?? SETTINGS_CONFIG.starDirection.default,
     aiStrategy: overrides.aiStrategy ?? SETTINGS_CONFIG.aiStrategy.default,
+    aiDebugLog: overrides.aiDebugLog ?? SETTINGS_CONFIG.aiDebugLog.default,
     panelOpen: false,
     gearVisible: true,
     gearHovered: false,
@@ -1643,7 +1828,7 @@ function createSettings(overrides = {}) {
 }
 
 /**
- * Save the 3 tunable settings to localStorage.
+ * Save tunable settings to localStorage.
  */
 function saveSettings(settings) {
   const data = {
@@ -1653,6 +1838,7 @@ function saveSettings(settings) {
     thrustPower: settings.thrustPower,
     starDirection: settings.starDirection,
     aiStrategy: settings.aiStrategy,
+    aiDebugLog: settings.aiDebugLog,
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
@@ -1669,6 +1855,7 @@ function loadSettings() {
     thrustPower: SETTINGS_CONFIG.thrustPower.default,
     starDirection: SETTINGS_CONFIG.starDirection.default,
     aiStrategy: SETTINGS_CONFIG.aiStrategy.default,
+    aiDebugLog: SETTINGS_CONFIG.aiDebugLog.default,
   };
 
   try {
@@ -1689,7 +1876,10 @@ function loadSettings() {
       const config = SETTINGS_CONFIG[name];
       const val = parsed[name];
 
-      if (config.options) {
+      if (config.type === 'boolean') {
+        // Boolean setting (e.g. aiDebugLog)
+        result[name] = typeof val === 'boolean' ? val : defaults[name];
+      } else if (config.options) {
         // String enum setting (e.g. starDirection)
         result[name] = config.options.includes(val) ? val : defaults[name];
       } else if (typeof val === 'number' && !Number.isNaN(val)) {
@@ -1787,8 +1977,37 @@ function createSettingsUI(container, settings) {
   const valueDisplays = {};
 
   const selects = {};
+  const checkboxes = {};
 
   for (const [name, config] of Object.entries(SETTINGS_CONFIG)) {
+    if (config.type === 'boolean') {
+      // Boolean setting — render as a checkbox
+      const row = document.createElement('div');
+      row.style.cssText = 'margin-bottom:20px;';
+
+      const label = document.createElement('label');
+      label.style.cssText = 'display:flex;align-items:center;cursor:pointer;';
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.checked = settings[name];
+      checkbox.style.cssText = 'margin-right:8px;';
+      checkboxes[name] = checkbox;
+
+      checkbox.addEventListener('change', () => {
+        _onChange(name, checkbox.checked);
+      });
+
+      const labelText = document.createElement('span');
+      labelText.textContent = config.label;
+
+      label.appendChild(checkbox);
+      label.appendChild(labelText);
+      row.appendChild(label);
+      panel.appendChild(row);
+      continue;
+    }
+
     if (config.options) {
       // Enum setting — render as a <select> dropdown
       const row = document.createElement('div');
@@ -1883,6 +2102,7 @@ function createSettingsUI(container, settings) {
     sliders,
     valueDisplays,
     selects,
+    checkboxes,
     directionSelect: selects.starDirection,
     set onChange(fn) {
       _onChange = fn;

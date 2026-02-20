@@ -648,6 +648,56 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 
 ---
 
+## Increment 26c: AI Debug Logging
+
+**Goal**: Structured console telemetry for diagnosing AI behavior. Toggled via a settings checkbox (default: off). Zero cost when disabled.
+
+**New modules**: `src/debug.js`, `test/debug.test.js`
+**Modify**: `src/ai-predictive.js`, `src/settings.js`, `src/main.js`
+
+**Acceptance Criteria**:
+
+### Score Capture (`ai-predictive.js`)
+- [ ] `selectBestAction` populates a module-level debug info object with all candidate names, scores, and winner name
+- [ ] `getLastDebugInfo()` exported — returns last captured debug info (or `null`)
+
+### Debug Logger (`debug.js`)
+- [ ] `createDebugLogger()` returns a logger instance with `enable()`, `disable()`, `isEnabled()`, `logAIFrame(...)`, `logEvent(...)`
+- [ ] `fmtAction(ship)` exported — converts control flags to compact 4-char string (e.g. `T_R_`)
+- [ ] `logAIFrame(elapsed, enemy, player, debugInfo)` — rate-limited to every 0.5s
+- [ ] Action change detection bypasses rate limit (logs immediately when action differs from previous)
+- [ ] `logEvent(elapsed, type, data)` — logs immediately (fire, collision)
+- [ ] When disabled: all functions are no-ops (zero cost)
+
+### Settings Integration
+- [ ] `SETTINGS_CONFIG` includes `aiDebugLog` checkbox, default `false`
+- [ ] Setting persisted to `localStorage`
+- [ ] Toggling checkbox enables/disables debug logging in real-time
+- [ ] `createSettingsUI` renders checkboxes for boolean settings
+- [ ] Also accessible via `window.aiDebug.enable()` / `window.aiDebug.disable()`
+
+### Main Loop Integration (`main.js`)
+- [ ] After AI update: calls `logAIFrame` with ship states + `getLastDebugInfo()`
+- [ ] On bullet creation: calls `logEvent`
+
+### Log Format
+- [ ] Periodic: `[AI 1.20s] dist=342 action=T___ spd=180 hdg=0.50 pos=(100,-200) | T___:3090 TL__:-3299 ...`
+- [ ] Change: `[AI 1.50s] CHANGE T___ → __RB dist=45`
+- [ ] Fire: `[FIRE 1.60s] enemy dist=180 angle=0.08`
+
+### Tests (`test/debug.test.js`)
+- [ ] enable/disable toggling
+- [ ] rate limiting (0.5s)
+- [ ] action change detection bypasses rate limit
+- [ ] fmtAction format
+- [ ] logEvent logs immediately
+- [ ] getLastDebugInfo from ai-predictive
+
+### Visible
+- [ ] **Visible**: Toggle "AI Debug Log" checkbox in settings. Open browser console. See structured AI telemetry: periodic state dumps, action changes, fire events. Disable checkbox → logs stop.
+
+---
+
 ## Increment 27: Bullet-Ship Collision (One Kill)
 
 **Goal**: Bullets destroy ships. One bullet = one kill.

@@ -8,7 +8,18 @@
  */
 
 import { FIRE_ANGLE, MAX_FIRE_RANGE } from './ai-reactive.js';
+import { fmtAction } from './debug.js';
 import { SHIP_SIZE, updateShip } from './ship.js';
+
+/** Last debug info captured by selectBestAction. */
+let _lastDebugInfo = null;
+
+/**
+ * Return the last debug info captured by selectBestAction, or null.
+ */
+export function getLastDebugInfo() {
+  return _lastDebugInfo;
+}
 
 /** Number of simulation steps per candidate. */
 export const SIM_STEPS = 15;
@@ -320,16 +331,21 @@ export function selectBestAction(ship, target, asteroids) {
   const candidates = defineCandidates();
   let bestScore = -Infinity;
   let bestAction = candidates[0];
+  let bestName = '';
+  const debugCandidates = [];
 
   // Evaluate fixed-action candidates
   for (const action of candidates) {
     const clone = cloneShipForSim(ship);
     const positions = simulateTrajectory(clone, action, SIM_STEPS, SIM_DT);
     const score = scoreTrajectory(positions, target, asteroids, SIM_DT);
+    const name = fmtAction(action);
+    debugCandidates.push({ name, score });
 
     if (score > bestScore) {
       bestScore = score;
       bestAction = action;
+      bestName = name;
     }
   }
 
@@ -348,9 +364,11 @@ export function selectBestAction(ship, target, asteroids) {
     asteroids,
     SIM_DT,
   );
+  debugCandidates.push({ name: 'PUR', score: pursuitScore });
   if (pursuitScore > bestScore) {
     bestScore = pursuitScore;
     bestAction = pursuit.firstAction;
+    bestName = 'PUR';
   }
 
   // Evaluate brake-pursuit candidate (brake first, then pursue).
@@ -373,11 +391,15 @@ export function selectBestAction(ship, target, asteroids) {
       asteroids,
       SIM_DT,
     );
+    debugCandidates.push({ name: 'BRK', score: brakeScore });
     if (brakeScore > bestScore) {
       bestScore = brakeScore;
       bestAction = brakePursuit.firstAction;
+      bestName = 'BRK';
     }
   }
+
+  _lastDebugInfo = { candidates: debugCandidates, winner: bestName };
 
   return bestAction;
 }
