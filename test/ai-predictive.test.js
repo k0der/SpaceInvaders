@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   AIM_BONUS,
+  BRAKE_PURSUIT_STEPS,
   CLOSING_SPEED_WEIGHT,
   COLLISION_BASE_PENALTY,
   COLLISION_DECAY,
@@ -14,6 +15,7 @@ import {
   SIM_STEPS,
   scoreTrajectory,
   selectBestAction,
+  simulatePursuitTrajectory,
   simulateTrajectory,
 } from '../src/ai-predictive.js';
 import { createShip } from '../src/ship.js';
@@ -31,8 +33,8 @@ describe('ai-predictive: Constants', () => {
     expect(COLLISION_BASE_PENALTY).toBe(-10000);
   });
 
-  it('exports COLLISION_DECAY as 0.8', () => {
-    expect(COLLISION_DECAY).toBeCloseTo(0.8, 2);
+  it('exports COLLISION_DECAY as 0.4', () => {
+    expect(COLLISION_DECAY).toBeCloseTo(0.4, 2);
   });
 
   it('exports DISTANCE_WEIGHT as -8', () => {
@@ -375,9 +377,9 @@ describe('ai-predictive: scoreTrajectory — time-decayed collision', () => {
       COLLISION_BASE_PENALTY * Math.exp(-COLLISION_DECAY * 15);
 
     expect(step1Penalty).toBeLessThan(step15Penalty); // more negative = worse
-    // With 0.8 decay, step 1 is ~2247 and step 15 is ~0.03 — massive ratio
+    // With 0.4 decay, step 1 is ~6703 and step 15 is ~0.025 — massive ratio
     expect(Math.abs(step1Penalty)).toBeGreaterThan(
-      Math.abs(step15Penalty) * 1000,
+      Math.abs(step15Penalty) * 100,
     );
   });
 });
@@ -590,6 +592,84 @@ describe('ai-predictive: scoreTrajectory — fire opportunity bonus', () => {
     // We just verify no crash and finite scores.
     expect(Number.isFinite(farScore)).toBe(true);
     expect(Number.isFinite(perpScore)).toBe(true);
+  });
+});
+
+describe('ai-predictive: simulatePursuitTrajectory', () => {
+  it('returns positions and firstAction', () => {
+    const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+    const clone = cloneShipForSim(ship);
+    const target = { x: 500, y: 0, vx: 0, vy: 0 };
+
+    const result = simulatePursuitTrajectory(clone, target, 5, 0.1);
+
+    expect(result.positions.length).toBe(6);
+    expect(result.firstAction).not.toBeNull();
+    expect(typeof result.firstAction.thrust).toBe('boolean');
+  });
+
+  it('turns toward target when facing away', () => {
+    const ship = createShip({ x: 0, y: 0, heading: Math.PI, owner: 'enemy' });
+    const clone = cloneShipForSim(ship);
+    const target = { x: 500, y: 0, vx: 0, vy: 0 };
+
+    const result = simulatePursuitTrajectory(clone, target, 10, 0.1);
+
+    // First action should rotate toward target (target is to the right, heading is left)
+    expect(
+      result.firstAction.rotatingLeft || result.firstAction.rotatingRight,
+    ).toBe(true);
+  });
+
+  it('thrusts when facing target', () => {
+    const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+    const clone = cloneShipForSim(ship);
+    const target = { x: 500, y: 0, vx: 0, vy: 0 };
+
+    const result = simulatePursuitTrajectory(clone, target, 5, 0.1);
+
+    // Heading 0, target ahead — should thrust
+    expect(result.firstAction.thrust).toBe(true);
+  });
+
+  it('brakes during brakeSteps before pursuing', () => {
+    const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+    ship.vx = 300;
+    const clone = cloneShipForSim(ship);
+    const target = { x: -500, y: 0, vx: 0, vy: 0 };
+
+    const result = simulatePursuitTrajectory(
+      clone,
+      target,
+      10,
+      0.1,
+      BRAKE_PURSUIT_STEPS,
+    );
+
+    // First action should brake (target behind, brakeSteps > 0)
+    expect(result.firstAction.braking).toBe(true);
+    expect(result.firstAction.thrust).toBe(false);
+  });
+});
+
+describe('ai-predictive: selectBestAction — overshoot recovery', () => {
+  it('turns toward target after overshooting (pursuit candidate)', () => {
+    // Ship has overshot: past the target, heading and velocity pointing away
+    const ship = createShip({
+      x: 200,
+      y: 0,
+      heading: 0,
+      owner: 'enemy',
+    });
+    ship.vx = 300;
+    const target = createShip({ x: 0, y: 0, heading: 0, owner: 'player' });
+
+    const action = selectBestAction(ship, target, []);
+
+    // AI must NOT continue straight away — it should turn or brake
+    const fleeing =
+      action.thrust && !action.rotatingLeft && !action.rotatingRight;
+    expect(fleeing).toBe(false);
   });
 });
 

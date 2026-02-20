@@ -1,8 +1,9 @@
 /**
  * Predictive AI — trajectory simulation strategy.
  *
- * Each frame, generates 7 candidate actions, simulates each forward ~1.5s
- * using real ship physics, scores the outcomes, and picks the best action.
+ * Each frame, generates 7 fixed-action candidates plus 2 dynamic pursuit
+ * candidates, simulates each forward ~1.5s using real ship physics, scores
+ * the outcomes, and picks the best action.
  * Firing is a separate snap decision based on current aim geometry.
  */
 
@@ -19,7 +20,19 @@ export const SIM_DT = 0.1;
 export const COLLISION_BASE_PENALTY = -10000;
 
 /** Exponential decay rate for collision penalty per step. */
-export const COLLISION_DECAY = 0.8;
+export const COLLISION_DECAY = 0.4;
+
+/** Number of brake steps before pursuit in the brake-pursuit candidate. */
+export const BRAKE_PURSUIT_STEPS = 5;
+
+/** Rotation deadzone for pursuit candidates (rad). */
+const PURSUIT_DEADZONE = 0.05;
+
+/** Thrust angle for pursuit candidates (rad) — thrust when facing within this. */
+const PURSUIT_THRUST_ANGLE = Math.PI / 3;
+
+/** Speed threshold for pursuit braking. */
+const PURSUIT_BRAKE_SPEED = 50;
 
 /** Weight applied to distance-to-target (negative = closer is better). */
 export const DISTANCE_WEIGHT = -8;
@@ -123,9 +136,9 @@ export function simulateTrajectory(clone, action, steps, dt) {
  * Score a simulated trajectory based on:
  * - Time-decayed collision penalty (first collision only — ship would be dead)
  * - Closest approach to target across trajectory (lower = better)
- * - Aim bonus for pointing toward target at closest approach
- * - Closing velocity bonus at closest approach (reward approaching the target)
- * - Fire opportunity bonus for steps with viable firing solutions
+ * - Average aim bonus across all steps (avoids crossover artifact at overshoot)
+ * - Approach rate bonus (net distance closed, immune to overshoot terror)
+ * - Fire opportunity bonus for steps with viable firing solutions (proximity-scaled)
  */
 export function scoreTrajectory(positions, target, asteroids, simDt) {
   let score = 0;
@@ -153,8 +166,6 @@ export function scoreTrajectory(positions, target, asteroids, simDt) {
 
   // Find the closest approach to the predicted target across the trajectory
   let minDist = Infinity;
-  let bestPos = positions[positions.length - 1];
-  let bestT = (positions.length - 1) * simDt;
   for (let i = 1; i < positions.length; i++) {
     const t = i * simDt;
     const predX = target.x + target.vx * t;
@@ -164,42 +175,55 @@ export function scoreTrajectory(positions, target, asteroids, simDt) {
     const d = Math.sqrt(ddx * ddx + ddy * ddy);
     if (d < minDist) {
       minDist = d;
-      bestPos = positions[i];
-      bestT = t;
     }
   }
   score += DISTANCE_WEIGHT * minDist;
 
-  // Aim bonus: how well is the ship pointed at the target at closest approach?
-  const targetPredX = target.x + target.vx * bestT;
-  const targetPredY = target.y + target.vy * bestT;
-  const angleToTarget = Math.atan2(
-    targetPredY - bestPos.y,
-    targetPredX - bestPos.x,
-  );
-  let angleDiff = angleToTarget - bestPos.heading;
-  while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
-  while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
-  score += AIM_BONUS * Math.cos(angleDiff);
+  // Aim bonus: average alignment across all trajectory steps.
+  // Averaging avoids the "crossover artifact" where a ship passing through
+  // the target gets a negative aim reading at the single crossover point,
+  // despite being well-aimed for most of the trajectory.
+  let aimSum = 0;
+  for (let i = 1; i < positions.length; i++) {
+    const t = i * simDt;
+    const predX = target.x + target.vx * t;
+    const predY = target.y + target.vy * t;
+    const angleToTarget = Math.atan2(
+      predY - positions[i].y,
+      predX - positions[i].x,
+    );
+    let angleDiff = angleToTarget - positions[i].heading;
+    while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+    while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+    aimSum += Math.cos(angleDiff);
+  }
+  score += AIM_BONUS * (aimSum / (positions.length - 1));
 
-  // Closing velocity bonus at closest approach point.
-  // Using bestPos avoids "overshoot terror": when the AI would fly past
-  // the target, the final-step velocity points away, causing a massive
-  // penalty that makes the AI turn perpendicular. At the closest approach,
-  // the closing speed naturally reflects whether the AI is still converging.
-  const toTargetX = targetPredX - bestPos.x;
-  const toTargetY = targetPredY - bestPos.y;
-  const toTargetDist = Math.sqrt(toTargetX * toTargetX + toTargetY * toTargetY);
-  if (toTargetDist > 0) {
-    const dirX = toTargetX / toTargetDist;
-    const dirY = toTargetY / toTargetDist;
-    const closingSpeed = bestPos.vx * dirX + bestPos.vy * dirY;
-    score += CLOSING_SPEED_WEIGHT * closingSpeed;
+  // Approach rate: reward net distance closed over the simulation.
+  // Uses (initialDist - finalDist) / simTime instead of instantaneous velocity
+  // at a single point, avoiding "overshoot terror" where passing through the
+  // target produces a massive negative closing speed.
+  const initDx = positions[0].x - target.x;
+  const initDy = positions[0].y - target.y;
+  const initialDist = Math.sqrt(initDx * initDx + initDy * initDy);
+
+  const lastIdx = positions.length - 1;
+  const lastT = lastIdx * simDt;
+  const finalTargetX = target.x + target.vx * lastT;
+  const finalTargetY = target.y + target.vy * lastT;
+  const finDx = positions[lastIdx].x - finalTargetX;
+  const finDy = positions[lastIdx].y - finalTargetY;
+  const finalDist = Math.sqrt(finDx * finDx + finDy * finDy);
+
+  const simTime = simDt * lastIdx;
+  if (simTime > 0) {
+    score += (CLOSING_SPEED_WEIGHT * (initialDist - finalDist)) / simTime;
   }
 
   // Fire opportunity bonus: count steps with a viable firing solution
   // (aimed within FIRE_ANGLE and within MAX_FIRE_RANGE of predicted target).
-  // This breaks circular orbits by rewarding trajectories that create shots.
+  // Scaled by proximity — closer shots are worth more, breaking orbits
+  // while not rewarding standing still at max range.
   for (let i = 1; i < positions.length; i++) {
     const t = i * simDt;
     const predX = target.x + target.vx * t;
@@ -213,11 +237,80 @@ export function scoreTrajectory(positions, target, asteroids, simDt) {
     while (fireDiff > Math.PI) fireDiff -= 2 * Math.PI;
     while (fireDiff < -Math.PI) fireDiff += 2 * Math.PI;
     if (Math.abs(fireDiff) < FIRE_ANGLE) {
-      score += FIRE_OPPORTUNITY_BONUS;
+      score += FIRE_OPPORTUNITY_BONUS * (1 - fDist / MAX_FIRE_RANGE);
     }
   }
 
   return score;
+}
+
+/**
+ * Simulate a dynamic pursuit trajectory where the ship adapts each step:
+ * rotate toward the predicted target, thrust when facing it, brake otherwise.
+ * Optionally brakes for `brakeSteps` before engaging pursuit.
+ *
+ * Returns { positions, firstAction } where firstAction is the action at step 0.
+ */
+export function simulatePursuitTrajectory(
+  clone,
+  target,
+  steps,
+  dt,
+  brakeSteps = 0,
+) {
+  const positions = [
+    {
+      x: clone.x,
+      y: clone.y,
+      heading: clone.heading,
+      vx: clone.vx,
+      vy: clone.vy,
+    },
+  ];
+  let firstAction = null;
+
+  for (let i = 0; i < steps; i++) {
+    const t = (i + 1) * dt;
+    const predX = target.x + target.vx * t;
+    const predY = target.y + target.vy * t;
+    const dx = predX - clone.x;
+    const dy = predY - clone.y;
+    const headingDiff = normalizeAngle(Math.atan2(dy, dx) - clone.heading);
+    const speed = Math.sqrt(clone.vx * clone.vx + clone.vy * clone.vy);
+
+    if (i < brakeSteps) {
+      clone.thrust = false;
+      clone.braking = speed > 10;
+      clone.rotatingLeft = headingDiff < -PURSUIT_DEADZONE;
+      clone.rotatingRight = headingDiff > PURSUIT_DEADZONE;
+    } else {
+      const facingTarget = Math.abs(headingDiff) < PURSUIT_THRUST_ANGLE;
+      clone.thrust = facingTarget;
+      clone.braking = !facingTarget && speed > PURSUIT_BRAKE_SPEED;
+      clone.rotatingLeft = headingDiff < -PURSUIT_DEADZONE;
+      clone.rotatingRight = headingDiff > PURSUIT_DEADZONE;
+    }
+
+    if (i === 0) {
+      firstAction = {
+        thrust: clone.thrust,
+        rotatingLeft: clone.rotatingLeft,
+        rotatingRight: clone.rotatingRight,
+        braking: clone.braking,
+      };
+    }
+
+    updateShip(clone, dt);
+    positions.push({
+      x: clone.x,
+      y: clone.y,
+      heading: clone.heading,
+      vx: clone.vx,
+      vy: clone.vy,
+    });
+  }
+
+  return { positions, firstAction };
 }
 
 /**
@@ -228,6 +321,7 @@ export function selectBestAction(ship, target, asteroids) {
   let bestScore = -Infinity;
   let bestAction = candidates[0];
 
+  // Evaluate fixed-action candidates
   for (const action of candidates) {
     const clone = cloneShipForSim(ship);
     const positions = simulateTrajectory(clone, action, SIM_STEPS, SIM_DT);
@@ -236,6 +330,52 @@ export function selectBestAction(ship, target, asteroids) {
     if (score > bestScore) {
       bestScore = score;
       bestAction = action;
+    }
+  }
+
+  // Evaluate dynamic pursuit candidate (rotate toward target, thrust when facing)
+  const pursuitClone = cloneShipForSim(ship);
+  const pursuit = simulatePursuitTrajectory(
+    pursuitClone,
+    target,
+    SIM_STEPS,
+    SIM_DT,
+    0,
+  );
+  const pursuitScore = scoreTrajectory(
+    pursuit.positions,
+    target,
+    asteroids,
+    SIM_DT,
+  );
+  if (pursuitScore > bestScore) {
+    bestScore = pursuitScore;
+    bestAction = pursuit.firstAction;
+  }
+
+  // Evaluate brake-pursuit candidate (brake first, then pursue).
+  // Only useful when ship has significant velocity — otherwise the brake phase
+  // does nothing and the trajectory degenerates into delayed pursuit, producing
+  // a misleading firstAction (coast) that the AI would repeat every frame.
+  const shipSpeed = Math.sqrt(ship.vx * ship.vx + ship.vy * ship.vy);
+  if (shipSpeed > PURSUIT_BRAKE_SPEED) {
+    const brakeClone = cloneShipForSim(ship);
+    const brakePursuit = simulatePursuitTrajectory(
+      brakeClone,
+      target,
+      SIM_STEPS,
+      SIM_DT,
+      BRAKE_PURSUIT_STEPS,
+    );
+    const brakeScore = scoreTrajectory(
+      brakePursuit.positions,
+      target,
+      asteroids,
+      SIM_DT,
+    );
+    if (brakeScore > bestScore) {
+      bestScore = brakeScore;
+      bestAction = brakePursuit.firstAction;
     }
   }
 
