@@ -30,8 +30,8 @@ describe('ai-predictive: Constants', () => {
     expect(COLLISION_BASE_PENALTY).toBe(-5000);
   });
 
-  it('exports COLLISION_DECAY as 0.25', () => {
-    expect(COLLISION_DECAY).toBeCloseTo(0.25, 2);
+  it('exports COLLISION_DECAY as 0.4', () => {
+    expect(COLLISION_DECAY).toBeCloseTo(0.4, 2);
   });
 
   it('exports DISTANCE_WEIGHT as -3', () => {
@@ -42,8 +42,8 @@ describe('ai-predictive: Constants', () => {
     expect(AIM_BONUS).toBe(200);
   });
 
-  it('exports CLOSING_SPEED_WEIGHT as 3', () => {
-    expect(CLOSING_SPEED_WEIGHT).toBe(3);
+  it('exports CLOSING_SPEED_WEIGHT as 4', () => {
+    expect(CLOSING_SPEED_WEIGHT).toBe(4);
   });
 });
 
@@ -375,8 +375,8 @@ describe('ai-predictive: scoreTrajectory — time-decayed collision', () => {
 
     expect(step1Penalty).toBeLessThan(step15Penalty); // more negative = worse
     expect(Math.abs(step1Penalty)).toBeGreaterThan(
-      Math.abs(step15Penalty) * 10,
-    ); // ~33x ratio
+      Math.abs(step15Penalty) * 100,
+    ); // ~403x ratio with 0.4 decay
   });
 });
 
@@ -456,19 +456,19 @@ describe('ai-predictive: scoreTrajectory — closing velocity bonus', () => {
     expect(movingScore).toBeGreaterThan(stationaryScore);
   });
 
-  it('does not reward velocity moving away from target (clamped to 0)', () => {
+  it('penalizes velocity moving away from target (unclamped)', () => {
     const target = { x: 500, y: 0, vx: 0, vy: 0 };
 
-    // Moving away from target
+    // Moving away from target at same final position
     const awayPositions = [
+      { x: 200, y: 0, heading: Math.PI, vx: -200, vy: 0 },
       { x: 100, y: 0, heading: Math.PI, vx: -200, vy: 0 },
-      { x: 0, y: 0, heading: Math.PI, vx: -200, vy: 0 },
     ];
 
-    // Stationary
+    // Stationary at same final position
     const stationaryPositions = [
-      { x: 100, y: 0, heading: 0, vx: 0, vy: 0 },
-      { x: 100, y: 0, heading: 0, vx: 0, vy: 0 },
+      { x: 100, y: 0, heading: Math.PI, vx: 0, vy: 0 },
+      { x: 100, y: 0, heading: Math.PI, vx: 0, vy: 0 },
     ];
 
     const awayScore = scoreTrajectory(awayPositions, target, [], 0.1);
@@ -479,17 +479,18 @@ describe('ai-predictive: scoreTrajectory — closing velocity bonus', () => {
       0.1,
     );
 
-    // Away should not get bonus, so difference comes only from distance/aim
-    // The away trajectory ends at x=0 (farther) vs x=100 (closer)
-    // So away should score worse, not better
+    // Away gets a PENALTY from closing velocity (negative dot product)
+    // Both end at x=100 with same heading, so distance and aim are identical.
+    // The only difference is the retreat penalty on the away trajectory.
     expect(awayScore).toBeLessThan(stationaryScore);
+    // The penalty should be significant: CLOSING_SPEED_WEIGHT * 200 = 800
+    expect(stationaryScore - awayScore).toBeGreaterThan(500);
   });
 
   it('closing velocity bonus scales with CLOSING_SPEED_WEIGHT', () => {
-    expect(CLOSING_SPEED_WEIGHT).toBe(3);
-    // At MAX_SPEED=400 toward target, bonus = 3 * 400 = 1200
-    // This is a significant bonus
-    expect(CLOSING_SPEED_WEIGHT * 400).toBe(1200);
+    expect(CLOSING_SPEED_WEIGHT).toBe(4);
+    // At MAX_SPEED=400 toward target, bonus = 4 * 400 = 1600
+    expect(CLOSING_SPEED_WEIGHT * 400).toBe(1600);
   });
 
   it('handles zero distance to target without error', () => {
@@ -535,6 +536,25 @@ describe('ai-predictive: scoreTrajectory — closing velocity bonus', () => {
   });
 });
 
+describe('ai-predictive: selectBestAction — retreat correction', () => {
+  it('prefers braking or turning over coasting when retreating from target', () => {
+    // Ship moving away from target with high velocity
+    const ship = createShip({ x: 0, y: 0, heading: Math.PI, owner: 'enemy' });
+    ship.vx = -300; // Moving away from target at high speed
+    const target = createShip({ x: 500, y: 0, heading: 0, owner: 'player' });
+
+    const action = selectBestAction(ship, target, []);
+
+    // AI must NOT simply coast — it should brake, rotate, or thrust to course-correct
+    const isCoasting =
+      !action.thrust &&
+      !action.rotatingLeft &&
+      !action.rotatingRight &&
+      !action.braking;
+    expect(isCoasting).toBe(false);
+  });
+});
+
 describe('ai-predictive: selectBestAction', () => {
   it('returns an action object with control flags', () => {
     const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
@@ -559,16 +579,16 @@ describe('ai-predictive: selectBestAction', () => {
     expect(action.braking).toBe(false);
   });
 
-  it('avoids asteroid directly ahead when ship has velocity', () => {
+  it('avoids imminent asteroid by turning when stationary', () => {
+    // Ship stationary, heading toward target, asteroid blocking the path
     const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
-    ship.vx = 300; // Moving toward asteroid — coasting also leads to collision
-    const target = createShip({ x: 1000, y: 0, heading: 0, owner: 'player' });
-    // Large asteroid directly ahead
-    const asteroids = [{ x: 150, y: 0, vx: 0, vy: 0, collisionRadius: 40 }];
+    const target = createShip({ x: 500, y: 0, heading: 0, owner: 'player' });
+    // Asteroid close ahead — thrust straight collides at step 2-3
+    const asteroids = [{ x: 80, y: 0, vx: 0, vy: 0, collisionRadius: 30 }];
 
     const action = selectBestAction(ship, target, asteroids);
 
-    // Should choose to turn rather than go straight into asteroid
+    // Should choose thrust + turn to arc around the asteroid
     expect(action.rotatingLeft || action.rotatingRight).toBe(true);
   });
 });

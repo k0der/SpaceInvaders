@@ -77,7 +77,7 @@ const SIM_DT = 0.1;
 const COLLISION_BASE_PENALTY = -5000;
 
 /** Exponential decay rate for collision penalty per step. */
-const COLLISION_DECAY = 0.25;
+const COLLISION_DECAY = 0.4;
 
 /** Weight applied to distance-to-target (negative = closer is better). */
 const DISTANCE_WEIGHT = -3;
@@ -86,7 +86,7 @@ const DISTANCE_WEIGHT = -3;
 const AIM_BONUS = 200;
 
 /** Weight for closing speed bonus (dot of velocity toward target). */
-const CLOSING_SPEED_WEIGHT = 3;
+const CLOSING_SPEED_WEIGHT = 4;
 
 /**
  * Clone only the physics-relevant fields of a ship for simulation.
@@ -248,7 +248,7 @@ function scoreTrajectory(positions, target, asteroids, simDt) {
     const dirX = toTargetX / toTargetDist;
     const dirY = toTargetY / toTargetDist;
     const closingSpeed = finalPos.vx * dirX + finalPos.vy * dirY;
-    score += CLOSING_SPEED_WEIGHT * Math.max(closingSpeed, 0);
+    score += CLOSING_SPEED_WEIGHT * closingSpeed;
   }
 
   return score;
