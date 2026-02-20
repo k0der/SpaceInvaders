@@ -15,14 +15,20 @@ export const SIM_STEPS = 15;
 /** Time step for each simulation step (seconds). */
 export const SIM_DT = 0.1;
 
-/** Score penalty for a collision during simulation. */
-export const COLLISION_PENALTY = -10000;
+/** Base penalty for collision (decayed by step index). */
+export const COLLISION_BASE_PENALTY = -5000;
+
+/** Exponential decay rate for collision penalty per step. */
+export const COLLISION_DECAY = 0.25;
 
 /** Weight applied to distance-to-target (negative = closer is better). */
-export const DISTANCE_WEIGHT = -1;
+export const DISTANCE_WEIGHT = -3;
 
 /** Bonus for aiming toward target at end of trajectory. */
-export const AIM_BONUS = 500;
+export const AIM_BONUS = 200;
+
+/** Weight for closing speed bonus (dot of velocity toward target). */
+export const CLOSING_SPEED_WEIGHT = 3;
 
 /**
  * Clone only the physics-relevant fields of a ship for simulation.
@@ -81,7 +87,15 @@ export function defineCandidates() {
  * Returns an array of positions (length = steps + 1, including the initial position).
  */
 export function simulateTrajectory(clone, action, steps, dt) {
-  const positions = [{ x: clone.x, y: clone.y, heading: clone.heading }];
+  const positions = [
+    {
+      x: clone.x,
+      y: clone.y,
+      heading: clone.heading,
+      vx: clone.vx,
+      vy: clone.vy,
+    },
+  ];
 
   clone.thrust = action.thrust;
   clone.rotatingLeft = action.rotatingLeft;
@@ -90,7 +104,13 @@ export function simulateTrajectory(clone, action, steps, dt) {
 
   for (let i = 0; i < steps; i++) {
     updateShip(clone, dt);
-    positions.push({ x: clone.x, y: clone.y, heading: clone.heading });
+    positions.push({
+      x: clone.x,
+      y: clone.y,
+      heading: clone.heading,
+      vx: clone.vx,
+      vy: clone.vy,
+    });
   }
 
   return positions;
@@ -98,16 +118,18 @@ export function simulateTrajectory(clone, action, steps, dt) {
 
 /**
  * Score a simulated trajectory based on:
- * - Collision with asteroids (huge penalty)
+ * - Time-decayed collision penalty (first collision only — ship would be dead)
  * - Closest approach to target across trajectory (lower = better)
  * - Aim bonus for pointing toward target at closest approach
+ * - Closing velocity bonus at final step (reward approaching the target)
  */
 export function scoreTrajectory(positions, target, asteroids, simDt) {
   let score = 0;
 
-  // Check for collisions at each step
+  // Check for first collision only (ship dies on first hit, later ones are moot)
   const shipRadius = SHIP_SIZE;
-  for (let i = 1; i < positions.length; i++) {
+  let collided = false;
+  for (let i = 1; i < positions.length && !collided; i++) {
     const t = i * simDt;
     const pos = positions[i];
 
@@ -118,7 +140,9 @@ export function scoreTrajectory(positions, target, asteroids, simDt) {
       const dist = Math.sqrt(dx * dx + dy * dy);
 
       if (dist < predicted.radius + shipRadius) {
-        score += COLLISION_PENALTY;
+        score += COLLISION_BASE_PENALTY * Math.exp(-COLLISION_DECAY * i);
+        collided = true;
+        break;
       }
     }
   }
@@ -152,9 +176,22 @@ export function scoreTrajectory(positions, target, asteroids, simDt) {
   let angleDiff = angleToTarget - bestPos.heading;
   while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
   while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
-
-  // cos(angleDiff) = 1 when pointed at target, -1 when pointed away
   score += AIM_BONUS * Math.cos(angleDiff);
+
+  // Closing velocity bonus: reward ship velocity directed toward target
+  const finalPos = positions[positions.length - 1];
+  const finalT = (positions.length - 1) * simDt;
+  const tgtX = target.x + target.vx * finalT;
+  const tgtY = target.y + target.vy * finalT;
+  const toTargetX = tgtX - finalPos.x;
+  const toTargetY = tgtY - finalPos.y;
+  const toTargetDist = Math.sqrt(toTargetX * toTargetX + toTargetY * toTargetY);
+  if (toTargetDist > 0) {
+    const dirX = toTargetX / toTargetDist;
+    const dirY = toTargetY / toTargetDist;
+    const closingSpeed = finalPos.vx * dirX + finalPos.vy * dirY;
+    score += CLOSING_SPEED_WEIGHT * Math.max(closingSpeed, 0);
+  }
 
   return score;
 }

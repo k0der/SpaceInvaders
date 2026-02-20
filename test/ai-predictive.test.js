@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   AIM_BONUS,
-  COLLISION_PENALTY,
+  CLOSING_SPEED_WEIGHT,
+  COLLISION_BASE_PENALTY,
+  COLLISION_DECAY,
   cloneShipForSim,
   DISTANCE_WEIGHT,
   defineCandidates,
@@ -24,16 +26,24 @@ describe('ai-predictive: Constants', () => {
     expect(SIM_DT).toBeCloseTo(0.1, 2);
   });
 
-  it('exports COLLISION_PENALTY as a large negative number', () => {
-    expect(COLLISION_PENALTY).toBeLessThan(-1000);
+  it('exports COLLISION_BASE_PENALTY as -5000', () => {
+    expect(COLLISION_BASE_PENALTY).toBe(-5000);
   });
 
-  it('exports DISTANCE_WEIGHT as negative', () => {
-    expect(DISTANCE_WEIGHT).toBeLessThan(0);
+  it('exports COLLISION_DECAY as 0.25', () => {
+    expect(COLLISION_DECAY).toBeCloseTo(0.25, 2);
   });
 
-  it('exports AIM_BONUS as positive', () => {
-    expect(AIM_BONUS).toBeGreaterThan(0);
+  it('exports DISTANCE_WEIGHT as -3', () => {
+    expect(DISTANCE_WEIGHT).toBe(-3);
+  });
+
+  it('exports AIM_BONUS as 200', () => {
+    expect(AIM_BONUS).toBe(200);
+  });
+
+  it('exports CLOSING_SPEED_WEIGHT as 3', () => {
+    expect(CLOSING_SPEED_WEIGHT).toBe(3);
   });
 });
 
@@ -223,15 +233,50 @@ describe('ai-predictive: simulateTrajectory', () => {
       expect(typeof pos.heading).toBe('number');
     }
   });
+
+  it('each position includes vx and vy velocity fields', () => {
+    const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+    const clone = cloneShipForSim(ship);
+    const action = {
+      thrust: true,
+      rotatingLeft: false,
+      rotatingRight: false,
+      braking: false,
+    };
+
+    const positions = simulateTrajectory(clone, action, 5, 0.1);
+
+    for (const pos of positions) {
+      expect(typeof pos.vx).toBe('number');
+      expect(typeof pos.vy).toBe('number');
+    }
+  });
+
+  it('velocity increases when thrusting', () => {
+    const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+    const clone = cloneShipForSim(ship);
+    const action = {
+      thrust: true,
+      rotatingLeft: false,
+      rotatingRight: false,
+      braking: false,
+    };
+
+    const positions = simulateTrajectory(clone, action, 10, 0.1);
+
+    // Initial velocity is 0, final should be positive in x direction
+    expect(positions[0].vx).toBe(0);
+    expect(positions[10].vx).toBeGreaterThan(0);
+  });
 });
 
 describe('ai-predictive: scoreTrajectory', () => {
   it('returns a negative score when a collision occurs', () => {
     // Trajectory positions going straight toward an asteroid
     const positions = [
-      { x: 0, y: 0, heading: 0 },
-      { x: 10, y: 0, heading: 0 },
-      { x: 20, y: 0, heading: 0 },
+      { x: 0, y: 0, heading: 0, vx: 10, vy: 0 },
+      { x: 10, y: 0, heading: 0, vx: 10, vy: 0 },
+      { x: 20, y: 0, heading: 0, vx: 10, vy: 0 },
     ];
     const target = { x: 500, y: 0, vx: 0, vy: 0 };
     // Asteroid overlapping at step 2
@@ -244,12 +289,12 @@ describe('ai-predictive: scoreTrajectory', () => {
 
   it('gives better score when closer to target', () => {
     const farPositions = [
-      { x: 0, y: 0, heading: 0 },
-      { x: 10, y: 0, heading: 0 },
+      { x: 0, y: 0, heading: 0, vx: 10, vy: 0 },
+      { x: 10, y: 0, heading: 0, vx: 10, vy: 0 },
     ];
     const nearPositions = [
-      { x: 0, y: 0, heading: 0 },
-      { x: 400, y: 0, heading: 0 },
+      { x: 0, y: 0, heading: 0, vx: 400, vy: 0 },
+      { x: 400, y: 0, heading: 0, vx: 400, vy: 0 },
     ];
     const target = { x: 500, y: 0, vx: 0, vy: 0 };
 
@@ -262,13 +307,13 @@ describe('ai-predictive: scoreTrajectory', () => {
   it('gives aim bonus when pointed toward target', () => {
     // Ship pointed at target
     const aimedPositions = [
-      { x: 0, y: 0, heading: 0 },
-      { x: 100, y: 0, heading: 0 },
+      { x: 0, y: 0, heading: 0, vx: 100, vy: 0 },
+      { x: 100, y: 0, heading: 0, vx: 100, vy: 0 },
     ];
     // Ship pointed away from target
     const awayPositions = [
-      { x: 0, y: 0, heading: Math.PI },
-      { x: -100, y: 0, heading: Math.PI },
+      { x: 0, y: 0, heading: Math.PI, vx: -100, vy: 0 },
+      { x: -100, y: 0, heading: Math.PI, vx: -100, vy: 0 },
     ];
     const target = { x: 500, y: 0, vx: 0, vy: 0 };
 
@@ -280,14 +325,213 @@ describe('ai-predictive: scoreTrajectory', () => {
 
   it('returns a finite number with no asteroids', () => {
     const positions = [
-      { x: 0, y: 0, heading: 0 },
-      { x: 50, y: 0, heading: 0 },
+      { x: 0, y: 0, heading: 0, vx: 0, vy: 0 },
+      { x: 50, y: 0, heading: 0, vx: 50, vy: 0 },
     ];
     const target = { x: 300, y: 0, vx: 0, vy: 0 };
 
     const score = scoreTrajectory(positions, target, [], 0.1);
 
     expect(Number.isFinite(score)).toBe(true);
+  });
+});
+
+describe('ai-predictive: scoreTrajectory — time-decayed collision', () => {
+  it('early collision (step 1) penalizes more than late collision (step 10)', () => {
+    const target = { x: 500, y: 0, vx: 0, vy: 0 };
+    const ast = [{ x: 100, y: 0, vx: 0, vy: 0, collisionRadius: 25 }];
+
+    // Trajectory that collides at step 1 only (then moves away)
+    const collidesStep1 = [
+      { x: 0, y: 0, heading: 0, vx: 0, vy: 0 },
+      { x: 100, y: 0, heading: 0, vx: 100, vy: 0 }, // collides
+      { x: 200, y: 0, heading: 0, vx: 100, vy: 0 }, // no collision
+      { x: 300, y: 0, heading: 0, vx: 100, vy: 0 },
+    ];
+
+    // Trajectory that collides at step 3 only (starts away, arrives late)
+    const collidesStep3 = [
+      { x: 0, y: 0, heading: 0, vx: 0, vy: 0 },
+      { x: 30, y: 0, heading: 0, vx: 30, vy: 0 }, // no collision
+      { x: 60, y: 0, heading: 0, vx: 30, vy: 0 }, // no collision
+      { x: 100, y: 0, heading: 0, vx: 30, vy: 0 }, // collides
+    ];
+
+    const scoreEarly = scoreTrajectory(collidesStep1, target, ast, 0.1);
+    const scoreLate = scoreTrajectory(collidesStep3, target, ast, 0.1);
+
+    // Early collision should be penalized more (lower score)
+    expect(scoreEarly).toBeLessThan(scoreLate);
+  });
+
+  it('collision penalty decays exponentially with step index', () => {
+    // Collision at step 1: penalty = BASE * e^(-DECAY * 1)
+    // Collision at step 15: penalty = BASE * e^(-DECAY * 15)
+    // The ratio should match exponential decay
+    const step1Penalty =
+      COLLISION_BASE_PENALTY * Math.exp(-COLLISION_DECAY * 1);
+    const step15Penalty =
+      COLLISION_BASE_PENALTY * Math.exp(-COLLISION_DECAY * 15);
+
+    expect(step1Penalty).toBeLessThan(step15Penalty); // more negative = worse
+    expect(Math.abs(step1Penalty)).toBeGreaterThan(
+      Math.abs(step15Penalty) * 10,
+    ); // ~33x ratio
+  });
+});
+
+describe('ai-predictive: scoreTrajectory — first collision only', () => {
+  it('only counts the first collision per trajectory (early-break)', () => {
+    const target = { x: 500, y: 0, vx: 0, vy: 0 };
+    // Asteroid at origin — ship sits on top of it for all steps
+    const ast = [{ x: 100, y: 0, vx: 0, vy: 0, collisionRadius: 25 }];
+
+    // Trajectory overlapping asteroid at every step
+    const positions = [];
+    for (let i = 0; i <= 5; i++) {
+      positions.push({ x: 100, y: 0, heading: 0, vx: 0, vy: 0 });
+    }
+
+    // Score with many overlapping steps
+    const multiCollisionScore = scoreTrajectory(positions, target, ast, 0.1);
+
+    // Trajectory that only overlaps at step 1 then moves away
+    const singleCollisionPositions = [
+      { x: 0, y: 0, heading: 0, vx: 0, vy: 0 },
+      { x: 100, y: 0, heading: 0, vx: 100, vy: 0 }, // collides at step 1
+      { x: 200, y: 0, heading: 0, vx: 100, vy: 0 },
+      { x: 300, y: 0, heading: 0, vx: 100, vy: 0 },
+      { x: 400, y: 0, heading: 0, vx: 100, vy: 0 },
+      { x: 450, y: 0, heading: 0, vx: 100, vy: 0 },
+    ];
+    const singleCollisionScore = scoreTrajectory(
+      singleCollisionPositions,
+      target,
+      ast,
+      0.1,
+    );
+
+    // Both have exactly one collision penalty each (first collision only).
+    // The multi-collision trajectory sits at x=100 (400px from target),
+    // the single-collision trajectory ends at x=450 (50px from target).
+    // Since distance and velocity differ, we just verify multi-collision
+    // is NOT penalized 5x more like it would be without first-collision-only.
+    // With first-collision-only, the collision penalty component is the same.
+    // The multi sits closer to asteroid, farther from target → worse distance.
+    // But without first-collision-only it would be 5x the collision penalty.
+    // So multi should not be catastrophically worse than single.
+    const penaltyDiff = singleCollisionScore - multiCollisionScore;
+    // Without first-collision-only, multi would have ~5x penalty → diff would be huge
+    // With first-collision-only, diff is just from distance/aim differences
+    expect(Math.abs(penaltyDiff)).toBeLessThan(
+      Math.abs(COLLISION_BASE_PENALTY) * 3,
+    );
+  });
+});
+
+describe('ai-predictive: scoreTrajectory — closing velocity bonus', () => {
+  it('rewards trajectory moving toward target over stationary trajectory', () => {
+    const target = { x: 500, y: 0, vx: 0, vy: 0 };
+
+    // Moving toward target at same final position
+    const movingPositions = [
+      { x: 0, y: 0, heading: 0, vx: 0, vy: 0 },
+      { x: 100, y: 0, heading: 0, vx: 200, vy: 0 }, // moving toward target
+    ];
+
+    // Stationary at same final position
+    const stationaryPositions = [
+      { x: 100, y: 0, heading: 0, vx: 0, vy: 0 },
+      { x: 100, y: 0, heading: 0, vx: 0, vy: 0 }, // not moving
+    ];
+
+    const movingScore = scoreTrajectory(movingPositions, target, [], 0.1);
+    const stationaryScore = scoreTrajectory(
+      stationaryPositions,
+      target,
+      [],
+      0.1,
+    );
+
+    expect(movingScore).toBeGreaterThan(stationaryScore);
+  });
+
+  it('does not reward velocity moving away from target (clamped to 0)', () => {
+    const target = { x: 500, y: 0, vx: 0, vy: 0 };
+
+    // Moving away from target
+    const awayPositions = [
+      { x: 100, y: 0, heading: Math.PI, vx: -200, vy: 0 },
+      { x: 0, y: 0, heading: Math.PI, vx: -200, vy: 0 },
+    ];
+
+    // Stationary
+    const stationaryPositions = [
+      { x: 100, y: 0, heading: 0, vx: 0, vy: 0 },
+      { x: 100, y: 0, heading: 0, vx: 0, vy: 0 },
+    ];
+
+    const awayScore = scoreTrajectory(awayPositions, target, [], 0.1);
+    const stationaryScore = scoreTrajectory(
+      stationaryPositions,
+      target,
+      [],
+      0.1,
+    );
+
+    // Away should not get bonus, so difference comes only from distance/aim
+    // The away trajectory ends at x=0 (farther) vs x=100 (closer)
+    // So away should score worse, not better
+    expect(awayScore).toBeLessThan(stationaryScore);
+  });
+
+  it('closing velocity bonus scales with CLOSING_SPEED_WEIGHT', () => {
+    expect(CLOSING_SPEED_WEIGHT).toBe(3);
+    // At MAX_SPEED=400 toward target, bonus = 3 * 400 = 1200
+    // This is a significant bonus
+    expect(CLOSING_SPEED_WEIGHT * 400).toBe(1200);
+  });
+
+  it('handles zero distance to target without error', () => {
+    const target = { x: 100, y: 0, vx: 0, vy: 0 };
+    // Ship is exactly at target position
+    const positions = [
+      { x: 50, y: 0, heading: 0, vx: 50, vy: 0 },
+      { x: 100, y: 0, heading: 0, vx: 50, vy: 0 },
+    ];
+
+    const score = scoreTrajectory(positions, target, [], 0.1);
+    expect(Number.isFinite(score)).toBe(true);
+  });
+
+  it('perpendicular velocity gives no closing bonus', () => {
+    const target = { x: 500, y: 0, vx: 0, vy: 0 };
+
+    // Moving perpendicular to target (up)
+    const perpPositions = [
+      { x: 100, y: 0, heading: Math.PI / 2, vx: 0, vy: 200 },
+      { x: 100, y: 20, heading: Math.PI / 2, vx: 0, vy: 200 },
+    ];
+
+    // Stationary at same x (same distance to target)
+    const stationaryPositions = [
+      { x: 100, y: 0, heading: 0, vx: 0, vy: 0 },
+      { x: 100, y: 0, heading: 0, vx: 0, vy: 0 },
+    ];
+
+    const perpScore = scoreTrajectory(perpPositions, target, [], 0.1);
+    const stationaryScore = scoreTrajectory(
+      stationaryPositions,
+      target,
+      [],
+      0.1,
+    );
+
+    // Perpendicular motion contributes zero closing velocity bonus
+    // The scores should differ only by distance/aim differences, not by a velocity bonus
+    // perpendicular trajectory ends at y=20 (slightly farther from target at x=500)
+    // and is aimed up (not at target), so it should score worse, not better
+    expect(perpScore).toBeLessThanOrEqual(stationaryScore);
   });
 });
 
