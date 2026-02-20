@@ -67,6 +67,8 @@ export function createLoop() {
 /**
  * Bootstrap the application: set up canvas, resize handling, and start the loop.
  */
+const BASE_ASTEROID_COUNT = 40;
+
 export function startApp() {
   const canvas = document.getElementById('canvas');
   const ctx = canvas.getContext('2d');
@@ -107,7 +109,7 @@ export function startApp() {
   // Settings UI
   const ui = createSettingsUI(document.body, settings);
   // Apply loaded settings to simulation, ship, and starfield
-  sim.targetCount = settings.asteroidCount;
+  sim.targetCount = Math.round(BASE_ASTEROID_COUNT * settings.asteroidDensity);
   playerShip.thrustPower = settings.thrustPower;
   if (settings.starLayers !== 3) {
     starLayers = createParallaxLayers(
@@ -127,9 +129,6 @@ export function startApp() {
 
   ui.onChange = (name, value) => {
     settings[name] = value;
-    if (name === 'asteroidCount') {
-      sim.targetCount = value;
-    }
     if (name === 'starLayers') {
       starLayers = createParallaxLayers(
         logicalSize.width,
@@ -233,7 +232,9 @@ export function startApp() {
       (bounds.maxX - bounds.minX) * (bounds.maxY - bounds.minY);
     const viewportArea = logicalSize.width * logicalSize.height;
     sim.targetCount = Math.round(
-      settings.asteroidCount * (boundsArea / viewportArea),
+      BASE_ASTEROID_COUNT *
+        settings.asteroidDensity *
+        (boundsArea / viewportArea),
     );
     updateSimulation(sim, scaledDt, bounds);
 

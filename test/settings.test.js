@@ -12,12 +12,12 @@ import {
 
 describe('Increment 13: Settings Menu', () => {
   describe('SETTINGS_CONFIG', () => {
-    it('defines asteroid count: min 5, max 50, step 1, default 20', () => {
-      const c = SETTINGS_CONFIG.asteroidCount;
-      expect(c.min).toBe(5);
-      expect(c.max).toBe(50);
-      expect(c.step).toBe(1);
-      expect(c.default).toBe(20);
+    it('defines asteroid density: min 0.5, max 3.0, step 0.1, default 1.0', () => {
+      const c = SETTINGS_CONFIG.asteroidDensity;
+      expect(c.min).toBe(0.5);
+      expect(c.max).toBe(3.0);
+      expect(c.step).toBe(0.1);
+      expect(c.default).toBe(1.0);
     });
 
     it('defines speed multiplier: min 0.2, max 3.0, step 0.1, default 1.0', () => {
@@ -37,7 +37,7 @@ describe('Increment 13: Settings Menu', () => {
     });
 
     it('each config has a label string', () => {
-      expect(typeof SETTINGS_CONFIG.asteroidCount.label).toBe('string');
+      expect(typeof SETTINGS_CONFIG.asteroidDensity.label).toBe('string');
       expect(typeof SETTINGS_CONFIG.speedMultiplier.label).toBe('string');
       expect(typeof SETTINGS_CONFIG.starLayers.label).toBe('string');
     });
@@ -46,7 +46,7 @@ describe('Increment 13: Settings Menu', () => {
   describe('createSettings', () => {
     it('returns settings with default values', () => {
       const s = createSettings();
-      expect(s.asteroidCount).toBe(20);
+      expect(s.asteroidDensity).toBe(1.0);
       expect(s.speedMultiplier).toBe(1.0);
       expect(s.starLayers).toBe(3);
     });
@@ -74,16 +74,16 @@ describe('Increment 13: Settings Menu', () => {
   });
 
   describe('clampSetting', () => {
-    it('clamps asteroid count below minimum to 5', () => {
-      expect(clampSetting('asteroidCount', 2)).toBe(5);
+    it('clamps asteroid density below minimum to 0.5', () => {
+      expect(clampSetting('asteroidDensity', 0.1)).toBe(0.5);
     });
 
-    it('clamps asteroid count above maximum to 50', () => {
-      expect(clampSetting('asteroidCount', 100)).toBe(50);
+    it('clamps asteroid density above maximum to 3.0', () => {
+      expect(clampSetting('asteroidDensity', 5.0)).toBe(3.0);
     });
 
-    it('passes through valid asteroid count', () => {
-      expect(clampSetting('asteroidCount', 30)).toBe(30);
+    it('passes through valid asteroid density', () => {
+      expect(clampSetting('asteroidDensity', 1.5)).toBe(1.5);
     });
 
     it('clamps speed multiplier below minimum to 0.2', () => {
@@ -107,7 +107,6 @@ describe('Increment 13: Settings Menu', () => {
     });
 
     it('rounds integer settings to nearest step', () => {
-      expect(clampSetting('asteroidCount', 20.7)).toBe(21);
       expect(clampSetting('starLayers', 4.3)).toBe(4);
     });
   });
@@ -196,13 +195,13 @@ describe('Increment 13: Settings Menu', () => {
       expect(sliders.length).toBe(4);
     });
 
-    it('asteroid count slider has correct min/max/step/value', () => {
+    it('asteroid density slider has correct min/max/step/value', () => {
       const ui = createSettingsUI(container, settings);
-      const slider = ui.sliders.asteroidCount;
-      expect(slider.min).toBe('5');
-      expect(slider.max).toBe('50');
-      expect(slider.step).toBe('1');
-      expect(slider.value).toBe('20');
+      const slider = ui.sliders.asteroidDensity;
+      expect(slider.min).toBe('0.5');
+      expect(slider.max).toBe('3');
+      expect(slider.step).toBe('0.1');
+      expect(slider.value).toBe('1');
     });
 
     it('speed multiplier slider has correct min/max/step/value', () => {
@@ -231,8 +230,7 @@ describe('Increment 13: Settings Menu', () => {
 
     it('each slider shows its current value', () => {
       const ui = createSettingsUI(container, settings);
-      // Value displays should contain the default values
-      expect(ui.valueDisplays.asteroidCount.textContent).toContain('20');
+      expect(ui.valueDisplays.asteroidDensity.textContent).toContain('1.0');
       expect(ui.valueDisplays.speedMultiplier.textContent).toContain('1');
       expect(ui.valueDisplays.starLayers.textContent).toContain('3');
     });
@@ -335,12 +333,12 @@ describe('Increment 13: Settings Menu', () => {
       const changes = [];
       ui.onChange = (name, value) => changes.push({ name, value });
 
-      ui.sliders.asteroidCount.value = '35';
-      ui.sliders.asteroidCount.dispatchEvent(new Event('input'));
+      ui.sliders.asteroidDensity.value = '1.5';
+      ui.sliders.asteroidDensity.dispatchEvent(new Event('input'));
 
       expect(changes.length).toBe(1);
-      expect(changes[0].name).toBe('asteroidCount');
-      expect(changes[0].value).toBe(35);
+      expect(changes[0].name).toBe('asteroidDensity');
+      expect(changes[0].value).toBe(1.5);
     });
 
     it('value display updates when slider moves', () => {
@@ -510,7 +508,7 @@ describe('Increment 14: Settings Persistence', () => {
       const s = createSettings();
       saveSettings(s);
       const stored = JSON.parse(localStorage.getItem('asteroidSettings'));
-      expect(stored.asteroidCount).toBe(20);
+      expect(stored.asteroidDensity).toBe(1.0);
       expect(stored.speedMultiplier).toBe(1.0);
       expect(stored.starLayers).toBe(3);
     });
@@ -528,12 +526,12 @@ describe('Increment 14: Settings Persistence', () => {
 
     it('persists updated values after changes', () => {
       const s = createSettings();
-      s.asteroidCount = 35;
+      s.asteroidDensity = 2.0;
       s.speedMultiplier = 2.0;
       s.starLayers = 5;
       saveSettings(s);
       const stored = JSON.parse(localStorage.getItem('asteroidSettings'));
-      expect(stored.asteroidCount).toBe(35);
+      expect(stored.asteroidDensity).toBe(2.0);
       expect(stored.speedMultiplier).toBe(2.0);
       expect(stored.starLayers).toBe(5);
     });
@@ -544,20 +542,20 @@ describe('Increment 14: Settings Persistence', () => {
       localStorage.setItem(
         'asteroidSettings',
         JSON.stringify({
-          asteroidCount: 40,
+          asteroidDensity: 2.0,
           speedMultiplier: 2.5,
           starLayers: 5,
         }),
       );
       const loaded = loadSettings();
-      expect(loaded.asteroidCount).toBe(40);
+      expect(loaded.asteroidDensity).toBe(2.0);
       expect(loaded.speedMultiplier).toBe(2.5);
       expect(loaded.starLayers).toBe(5);
     });
 
     it('returns defaults when localStorage is empty', () => {
       const loaded = loadSettings();
-      expect(loaded.asteroidCount).toBe(20);
+      expect(loaded.asteroidDensity).toBe(1.0);
       expect(loaded.speedMultiplier).toBe(1.0);
       expect(loaded.starLayers).toBe(3);
     });
@@ -565,7 +563,7 @@ describe('Increment 14: Settings Persistence', () => {
     it('returns defaults when localStorage contains invalid JSON', () => {
       localStorage.setItem('asteroidSettings', 'not valid json{{{');
       const loaded = loadSettings();
-      expect(loaded.asteroidCount).toBe(20);
+      expect(loaded.asteroidDensity).toBe(1.0);
       expect(loaded.speedMultiplier).toBe(1.0);
       expect(loaded.starLayers).toBe(3);
     });
@@ -574,13 +572,13 @@ describe('Increment 14: Settings Persistence', () => {
       localStorage.setItem(
         'asteroidSettings',
         JSON.stringify({
-          asteroidCount: 999,
+          asteroidDensity: 999,
           speedMultiplier: -5,
           starLayers: 0,
         }),
       );
       const loaded = loadSettings();
-      expect(loaded.asteroidCount).toBe(50);
+      expect(loaded.asteroidDensity).toBe(3.0);
       expect(loaded.speedMultiplier).toBe(0.2);
       expect(loaded.starLayers).toBe(3);
     });
@@ -589,11 +587,11 @@ describe('Increment 14: Settings Persistence', () => {
       localStorage.setItem(
         'asteroidSettings',
         JSON.stringify({
-          asteroidCount: 30,
+          asteroidDensity: 1.5,
         }),
       );
       const loaded = loadSettings();
-      expect(loaded.asteroidCount).toBe(30);
+      expect(loaded.asteroidDensity).toBe(1.5);
       expect(loaded.speedMultiplier).toBe(1.0);
       expect(loaded.starLayers).toBe(3);
     });
@@ -601,13 +599,13 @@ describe('Increment 14: Settings Persistence', () => {
     it('uses defaults when stored value is not an object', () => {
       localStorage.setItem('asteroidSettings', JSON.stringify(42));
       const loaded = loadSettings();
-      expect(loaded.asteroidCount).toBe(20);
+      expect(loaded.asteroidDensity).toBe(1.0);
     });
 
     it('uses defaults when stored value is an array', () => {
       localStorage.setItem('asteroidSettings', JSON.stringify([1, 2, 3]));
       const loaded = loadSettings();
-      expect(loaded.asteroidCount).toBe(20);
+      expect(loaded.asteroidDensity).toBe(1.0);
       expect(loaded.speedMultiplier).toBe(1.0);
       expect(loaded.starLayers).toBe(3);
     });
@@ -616,13 +614,13 @@ describe('Increment 14: Settings Persistence', () => {
       localStorage.setItem(
         'asteroidSettings',
         JSON.stringify({
-          asteroidCount: 'banana',
+          asteroidDensity: 'banana',
           speedMultiplier: null,
           starLayers: true,
         }),
       );
       const loaded = loadSettings();
-      expect(loaded.asteroidCount).toBe(20);
+      expect(loaded.asteroidDensity).toBe(1.0);
       expect(loaded.speedMultiplier).toBe(1.0);
       expect(loaded.starLayers).toBe(3);
     });
@@ -631,13 +629,13 @@ describe('Increment 14: Settings Persistence', () => {
   describe('save + load round-trip', () => {
     it('loadSettings returns what saveSettings wrote', () => {
       const s = createSettings({
-        asteroidCount: 42,
+        asteroidDensity: 2.1,
         speedMultiplier: 1.7,
         starLayers: 5,
       });
       saveSettings(s);
       const loaded = loadSettings();
-      expect(loaded.asteroidCount).toBe(42);
+      expect(loaded.asteroidDensity).toBe(2.1);
       expect(loaded.speedMultiplier).toBe(1.7);
       expect(loaded.starLayers).toBe(5);
     });
@@ -646,24 +644,24 @@ describe('Increment 14: Settings Persistence', () => {
   describe('createSettings with overrides', () => {
     it('applies loaded overrides to settings', () => {
       const s = createSettings({
-        asteroidCount: 35,
+        asteroidDensity: 1.5,
         speedMultiplier: 2.0,
         starLayers: 5,
       });
-      expect(s.asteroidCount).toBe(35);
+      expect(s.asteroidDensity).toBe(1.5);
       expect(s.speedMultiplier).toBe(2.0);
       expect(s.starLayers).toBe(5);
     });
 
     it('partial overrides leave other settings at defaults', () => {
-      const s = createSettings({ asteroidCount: 10 });
-      expect(s.asteroidCount).toBe(10);
+      const s = createSettings({ asteroidDensity: 0.8 });
+      expect(s.asteroidDensity).toBe(0.8);
       expect(s.speedMultiplier).toBe(1.0);
       expect(s.starLayers).toBe(3);
     });
 
     it('UI state is always default regardless of overrides', () => {
-      const s = createSettings({ asteroidCount: 30 });
+      const s = createSettings({ asteroidDensity: 1.5 });
       expect(s.panelOpen).toBe(false);
       expect(s.gearVisible).toBe(true);
       expect(s.gearHovered).toBe(false);
@@ -676,12 +674,12 @@ describe('Increment 14: Settings Persistence', () => {
       const container = document.createElement('div');
       document.body.appendChild(container);
       const s = createSettings({
-        asteroidCount: 35,
+        asteroidDensity: 2.0,
         speedMultiplier: 2.0,
         starLayers: 5,
       });
       const ui = createSettingsUI(container, s);
-      expect(ui.sliders.asteroidCount.value).toBe('35');
+      expect(ui.sliders.asteroidDensity.value).toBe('2');
       expect(ui.sliders.speedMultiplier.value).toBe('2');
       expect(ui.sliders.starLayers.value).toBe('5');
     });
@@ -690,12 +688,12 @@ describe('Increment 14: Settings Persistence', () => {
       const container = document.createElement('div');
       document.body.appendChild(container);
       const s = createSettings({
-        asteroidCount: 35,
+        asteroidDensity: 2.0,
         speedMultiplier: 2.0,
         starLayers: 5,
       });
       const ui = createSettingsUI(container, s);
-      expect(ui.valueDisplays.asteroidCount.textContent).toContain('35');
+      expect(ui.valueDisplays.asteroidDensity.textContent).toContain('2.0');
       expect(ui.valueDisplays.speedMultiplier.textContent).toContain('2.0');
       expect(ui.valueDisplays.starLayers.textContent).toContain('5');
     });
@@ -746,7 +744,7 @@ describe('Increment 19: Thrust Power Setting', () => {
       localStorage.setItem(
         'asteroidSettings',
         JSON.stringify({
-          asteroidCount: 20,
+          asteroidDensity: 1.0,
           speedMultiplier: 1.0,
           starLayers: 3,
           starDirection: 'left',
@@ -761,7 +759,7 @@ describe('Increment 19: Thrust Power Setting', () => {
       localStorage.setItem(
         'asteroidSettings',
         JSON.stringify({
-          asteroidCount: 20,
+          asteroidDensity: 1.0,
           speedMultiplier: 1.0,
           starLayers: 3,
           starDirection: 'left',
@@ -775,7 +773,7 @@ describe('Increment 19: Thrust Power Setting', () => {
       localStorage.setItem(
         'asteroidSettings',
         JSON.stringify({
-          asteroidCount: 20,
+          asteroidDensity: 1.0,
           speedMultiplier: 1.0,
           starLayers: 3,
           starDirection: 'left',
@@ -884,7 +882,7 @@ describe('Increment 15: Star Field Direction Setting', () => {
       localStorage.setItem(
         'asteroidSettings',
         JSON.stringify({
-          asteroidCount: 20,
+          asteroidDensity: 1.0,
           speedMultiplier: 1.0,
           starLayers: 3,
           starDirection: 'radial',
@@ -898,7 +896,7 @@ describe('Increment 15: Star Field Direction Setting', () => {
       localStorage.setItem(
         'asteroidSettings',
         JSON.stringify({
-          asteroidCount: 20,
+          asteroidDensity: 1.0,
           speedMultiplier: 1.0,
           starLayers: 3,
         }),
@@ -911,7 +909,7 @@ describe('Increment 15: Star Field Direction Setting', () => {
       localStorage.setItem(
         'asteroidSettings',
         JSON.stringify({
-          asteroidCount: 20,
+          asteroidDensity: 1.0,
           speedMultiplier: 1.0,
           starLayers: 3,
           starDirection: 'diagonal',

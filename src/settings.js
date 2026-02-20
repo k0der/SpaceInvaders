@@ -2,7 +2,13 @@
  * Configuration for each setting: range, step, default, and display label.
  */
 export const SETTINGS_CONFIG = {
-  asteroidCount: { min: 5, max: 50, step: 1, default: 20, label: 'Asteroids' },
+  asteroidDensity: {
+    min: 0.5,
+    max: 3.0,
+    step: 0.1,
+    default: 1.0,
+    label: 'Density',
+  },
   speedMultiplier: {
     min: 0.2,
     max: 3.0,
@@ -32,8 +38,8 @@ const STORAGE_KEY = 'asteroidSettings';
  */
 export function createSettings(overrides = {}) {
   return {
-    asteroidCount:
-      overrides.asteroidCount ?? SETTINGS_CONFIG.asteroidCount.default,
+    asteroidDensity:
+      overrides.asteroidDensity ?? SETTINGS_CONFIG.asteroidDensity.default,
     speedMultiplier:
       overrides.speedMultiplier ?? SETTINGS_CONFIG.speedMultiplier.default,
     starLayers: overrides.starLayers ?? SETTINGS_CONFIG.starLayers.default,
@@ -53,7 +59,7 @@ export function createSettings(overrides = {}) {
  */
 export function saveSettings(settings) {
   const data = {
-    asteroidCount: settings.asteroidCount,
+    asteroidDensity: settings.asteroidDensity,
     speedMultiplier: settings.speedMultiplier,
     starLayers: settings.starLayers,
     thrustPower: settings.thrustPower,
@@ -68,7 +74,7 @@ export function saveSettings(settings) {
  */
 export function loadSettings() {
   const defaults = {
-    asteroidCount: SETTINGS_CONFIG.asteroidCount.default,
+    asteroidDensity: SETTINGS_CONFIG.asteroidDensity.default,
     speedMultiplier: SETTINGS_CONFIG.speedMultiplier.default,
     starLayers: SETTINGS_CONFIG.starLayers.default,
     thrustPower: SETTINGS_CONFIG.thrustPower.default,
@@ -144,7 +150,8 @@ export function updateAutoHide(settings, dt) {
  * Format a setting value for display.
  */
 function formatValue(name, value) {
-  if (name === 'speedMultiplier') return `${value.toFixed(1)}x`;
+  if (name === 'speedMultiplier' || name === 'asteroidDensity')
+    return `${value.toFixed(1)}x`;
   return String(value);
 }
 
