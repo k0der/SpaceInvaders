@@ -6,14 +6,16 @@ import {
   DRAG,
   drawShip,
   drawTrail,
+  ENEMY_SHIP_COLOR,
+  ENEMY_TRAIL_COLOR,
   MAX_SPEED,
+  PLAYER_TRAIL_COLOR,
   ROTATION_SPEED,
   SHIP_SIZE,
   THRUST_POWER,
   THRUST_RAMP_SPEED,
   TRAIL_BASE_OPACITY,
   TRAIL_BASE_WIDTH,
-  TRAIL_COLOR,
   TRAIL_MAX_LENGTH,
   TRAIL_THRUST_OPACITY,
   TRAIL_THRUST_WIDTH,
@@ -194,6 +196,15 @@ describe('Increment 17: Static Ship at Screen Center', () => {
       drawShip(ctx, ship);
 
       expect(ctx.setLineDash).toHaveBeenCalledWith([4, 4]);
+    });
+
+    it('uses dark red stroke for enemy ships', () => {
+      const ctx = createFakeCtx();
+      ctx.setLineDash = vi.fn();
+      const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+      drawShip(ctx, ship);
+
+      expect(ctx.strokeStyle).toBe(ENEMY_SHIP_COLOR);
     });
 
     it('resets line dash after drawing enemy ship', () => {
@@ -682,15 +693,28 @@ describe('Increment 22b: Ship Exhaust Trail', () => {
       expect(THRUST_RAMP_SPEED).toBe(6.0);
     });
 
-    it('TRAIL_COLOR is dark orange { r: 255, g: 120, b: 0 }', () => {
-      expect(TRAIL_COLOR).toEqual({ r: 255, g: 120, b: 0 });
+    it('PLAYER_TRAIL_COLOR is blue { r: 80, g: 140, b: 255 }', () => {
+      expect(PLAYER_TRAIL_COLOR).toEqual({ r: 80, g: 140, b: 255 });
+    });
+
+    it('ENEMY_TRAIL_COLOR is red { r: 255, g: 50, b: 30 }', () => {
+      expect(ENEMY_TRAIL_COLOR).toEqual({ r: 255, g: 50, b: 30 });
+    });
+
+    it('ENEMY_SHIP_COLOR is dark red', () => {
+      expect(ENEMY_SHIP_COLOR).toBe('#CC3333');
     });
   });
 
   describe('createTrail', () => {
-    it('returns an object with empty points only (no thrustIntensity)', () => {
+    it('returns an object with empty points and default player color', () => {
       const trail = createTrail();
-      expect(trail).toEqual({ points: [] });
+      expect(trail).toEqual({ points: [], color: PLAYER_TRAIL_COLOR });
+    });
+
+    it('accepts a custom color', () => {
+      const trail = createTrail(ENEMY_TRAIL_COLOR);
+      expect(trail.color).toEqual(ENEMY_TRAIL_COLOR);
     });
   });
 
@@ -967,8 +991,8 @@ describe('Increment 22b: Ship Exhaust Trail', () => {
       expect(Number.parseFloat(match[1])).toBeCloseTo(TRAIL_BASE_OPACITY, 2);
     });
 
-    it('uses dark orange color (TRAIL_COLOR) for all segments', () => {
-      const trail = createTrail();
+    it('uses trail.color for all segments (player = blue)', () => {
+      const trail = createTrail(PLAYER_TRAIL_COLOR);
       updateTrail(trail, 0, 0, 0, 0.5);
       updateTrail(trail, 10, 10, 0, 0);
       updateTrail(trail, 20, 20, 0, 1.0);
@@ -986,7 +1010,30 @@ describe('Increment 22b: Ship Exhaust Trail', () => {
       drawTrail(ctx, trail);
 
       for (const style of styles) {
-        expect(style).toMatch(/^rgba\(255, 120, 0,/);
+        expect(style).toMatch(/^rgba\(80, 140, 255,/);
+      }
+    });
+
+    it('uses trail.color for all segments (enemy = red)', () => {
+      const trail = createTrail(ENEMY_TRAIL_COLOR);
+      updateTrail(trail, 0, 0, 0, 0.5);
+      updateTrail(trail, 10, 10, 0, 0);
+      updateTrail(trail, 20, 20, 0, 1.0);
+
+      const styles = [];
+      const ctx = {
+        beginPath: vi.fn(),
+        moveTo: vi.fn(),
+        lineTo: vi.fn(),
+        stroke: vi.fn(() => styles.push(ctx.strokeStyle)),
+        strokeStyle: '',
+        lineWidth: 0,
+      };
+
+      drawTrail(ctx, trail);
+
+      for (const style of styles) {
+        expect(style).toMatch(/^rgba\(255, 50, 30,/);
       }
     });
   });

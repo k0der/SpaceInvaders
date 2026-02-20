@@ -33,6 +33,7 @@ import {
   createTrail,
   drawShip,
   drawTrail,
+  ENEMY_TRAIL_COLOR,
   SHIP_SIZE,
   updateShip,
   updateTrail,
@@ -131,7 +132,7 @@ export function startApp() {
     owner: 'enemy',
   });
   const aiState = createAIState();
-  const enemyTrail = createTrail();
+  const enemyTrail = createTrail(ENEMY_TRAIL_COLOR);
   let bullets = [];
   let prevCameraX = camera.x;
   let prevCameraY = camera.y;

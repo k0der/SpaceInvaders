@@ -37,8 +37,14 @@ export const TRAIL_THRUST_WIDTH = 2.5;
 /** Engine spool rate — thrust intensity ramp speed (per second). Full transition ~0.17s. */
 export const THRUST_RAMP_SPEED = 6.0;
 
-/** Dark orange exhaust color. */
-export const TRAIL_COLOR = { r: 255, g: 120, b: 0 };
+/** Blue exhaust color (Rebel / player). */
+export const PLAYER_TRAIL_COLOR = { r: 80, g: 140, b: 255 };
+
+/** Red exhaust color (Empire / enemy). */
+export const ENEMY_TRAIL_COLOR = { r: 255, g: 50, b: 30 };
+
+/** Dark red ship stroke for enemy. */
+export const ENEMY_SHIP_COLOR = '#CC3333';
 
 /**
  * Normalize an angle to the range [-PI, PI].
@@ -140,7 +146,7 @@ export function drawShip(ctx, ship) {
   ctx.translate(ship.x, ship.y);
   ctx.rotate(ship.heading);
 
-  ctx.strokeStyle = '#FFFFFF';
+  ctx.strokeStyle = ship.owner === 'enemy' ? ENEMY_SHIP_COLOR : '#FFFFFF';
   ctx.lineWidth = 1.5;
 
   if (ship.owner === 'enemy') {
@@ -164,10 +170,10 @@ export function drawShip(ctx, ship) {
 }
 
 /**
- * Create a new motion trail.
+ * Create a new motion trail with the given exhaust color.
  */
-export function createTrail() {
-  return { points: [] };
+export function createTrail(color = PLAYER_TRAIL_COLOR) {
+  return { points: [], color };
 }
 
 /**
@@ -186,7 +192,7 @@ export function updateTrail(trail, x, y, heading, thrustIntensity) {
 }
 
 /**
- * Draw the exhaust trail as fading dark orange line segments.
+ * Draw the exhaust trail as fading line segments.
  * Width and opacity are interpolated per-segment using the stored
  * thrust intensity (0=coasting, 1=full thrust) for smooth gradients.
  * Alpha increases linearly from 0 (oldest) to max opacity (newest).
@@ -194,7 +200,7 @@ export function updateTrail(trail, x, y, heading, thrustIntensity) {
 export function drawTrail(ctx, trail) {
   if (trail.points.length < 2) return;
 
-  const { r, g, b } = TRAIL_COLOR;
+  const { r, g, b } = trail.color;
   const len = trail.points.length;
 
   for (let i = 1; i < len; i++) {
