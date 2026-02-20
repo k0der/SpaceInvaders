@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   AIM_BONUS,
+  AIM_PROXIMITY_SCALE,
   BRAKE_PURSUIT_STEPS,
   CLOSING_SPEED_WEIGHT,
   COLLISION_BASE_PENALTY,
@@ -48,6 +49,10 @@ describe('ai-predictive: Constants', () => {
 
   it('exports CLOSING_SPEED_WEIGHT as 8', () => {
     expect(CLOSING_SPEED_WEIGHT).toBe(8);
+  });
+
+  it('exports AIM_PROXIMITY_SCALE as 5', () => {
+    expect(AIM_PROXIMITY_SCALE).toBe(5);
   });
 
   it('exports FIRE_OPPORTUNITY_BONUS as 300', () => {
@@ -714,6 +719,107 @@ describe('ai-predictive: selectBestAction — retreat correction', () => {
       !action.rotatingRight &&
       !action.braking;
     expect(isCoasting).toBe(false);
+  });
+});
+
+describe('ai-predictive: scoreTrajectory — proximity-scaled aim', () => {
+  it('aim bonus impact is amplified at close range vs far range', () => {
+    // Isolate the aim component by using headings that miss FIRE_ANGLE
+    // (0.15 rad), so fire opportunity bonus is 0 for all trajectories.
+    // The only varying component is the aim bonus.
+    const target = { x: 0, y: 0, vx: 0, vy: 0 };
+
+    // Close range (100px), slightly off-aim (0.3 rad offset, misses FIRE_ANGLE)
+    const closeGood = [
+      { x: 100, y: 0, heading: Math.PI + 0.3, vx: 0, vy: 0 },
+      { x: 100, y: 0, heading: Math.PI + 0.3, vx: 0, vy: 0 },
+    ];
+    const closeBad = [
+      { x: 100, y: 0, heading: 0.3, vx: 0, vy: 0 },
+      { x: 100, y: 0, heading: 0.3, vx: 0, vy: 0 },
+    ];
+
+    // Far range (600px, outside MAX_FIRE_RANGE entirely)
+    const farGood = [
+      { x: 600, y: 0, heading: Math.PI + 0.3, vx: 0, vy: 0 },
+      { x: 600, y: 0, heading: Math.PI + 0.3, vx: 0, vy: 0 },
+    ];
+    const farBad = [
+      { x: 600, y: 0, heading: 0.3, vx: 0, vy: 0 },
+      { x: 600, y: 0, heading: 0.3, vx: 0, vy: 0 },
+    ];
+
+    const closeGap =
+      scoreTrajectory(closeGood, target, [], 0.1) -
+      scoreTrajectory(closeBad, target, [], 0.1);
+    const farGap =
+      scoreTrajectory(farGood, target, [], 0.1) -
+      scoreTrajectory(farBad, target, [], 0.1);
+
+    // Without proximity scaling, aim gaps are identical at both ranges.
+    // With proximity scaling, aim matters MORE at close range.
+    expect(closeGap).toBeGreaterThan(farGap * 1.5);
+  });
+
+  it('proximity factor is maximum (1 + AIM_PROXIMITY_SCALE) at zero distance', () => {
+    const target = { x: 0, y: 0, vx: 0, vy: 0 };
+
+    // On top of target — minDist = 0, factor = 1 + AIM_PROXIMITY_SCALE = 6
+    const onTopGood = [
+      { x: 0, y: 0, heading: 0, vx: 0, vy: 0 },
+      { x: 0, y: 0, heading: 0, vx: 0, vy: 0 },
+    ];
+    const onTopBad = [
+      { x: 0, y: 0, heading: Math.PI, vx: 0, vy: 0 },
+      { x: 0, y: 0, heading: Math.PI, vx: 0, vy: 0 },
+    ];
+
+    // Far range (unscaled baseline)
+    const farGood = [
+      { x: 600, y: 0, heading: Math.PI, vx: 0, vy: 0 },
+      { x: 600, y: 0, heading: Math.PI, vx: 0, vy: 0 },
+    ];
+    const farBad = [
+      { x: 600, y: 0, heading: 0, vx: 0, vy: 0 },
+      { x: 600, y: 0, heading: 0, vx: 0, vy: 0 },
+    ];
+
+    const onTopGap = Math.abs(
+      scoreTrajectory(onTopGood, target, [], 0.1) -
+        scoreTrajectory(onTopBad, target, [], 0.1),
+    );
+    const farGap = Math.abs(
+      scoreTrajectory(farGood, target, [], 0.1) -
+        scoreTrajectory(farBad, target, [], 0.1),
+    );
+
+    // At zero distance, aim gap should be ~(1 + AIM_PROXIMITY_SCALE) times the unscaled gap
+    const expectedRatio = 1 + AIM_PROXIMITY_SCALE;
+    expect(onTopGap / farGap).toBeCloseTo(expectedRatio, 0);
+  });
+});
+
+describe('ai-predictive: selectBestAction — close facing away', () => {
+  it('rotates when close, facing away, with asteroids blocking pursuit', () => {
+    // Ship stationary, heading=π (facing left), target 40px to the right,
+    // player drifting away. Asteroids scattered around so pursuit
+    // trajectories risk collisions while coast stays safe. This replicates
+    // the "close but facing away" deadlock from the game logs.
+    const ship = createShip({ x: 0, y: 0, heading: Math.PI, owner: 'enemy' });
+    const target = createShip({ x: 40, y: 0, heading: 0, owner: 'player' });
+    target.vx = 30;
+    const asteroids = [
+      { x: 80, y: 40, vx: 0, vy: 0, collisionRadius: 25 },
+      { x: -60, y: -30, vx: 0, vy: 0, collisionRadius: 20 },
+      { x: 100, y: -50, vx: 0, vy: 0, collisionRadius: 30 },
+    ];
+
+    const action = selectBestAction(ship, target, asteroids);
+
+    // AI must take corrective action — at minimum rotate toward target
+    const takesAction =
+      action.rotatingLeft || action.rotatingRight || action.thrust;
+    expect(takesAction).toBe(true);
   });
 });
 

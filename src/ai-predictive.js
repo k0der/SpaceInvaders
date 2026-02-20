@@ -54,6 +54,9 @@ export const AIM_BONUS = 400;
 /** Weight for closing speed bonus (dot of velocity toward target). */
 export const CLOSING_SPEED_WEIGHT = 8;
 
+/** Proximity scaling factor for aim bonus — amplifies aim importance at close range. */
+export const AIM_PROXIMITY_SCALE = 5;
+
 /** Bonus per sim step where ship has a viable firing solution. */
 export const FIRE_OPPORTUNITY_BONUS = 300;
 
@@ -208,7 +211,9 @@ export function scoreTrajectory(positions, target, asteroids, simDt) {
     while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
     aimSum += Math.cos(angleDiff);
   }
-  score += AIM_BONUS * (aimSum / (positions.length - 1));
+  const aimProximityFactor =
+    1 + AIM_PROXIMITY_SCALE * Math.max(0, 1 - minDist / MAX_FIRE_RANGE);
+  score += AIM_BONUS * (aimSum / (positions.length - 1)) * aimProximityFactor;
 
   // Approach rate: reward net distance closed over the simulation.
   // Uses (initialDist - finalDist) / simTime instead of instantaneous velocity
