@@ -229,6 +229,12 @@ export function startApp() {
       logicalSize.width,
       logicalSize.height,
     );
+    const boundsArea =
+      (bounds.maxX - bounds.minX) * (bounds.maxY - bounds.minY);
+    const viewportArea = logicalSize.width * logicalSize.height;
+    sim.targetCount = Math.round(
+      settings.asteroidCount * (boundsArea / viewportArea),
+    );
     updateSimulation(sim, scaledDt, bounds);
 
     ctx.fillStyle = '#000000';
