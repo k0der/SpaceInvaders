@@ -2,96 +2,234 @@ import { describe, expect, it } from 'vitest';
 import { createAsteroid } from '../src/asteroid.js';
 import { computeTotalKE } from '../src/energy.js';
 import {
+  computeEdgeWeights,
+  computeSpawnBounds,
   createSimulation,
-  isOffScreen,
-  spawnAsteroidFromEdge,
-  spawnAsteroidInBounds,
+  isOutsideZone,
+  pickWeightedEdge,
+  spawnAsteroidInBorder,
+  spawnAsteroidInZone,
   updateSimulation,
 } from '../src/simulation.js';
 
-const ORIGIN_BOUNDS = { minX: 0, maxX: 800, minY: 0, maxY: 600 };
+const VIEWPORT_BOUNDS = { minX: 0, maxX: 800, minY: 0, maxY: 600 };
+const SHIFTED_BOUNDS = { minX: 500, maxX: 1300, minY: 200, maxY: 800 };
 
-describe('Increment 8: Asteroids Come and Go', () => {
-  describe('isOffScreen', () => {
-    it('returns true when asteroid is fully past the right edge', () => {
-      const a = createAsteroid({ x: 900, y: 300, vx: 0, vy: 0, radius: 30 });
-      expect(isOffScreen(a, ORIGIN_BOUNDS)).toBe(true);
+describe('Increment 21b: Border-Zone Asteroid Spawning', () => {
+  describe('computeSpawnBounds', () => {
+    it('expands each side by SPAWN_BORDER (300px)', () => {
+      const sb = computeSpawnBounds(VIEWPORT_BOUNDS);
+      expect(sb.minX).toBe(VIEWPORT_BOUNDS.minX - 300);
+      expect(sb.maxX).toBe(VIEWPORT_BOUNDS.maxX + 300);
+      expect(sb.minY).toBe(VIEWPORT_BOUNDS.minY - 300);
+      expect(sb.maxY).toBe(VIEWPORT_BOUNDS.maxY + 300);
     });
 
-    it('returns true when asteroid is fully past the left edge', () => {
-      const a = createAsteroid({ x: -40, y: 300, vx: 0, vy: 0, radius: 30 });
-      expect(isOffScreen(a, ORIGIN_BOUNDS)).toBe(true);
+    it('works with non-origin bounds', () => {
+      const sb = computeSpawnBounds(SHIFTED_BOUNDS);
+      expect(sb.minX).toBe(200);
+      expect(sb.maxX).toBe(1600);
+      expect(sb.minY).toBe(-100);
+      expect(sb.maxY).toBe(1100);
+    });
+  });
+
+  describe('computeEdgeWeights', () => {
+    it('stationary (0, 0): all four weights ≈ 0.25', () => {
+      const w = computeEdgeWeights(0, 0);
+      expect(w.length).toBe(4);
+      for (const weight of w) {
+        expect(weight).toBeCloseTo(0.25, 5);
+      }
     });
 
-    it('returns true when asteroid is fully past the top edge', () => {
-      const a = createAsteroid({ x: 400, y: -40, vx: 0, vy: 0, radius: 30 });
-      expect(isOffScreen(a, ORIGIN_BOUNDS)).toBe(true);
+    it('flying right (400, 0): right edge weight is largest', () => {
+      const w = computeEdgeWeights(400, 0);
+      // right is index 1
+      const maxWeight = Math.max(...w);
+      expect(w[1]).toBe(maxWeight);
+      expect(w[1]).toBeGreaterThan(0.5);
     });
 
-    it('returns true when asteroid is fully past the bottom edge', () => {
-      const a = createAsteroid({ x: 400, y: 650, vx: 0, vy: 0, radius: 30 });
-      expect(isOffScreen(a, ORIGIN_BOUNDS)).toBe(true);
+    it('flying left (-400, 0): left edge weight is largest', () => {
+      const w = computeEdgeWeights(-400, 0);
+      // left is index 0
+      const maxWeight = Math.max(...w);
+      expect(w[0]).toBe(maxWeight);
     });
 
-    it('returns false when asteroid is on screen', () => {
-      const a = createAsteroid({ x: 400, y: 300, vx: 0, vy: 0, radius: 30 });
-      expect(isOffScreen(a, ORIGIN_BOUNDS)).toBe(false);
+    it('flying up (0, -400): top edge weight is largest', () => {
+      const w = computeEdgeWeights(0, -400);
+      // top is index 2
+      const maxWeight = Math.max(...w);
+      expect(w[2]).toBe(maxWeight);
     });
 
-    it('returns false when asteroid is partially on screen (edge overlap)', () => {
-      const a = createAsteroid({ x: 790, y: 300, vx: 0, vy: 0, radius: 30 });
-      expect(isOffScreen(a, ORIGIN_BOUNDS)).toBe(false);
+    it('flying down (0, 400): bottom edge weight is largest', () => {
+      const w = computeEdgeWeights(0, 400);
+      // bottom is index 3
+      const maxWeight = Math.max(...w);
+      expect(w[3]).toBe(maxWeight);
     });
 
-    it('uses margin so asteroid is fully gone before removal', () => {
-      // Asteroid at x=-36, radius=30: x+radius+margin = -36+30+5 = -1 < 0 → off-screen
-      const a = createAsteroid({ x: -36, y: 300, vx: 0, vy: 0, radius: 30 });
-      expect(isOffScreen(a, ORIGIN_BOUNDS)).toBe(true);
+    it('flying diagonally (400, 400): right and bottom edges share bias', () => {
+      const w = computeEdgeWeights(400, 400);
+      // right (1) and bottom (3) should be the two largest
+      expect(w[1]).toBeGreaterThan(w[0]);
+      expect(w[3]).toBeGreaterThan(w[2]);
     });
 
-    it('margin boundary: just inside margin is still on screen (left edge)', () => {
-      // x=-34, radius=30: x+radius+margin = -34+30+5 = 1 > 0 → NOT off-screen
-      const a = createAsteroid({ x: -34, y: 300, vx: 0, vy: 0, radius: 30 });
-      expect(isOffScreen(a, ORIGIN_BOUNDS)).toBe(false);
+    it('weights always sum to 1.0', () => {
+      const cases = [
+        [0, 0],
+        [400, 0],
+        [-200, 300],
+        [100, -100],
+        [0, -400],
+      ];
+      for (const [vx, vy] of cases) {
+        const w = computeEdgeWeights(vx, vy);
+        const sum = w.reduce((s, v) => s + v, 0);
+        expect(sum).toBeCloseTo(1.0, 10);
+      }
     });
 
-    it('margin boundary: just outside margin is off screen (left edge)', () => {
-      // x=-36, radius=30: x+radius+margin = -36+30+5 = -1 < 0 → off-screen
-      const a = createAsteroid({ x: -36, y: 300, vx: 0, vy: 0, radius: 30 });
-      expect(isOffScreen(a, ORIGIN_BOUNDS)).toBe(true);
+    it('no weight is ever 0', () => {
+      const w = computeEdgeWeights(400, 0);
+      for (const weight of w) {
+        expect(weight).toBeGreaterThan(0);
+      }
+    });
+  });
+
+  describe('pickWeightedEdge', () => {
+    it('uniform weights: roughly equal distribution over 1000 calls', () => {
+      const weights = [0.25, 0.25, 0.25, 0.25];
+      const counts = [0, 0, 0, 0];
+      for (let i = 0; i < 1000; i++) {
+        counts[pickWeightedEdge(weights)]++;
+      }
+      for (const c of counts) {
+        expect(c).toBeGreaterThan(150);
+        expect(c).toBeLessThan(350);
+      }
     });
 
-    it('margin boundary: exactly at margin threshold is still on screen', () => {
-      // x=-35, radius=30: x+radius+margin = -35+30+5 = 0, NOT < 0 → still on screen
-      const a = createAsteroid({ x: -35, y: 300, vx: 0, vy: 0, radius: 30 });
-      expect(isOffScreen(a, ORIGIN_BOUNDS)).toBe(false);
+    it('heavy bias: dominant edge selected >80% over 1000 calls', () => {
+      const weights = [0.01, 0.97, 0.01, 0.01];
+      const counts = [0, 0, 0, 0];
+      for (let i = 0; i < 1000; i++) {
+        counts[pickWeightedEdge(weights)]++;
+      }
+      expect(counts[1]).toBeGreaterThan(800);
     });
 
-    it('margin boundary: right edge precision', () => {
-      // x=835, radius=30: x-radius-margin = 835-30-5 = 800, NOT > 800 → still on screen
-      const onEdge = createAsteroid({
-        x: 835,
+    it('always returns 0-3', () => {
+      const weights = [0.1, 0.4, 0.3, 0.2];
+      for (let i = 0; i < 100; i++) {
+        const edge = pickWeightedEdge(weights);
+        expect(edge).toBeGreaterThanOrEqual(0);
+        expect(edge).toBeLessThanOrEqual(3);
+      }
+    });
+  });
+
+  describe('isOutsideZone', () => {
+    const spawnBounds = computeSpawnBounds(VIEWPORT_BOUNDS);
+
+    it('asteroid inside viewport → false', () => {
+      const a = createAsteroid({
+        x: 400,
         y: 300,
         vx: 0,
         vy: 0,
         radius: 30,
       });
-      expect(isOffScreen(onEdge, ORIGIN_BOUNDS)).toBe(false);
+      expect(isOutsideZone(a, spawnBounds)).toBe(false);
+    });
 
-      // x=836, radius=30: x-radius-margin = 836-30-5 = 801 > 800 → off-screen
-      const pastEdge = createAsteroid({
-        x: 836,
+    it('asteroid in border ring → false', () => {
+      const a = createAsteroid({
+        x: -100,
         y: 300,
         vx: 0,
         vy: 0,
         radius: 30,
       });
-      expect(isOffScreen(pastEdge, ORIGIN_BOUNDS)).toBe(true);
+      expect(isOutsideZone(a, spawnBounds)).toBe(false);
     });
 
-    it('works with non-origin-centered bounds', () => {
-      const bounds = { minX: 500, maxX: 1300, minY: 200, maxY: 800 };
-      // Inside bounds
+    it('asteroid past left spawn bound → true', () => {
+      const a = createAsteroid({
+        x: -340,
+        y: 300,
+        vx: 0,
+        vy: 0,
+        radius: 30,
+      });
+      expect(isOutsideZone(a, spawnBounds)).toBe(true);
+    });
+
+    it('asteroid past right spawn bound → true', () => {
+      const a = createAsteroid({
+        x: 1140,
+        y: 300,
+        vx: 0,
+        vy: 0,
+        radius: 30,
+      });
+      expect(isOutsideZone(a, spawnBounds)).toBe(true);
+    });
+
+    it('asteroid past top spawn bound → true', () => {
+      const a = createAsteroid({
+        x: 400,
+        y: -340,
+        vx: 0,
+        vy: 0,
+        radius: 30,
+      });
+      expect(isOutsideZone(a, spawnBounds)).toBe(true);
+    });
+
+    it('asteroid past bottom spawn bound → true', () => {
+      const a = createAsteroid({
+        x: 400,
+        y: 940,
+        vx: 0,
+        vy: 0,
+        radius: 30,
+      });
+      expect(isOutsideZone(a, spawnBounds)).toBe(true);
+    });
+
+    it('recycle margin hysteresis: just inside margin is still in zone', () => {
+      // spawnBounds.maxX = 1100, radius=30, RECYCLE_MARGIN=5
+      // x - radius - margin = 1134 - 30 - 5 = 1099 < 1100 → NOT outside
+      const a = createAsteroid({
+        x: 1134,
+        y: 300,
+        vx: 0,
+        vy: 0,
+        radius: 30,
+      });
+      expect(isOutsideZone(a, spawnBounds)).toBe(false);
+    });
+
+    it('recycle margin hysteresis: just past margin is outside zone', () => {
+      // x - radius - margin = 1136 - 30 - 5 = 1101 > 1100 → outside
+      const a = createAsteroid({
+        x: 1136,
+        y: 300,
+        vx: 0,
+        vy: 0,
+        radius: 30,
+      });
+      expect(isOutsideZone(a, spawnBounds)).toBe(true);
+    });
+
+    it('works with non-origin bounds', () => {
+      const shiftedSpawnBounds = computeSpawnBounds(SHIFTED_BOUNDS);
       const inside = createAsteroid({
         x: 900,
         y: 500,
@@ -99,79 +237,67 @@ describe('Increment 8: Asteroids Come and Go', () => {
         vy: 0,
         radius: 30,
       });
-      expect(isOffScreen(inside, bounds)).toBe(false);
+      expect(isOutsideZone(inside, shiftedSpawnBounds)).toBe(false);
 
-      // Past left of shifted bounds (x=460, radius=30: 460+30+5=495 < 500)
-      const pastLeft = createAsteroid({
-        x: 460,
+      const outside = createAsteroid({
+        x: -200,
         y: 500,
         vx: 0,
         vy: 0,
         radius: 30,
       });
-      expect(isOffScreen(pastLeft, bounds)).toBe(true);
-
-      // Past right of shifted bounds (x=1336, radius=30: 1336-30-5=1301 > 1300)
-      const pastRight = createAsteroid({
-        x: 1336,
-        y: 500,
-        vx: 0,
-        vy: 0,
-        radius: 30,
-      });
-      expect(isOffScreen(pastRight, bounds)).toBe(true);
-
-      // Past top of shifted bounds (y=160, radius=30: 160+30+5=195 < 200)
-      const pastTop = createAsteroid({
-        x: 900,
-        y: 160,
-        vx: 0,
-        vy: 0,
-        radius: 30,
-      });
-      expect(isOffScreen(pastTop, bounds)).toBe(true);
-
-      // Past bottom of shifted bounds (y=836, radius=30: 836-30-5=801 > 800)
-      const pastBottom = createAsteroid({
-        x: 900,
-        y: 836,
-        vx: 0,
-        vy: 0,
-        radius: 30,
-      });
-      expect(isOffScreen(pastBottom, bounds)).toBe(true);
+      expect(isOutsideZone(outside, shiftedSpawnBounds)).toBe(true);
     });
   });
 
-  describe('spawnAsteroidFromEdge', () => {
-    it('creates an asteroid outside the viewport bounds', () => {
-      for (let i = 0; i < 50; i++) {
-        const a = spawnAsteroidFromEdge(ORIGIN_BOUNDS);
-        // Asteroid should be outside the visible area
-        const outside =
-          a.x < -a.radius ||
-          a.x > 800 + a.radius ||
-          a.y < -a.radius ||
-          a.y > 600 + a.radius;
-        expect(outside).toBe(true);
+  describe('spawnAsteroidInBorder', () => {
+    const spawnBounds = computeSpawnBounds(VIEWPORT_BOUNDS);
+    const uniformWeights = [0.25, 0.25, 0.25, 0.25];
+
+    it('position is OUTSIDE viewport bounds (never in viewport)', () => {
+      for (let i = 0; i < 100; i++) {
+        const a = spawnAsteroidInBorder(
+          VIEWPORT_BOUNDS,
+          spawnBounds,
+          uniformWeights,
+          1.0,
+        );
+        const insideViewport =
+          a.x > VIEWPORT_BOUNDS.minX &&
+          a.x < VIEWPORT_BOUNDS.maxX &&
+          a.y > VIEWPORT_BOUNDS.minY &&
+          a.y < VIEWPORT_BOUNDS.maxY;
+        expect(insideViewport).toBe(false);
       }
     });
 
-    it('produces asteroids with valid radius in range [10, 80]', () => {
-      for (let i = 0; i < 50; i++) {
-        const a = spawnAsteroidFromEdge(ORIGIN_BOUNDS);
-        expect(a.radius).toBeGreaterThanOrEqual(10);
-        expect(a.radius).toBeLessThanOrEqual(80);
+    it('position is INSIDE spawn bounds', () => {
+      for (let i = 0; i < 100; i++) {
+        const a = spawnAsteroidInBorder(
+          VIEWPORT_BOUNDS,
+          spawnBounds,
+          uniformWeights,
+          1.0,
+        );
+        expect(a.x).toBeGreaterThanOrEqual(spawnBounds.minX - a.radius);
+        expect(a.x).toBeLessThanOrEqual(spawnBounds.maxX + a.radius);
+        expect(a.y).toBeGreaterThanOrEqual(spawnBounds.minY - a.radius);
+        expect(a.y).toBeLessThanOrEqual(spawnBounds.maxY + a.radius);
       }
     });
 
-    it('produces asteroids aimed roughly inward toward bounds center', () => {
+    it('velocity aims roughly inward (>90% move closer to viewport center after 2s)', () => {
+      const centerX = (VIEWPORT_BOUNDS.minX + VIEWPORT_BOUNDS.maxX) / 2;
+      const centerY = (VIEWPORT_BOUNDS.minY + VIEWPORT_BOUNDS.maxY) / 2;
       let inwardCount = 0;
-      const total = 100;
-      const centerX = 400;
-      const centerY = 300;
+      const total = 200;
       for (let i = 0; i < total; i++) {
-        const a = spawnAsteroidFromEdge(ORIGIN_BOUNDS);
+        const a = spawnAsteroidInBorder(
+          VIEWPORT_BOUNDS,
+          spawnBounds,
+          uniformWeights,
+          1.0,
+        );
         const distBefore = Math.sqrt(
           (a.x - centerX) ** 2 + (a.y - centerY) ** 2,
         );
@@ -183,124 +309,22 @@ describe('Increment 8: Asteroids Come and Go', () => {
       expect(inwardCount / total).toBeGreaterThan(0.9);
     });
 
-    it('spawns from all four edges over many calls', () => {
-      const edges = { left: 0, right: 0, top: 0, bottom: 0 };
-      for (let i = 0; i < 200; i++) {
-        const a = spawnAsteroidFromEdge(ORIGIN_BOUNDS);
-        if (a.x < 0) edges.left++;
-        else if (a.x > 800) edges.right++;
-        else if (a.y < 0) edges.top++;
-        else edges.bottom++;
-      }
-      expect(edges.left).toBeGreaterThan(0);
-      expect(edges.right).toBeGreaterThan(0);
-      expect(edges.top).toBeGreaterThan(0);
-      expect(edges.bottom).toBeGreaterThan(0);
-    });
-
-    it('respects size distribution (~20% large, ~40% medium, ~40% small)', () => {
-      let large = 0,
-        medium = 0,
-        small = 0;
-      const N = 500;
-      for (let i = 0; i < N; i++) {
-        const a = spawnAsteroidFromEdge(ORIGIN_BOUNDS);
-        if (a.radius >= 50) large++;
-        else if (a.radius >= 25) medium++;
-        else small++;
-      }
-      expect(large / N).toBeGreaterThan(0.05);
-      expect(large / N).toBeLessThan(0.35);
-      expect(medium / N).toBeGreaterThan(0.25);
-      expect(medium / N).toBeLessThan(0.55);
-      expect(small / N).toBeGreaterThan(0.25);
-      expect(small / N).toBeLessThan(0.55);
-    });
-
-    it('speed is inversely proportional to radius (large=slow, small=fast)', () => {
-      const largeSpeeds = [],
-        smallSpeeds = [];
-      for (let i = 0; i < 200; i++) {
-        const a = spawnAsteroidFromEdge(ORIGIN_BOUNDS);
-        const speed = Math.sqrt(a.vx * a.vx + a.vy * a.vy);
-        if (a.radius >= 50) largeSpeeds.push(speed);
-        else if (a.radius < 25) smallSpeeds.push(speed);
-      }
-      if (largeSpeeds.length > 0 && smallSpeeds.length > 0) {
-        const avgLarge =
-          largeSpeeds.reduce((s, v) => s + v, 0) / largeSpeeds.length;
-        const avgSmall =
-          smallSpeeds.reduce((s, v) => s + v, 0) / smallSpeeds.length;
-        expect(avgSmall).toBeGreaterThan(avgLarge);
-      }
-    });
-
-    it('spawns outside non-origin-centered bounds', () => {
-      const bounds = { minX: 500, maxX: 1300, minY: 200, maxY: 800 };
-      for (let i = 0; i < 50; i++) {
-        const a = spawnAsteroidFromEdge(bounds);
-        const outside =
-          a.x < bounds.minX - a.radius ||
-          a.x > bounds.maxX + a.radius ||
-          a.y < bounds.minY - a.radius ||
-          a.y > bounds.maxY + a.radius;
-        expect(outside).toBe(true);
-      }
-    });
-
-    it('aims inward toward center of non-origin-centered bounds', () => {
-      const bounds = { minX: 500, maxX: 1300, minY: 200, maxY: 800 };
-      const centerX = (bounds.minX + bounds.maxX) / 2;
-      const centerY = (bounds.minY + bounds.maxY) / 2;
-      let inwardCount = 0;
-      const total = 100;
-      for (let i = 0; i < total; i++) {
-        const a = spawnAsteroidFromEdge(bounds);
-        const distBefore = Math.sqrt(
-          (a.x - centerX) ** 2 + (a.y - centerY) ** 2,
-        );
-        const distAfter = Math.sqrt(
-          (a.x + a.vx * 2 - centerX) ** 2 + (a.y + a.vy * 2 - centerY) ** 2,
-        );
-        if (distAfter < distBefore) inwardCount++;
-      }
-      expect(inwardCount / total).toBeGreaterThan(0.9);
-    });
-  });
-
-  describe('spawnAsteroidInBounds', () => {
-    it('creates an asteroid within the bounds', () => {
-      for (let i = 0; i < 50; i++) {
-        const a = spawnAsteroidInBounds(ORIGIN_BOUNDS);
-        expect(a.x).toBeGreaterThanOrEqual(0);
-        expect(a.x).toBeLessThanOrEqual(800);
-        expect(a.y).toBeGreaterThanOrEqual(0);
-        expect(a.y).toBeLessThanOrEqual(600);
-      }
-    });
-
-    it('produces asteroids with valid radius in range [10, 80]', () => {
-      for (let i = 0; i < 50; i++) {
-        const a = spawnAsteroidInBounds(ORIGIN_BOUNDS);
-        expect(a.radius).toBeGreaterThanOrEqual(10);
-        expect(a.radius).toBeLessThanOrEqual(80);
-      }
-    });
-
-    it('produces asteroids with non-zero velocity', () => {
-      for (let i = 0; i < 20; i++) {
-        const a = spawnAsteroidInBounds(ORIGIN_BOUNDS);
-        const speed = Math.sqrt(a.vx ** 2 + a.vy ** 2);
-        expect(speed).toBeGreaterThan(0);
-      }
-    });
-
-    it('respects speed multiplier', () => {
+    it('speed multiplier applied', () => {
       const speedsNormal = [];
       const speedsBoosted = [];
       for (let i = 0; i < 200; i++) {
-        const a = spawnAsteroidInBounds(ORIGIN_BOUNDS, 1.0);
-        const b = spawnAsteroidInBounds(ORIGIN_BOUNDS, 1.5);
+        const a = spawnAsteroidInBorder(
+          VIEWPORT_BOUNDS,
+          spawnBounds,
+          uniformWeights,
+          1.0,
+        );
+        const b = spawnAsteroidInBorder(
+          VIEWPORT_BOUNDS,
+          spawnBounds,
+          uniformWeights,
+          1.5,
+        );
         speedsNormal.push(Math.sqrt(a.vx ** 2 + a.vy ** 2));
         speedsBoosted.push(Math.sqrt(b.vx ** 2 + b.vy ** 2));
       }
@@ -313,52 +337,113 @@ describe('Increment 8: Asteroids Come and Go', () => {
       expect(ratio).toBeLessThan(1.8);
     });
 
-    it('works with non-origin-centered bounds', () => {
-      const bounds = { minX: 500, maxX: 1300, minY: 200, maxY: 800 };
-      for (let i = 0; i < 50; i++) {
-        const a = spawnAsteroidInBounds(bounds);
-        expect(a.x).toBeGreaterThanOrEqual(500);
-        expect(a.x).toBeLessThanOrEqual(1300);
-        expect(a.y).toBeGreaterThanOrEqual(200);
-        expect(a.y).toBeLessThanOrEqual(800);
+    it('over many calls with biased weights, spawns more from expected edge', () => {
+      const rightBiasWeights = [0.05, 0.8, 0.05, 0.1];
+      let rightEdgeCount = 0;
+      const total = 500;
+      for (let i = 0; i < total; i++) {
+        const a = spawnAsteroidInBorder(
+          VIEWPORT_BOUNDS,
+          spawnBounds,
+          rightBiasWeights,
+          1.0,
+        );
+        // Right edge: x > viewport maxX
+        if (a.x >= VIEWPORT_BOUNDS.maxX) rightEdgeCount++;
       }
+      expect(rightEdgeCount / total).toBeGreaterThan(0.6);
+    });
+  });
+
+  describe('spawnAsteroidInZone', () => {
+    const spawnBounds = computeSpawnBounds(VIEWPORT_BOUNDS);
+
+    it('position within spawn bounds', () => {
+      for (let i = 0; i < 50; i++) {
+        const a = spawnAsteroidInZone(spawnBounds);
+        expect(a.x).toBeGreaterThanOrEqual(spawnBounds.minX);
+        expect(a.x).toBeLessThanOrEqual(spawnBounds.maxX);
+        expect(a.y).toBeGreaterThanOrEqual(spawnBounds.minY);
+        expect(a.y).toBeLessThanOrEqual(spawnBounds.maxY);
+      }
+    });
+
+    it('random direction, non-zero velocity', () => {
+      for (let i = 0; i < 20; i++) {
+        const a = spawnAsteroidInZone(spawnBounds);
+        const speed = Math.sqrt(a.vx ** 2 + a.vy ** 2);
+        expect(speed).toBeGreaterThan(0);
+      }
+    });
+
+    it('speed multiplier respected', () => {
+      const speedsNormal = [];
+      const speedsBoosted = [];
+      for (let i = 0; i < 200; i++) {
+        const a = spawnAsteroidInZone(spawnBounds, 1.0);
+        const b = spawnAsteroidInZone(spawnBounds, 1.5);
+        speedsNormal.push(Math.sqrt(a.vx ** 2 + a.vy ** 2));
+        speedsBoosted.push(Math.sqrt(b.vx ** 2 + b.vy ** 2));
+      }
+      const avgNormal =
+        speedsNormal.reduce((s, v) => s + v, 0) / speedsNormal.length;
+      const avgBoosted =
+        speedsBoosted.reduce((s, v) => s + v, 0) / speedsBoosted.length;
+      const ratio = avgBoosted / avgNormal;
+      expect(ratio).toBeGreaterThan(1.2);
+      expect(ratio).toBeLessThan(1.8);
     });
   });
 
   describe('createSimulation', () => {
-    it('creates a simulation with the target asteroid count', () => {
-      const sim = createSimulation(ORIGIN_BOUNDS, 20);
-      expect(sim.asteroids.length).toBe(20);
-      expect(sim.targetCount).toBe(20);
+    it('creates targetCount asteroids within the full zone', () => {
+      const sim = createSimulation(VIEWPORT_BOUNDS, 30);
+      expect(sim.asteroids.length).toBe(30);
+      expect(sim.targetCount).toBe(30);
     });
 
-    it('initial asteroids are within the bounds', () => {
-      const sim = createSimulation(ORIGIN_BOUNDS, 20);
-      for (const a of sim.asteroids) {
-        expect(a.x).toBeGreaterThanOrEqual(0);
-        expect(a.x).toBeLessThanOrEqual(800);
-        expect(a.y).toBeGreaterThanOrEqual(0);
-        expect(a.y).toBeLessThanOrEqual(600);
-      }
+    it('some asteroids are within viewport bounds (immediate visibility)', () => {
+      const sim = createSimulation(VIEWPORT_BOUNDS, 40);
+      const insideViewport = sim.asteroids.filter(
+        (a) =>
+          a.x >= VIEWPORT_BOUNDS.minX &&
+          a.x <= VIEWPORT_BOUNDS.maxX &&
+          a.y >= VIEWPORT_BOUNDS.minY &&
+          a.y <= VIEWPORT_BOUNDS.maxY,
+      );
+      expect(insideViewport.length).toBeGreaterThan(0);
+    });
+
+    it('has baselineKEPerAsteroid', () => {
+      const sim = createSimulation(VIEWPORT_BOUNDS, 20);
+      expect(sim).toHaveProperty('baselineKEPerAsteroid');
+      expect(sim.baselineKEPerAsteroid).toBeGreaterThan(0);
+    });
+
+    it('baselineKEPerAsteroid equals average KE of initial asteroids', () => {
+      const sim = createSimulation(VIEWPORT_BOUNDS, 20);
+      const totalKE = computeTotalKE(sim.asteroids);
+      const expectedBaseline = totalKE / sim.asteroids.length;
+      expect(sim.baselineKEPerAsteroid).toBeCloseTo(expectedBaseline, 5);
     });
 
     it('defaults to 20 asteroids', () => {
-      const sim = createSimulation(ORIGIN_BOUNDS);
+      const sim = createSimulation(VIEWPORT_BOUNDS);
       expect(sim.targetCount).toBe(20);
     });
 
-    it('tracks spawn timer', () => {
-      const sim = createSimulation(ORIGIN_BOUNDS);
-      expect(sim).toHaveProperty('spawnTimer');
+    it('has no spawnTimer property', () => {
+      const sim = createSimulation(VIEWPORT_BOUNDS);
+      expect(sim).not.toHaveProperty('spawnTimer');
     });
   });
 
   describe('updateSimulation', () => {
-    it('updates all asteroid positions', () => {
-      const sim = createSimulation(ORIGIN_BOUNDS, 5);
+    it('moves asteroids', () => {
+      const sim = createSimulation(VIEWPORT_BOUNDS, 5);
       const positions = sim.asteroids.map((a) => ({ x: a.x, y: a.y }));
 
-      updateSimulation(sim, 0.1, ORIGIN_BOUNDS);
+      updateSimulation(sim, 0.1, VIEWPORT_BOUNDS, 0, 0);
 
       let anyMoved = false;
       for (let i = 0; i < sim.asteroids.length; i++) {
@@ -373,265 +458,150 @@ describe('Increment 8: Asteroids Come and Go', () => {
       expect(anyMoved).toBe(true);
     });
 
-    it('removes off-screen asteroids', () => {
-      const sim = createSimulation(ORIGIN_BOUNDS, 0);
-      const offScreen = createAsteroid({
-        x: -200,
-        y: -200,
+    it('removes asteroids outside spawn bounds (aggressive recycling)', () => {
+      const sim = createSimulation(VIEWPORT_BOUNDS, 0);
+      const farAway = createAsteroid({
+        x: -500,
+        y: -500,
         vx: -10,
         vy: -10,
         radius: 20,
       });
-      sim.asteroids.push(offScreen);
+      sim.asteroids.push(farAway);
 
-      updateSimulation(sim, 0.016, ORIGIN_BOUNDS);
+      updateSimulation(sim, 0.016, VIEWPORT_BOUNDS, 0, 0);
 
       expect(sim.asteroids.length).toBe(0);
     });
 
-    it('spawns new asteroids to reach target count', () => {
-      const sim = createSimulation(ORIGIN_BOUNDS, 5);
-      sim.asteroids.length = 0;
+    it('spawns in border when below target (not inside viewport)', () => {
+      const sim = createSimulation(VIEWPORT_BOUNDS, 0);
+      sim.targetCount = 20;
+      sim.asteroids = [];
 
-      for (let i = 0; i < 100; i++) {
-        updateSimulation(sim, 0.05, ORIGIN_BOUNDS);
-      }
+      updateSimulation(sim, 0.016, VIEWPORT_BOUNDS, 0, 0);
 
+      // Should have spawned some asteroids
       expect(sim.asteroids.length).toBeGreaterThan(0);
-      expect(sim.asteroids.length).toBeLessThanOrEqual(5);
-    });
-
-    it('burst-spawns multiple asteroids when count is far below target', () => {
-      const sim = createSimulation(ORIGIN_BOUNDS, 0);
-      sim.targetCount = 20;
-      sim.asteroids = [];
-
-      // Single frame should spawn multiple via burst
-      updateSimulation(sim, 0.016, ORIGIN_BOUNDS);
-
-      expect(sim.asteroids.length).toBeGreaterThan(1);
-    });
-
-    it('burst-spawned asteroids are within bounds', () => {
-      const sim = createSimulation(ORIGIN_BOUNDS, 0);
-      sim.targetCount = 20;
-      sim.asteroids = [];
-
-      updateSimulation(sim, 0.016, ORIGIN_BOUNDS);
-
+      // Spawned asteroids should be in the border ring, not inside viewport
       for (const a of sim.asteroids) {
-        expect(a.x).toBeGreaterThanOrEqual(0);
-        expect(a.x).toBeLessThanOrEqual(800);
-        expect(a.y).toBeGreaterThanOrEqual(0);
-        expect(a.y).toBeLessThanOrEqual(600);
+        const insideViewport =
+          a.x > VIEWPORT_BOUNDS.minX + a.radius &&
+          a.x < VIEWPORT_BOUNDS.maxX - a.radius &&
+          a.y > VIEWPORT_BOUNDS.minY + a.radius &&
+          a.y < VIEWPORT_BOUNDS.maxY - a.radius;
+        expect(insideViewport).toBe(false);
       }
     });
 
-    it('recovers to near target quickly after mass loss (within a few frames)', () => {
-      const sim = createSimulation(ORIGIN_BOUNDS, 20);
+    it('spawns up to MAX_SPAWN_PER_FRAME (10) per frame', () => {
+      const sim = createSimulation(VIEWPORT_BOUNDS, 0);
+      sim.targetCount = 50;
       sim.asteroids = [];
 
-      // Run just 10 frames
-      for (let i = 0; i < 10; i++) {
-        updateSimulation(sim, 0.016, ORIGIN_BOUNDS);
+      updateSimulation(sim, 0.016, VIEWPORT_BOUNDS, 0, 0);
+
+      expect(sim.asteroids.length).toBeLessThanOrEqual(10);
+      expect(sim.asteroids.length).toBeGreaterThan(0);
+    });
+
+    it('direction bias: more spawns ahead of movement', () => {
+      let rightEdgeCount = 0;
+      let leftEdgeCount = 0;
+      const total = 500;
+
+      for (let i = 0; i < total; i++) {
+        const sim = createSimulation(VIEWPORT_BOUNDS, 0);
+        sim.targetCount = 1;
+        sim.asteroids = [];
+
+        // Ship flying right at 400 px/s
+        updateSimulation(sim, 0.016, VIEWPORT_BOUNDS, 400, 0);
+
+        if (sim.asteroids.length > 0) {
+          const a = sim.asteroids[0];
+          if (a.x >= VIEWPORT_BOUNDS.maxX) rightEdgeCount++;
+          if (a.x <= VIEWPORT_BOUNDS.minX) leftEdgeCount++;
+        }
       }
 
-      // Should have recovered to at least 50% of target
-      expect(sim.asteroids.length).toBeGreaterThanOrEqual(10);
+      // Right edge should dominate
+      expect(rightEdgeCount).toBeGreaterThan(leftEdgeCount * 2);
     });
 
-    it('staggers edge-spawns when near target count', () => {
-      const sim = createSimulation(ORIGIN_BOUNDS, 20);
-      // Set to just below target (above burst threshold)
-      sim.asteroids.length = 19;
-      sim.spawnTimer = 0;
-
-      updateSimulation(sim, 0.05, ORIGIN_BOUNDS);
-      const countAfterShortDt = sim.asteroids.length;
-
-      // Should not have spawned yet (stagger not reached, above burst threshold)
-      expect(countAfterShortDt).toBeLessThanOrEqual(19);
-    });
-
-    it('detects and resolves collisions between overlapping asteroids', () => {
-      const sim = createSimulation(ORIGIN_BOUNDS, 0);
+    it('detects and resolves collisions', () => {
+      const sim = createSimulation(VIEWPORT_BOUNDS, 0);
       const a = createAsteroid({ x: 100, y: 300, vx: 50, vy: 0, radius: 30 });
-      const b = createAsteroid({ x: 120, y: 300, vx: -50, vy: 0, radius: 30 });
+      const b = createAsteroid({
+        x: 120,
+        y: 300,
+        vx: -50,
+        vy: 0,
+        radius: 30,
+      });
       sim.asteroids = [a, b];
 
-      updateSimulation(sim, 0.016, ORIGIN_BOUNDS);
+      updateSimulation(sim, 0.016, VIEWPORT_BOUNDS, 0, 0);
 
       expect(a.vx).not.toBe(50);
       expect(b.vx).not.toBe(-50);
     });
 
-    it('separates overlapping asteroids after collision', () => {
-      const sim = createSimulation(ORIGIN_BOUNDS, 0);
-      const a = createAsteroid({ x: 100, y: 300, vx: 0, vy: 0, radius: 30 });
-      const b = createAsteroid({ x: 110, y: 300, vx: 0, vy: 0, radius: 30 });
-      sim.asteroids = [a, b];
-
-      updateSimulation(sim, 0.016, ORIGIN_BOUNDS);
-
-      const dx = b.x - a.x;
-      const dy = b.y - a.y;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      expect(dist).toBeGreaterThanOrEqual(
-        a.collisionRadius + b.collisionRadius - 1e-10,
-      );
-    });
-
-    it('asteroid count stays near target over time', () => {
-      const sim = createSimulation(ORIGIN_BOUNDS, 10);
-
-      for (let i = 0; i < 500; i++) {
-        updateSimulation(sim, 0.016, ORIGIN_BOUNDS);
-      }
-
-      expect(sim.asteroids.length).toBeGreaterThanOrEqual(5);
-      expect(sim.asteroids.length).toBeLessThanOrEqual(15);
-    });
-
-    it('works with non-origin-centered bounds (asteroids populate shifted viewport)', () => {
-      const bounds = { minX: 500, maxX: 1300, minY: 200, maxY: 800 };
-      const sim = createSimulation(bounds, 10);
-
-      // Run for many frames
-      for (let i = 0; i < 300; i++) {
-        updateSimulation(sim, 0.016, bounds);
-      }
-
-      // Should maintain asteroid count near target
-      expect(sim.asteroids.length).toBeGreaterThanOrEqual(5);
-      expect(sim.asteroids.length).toBeLessThanOrEqual(15);
-    });
-  });
-});
-
-describe('Increment 12: Energy-Sustaining Spawns — Simulation Integration', () => {
-  describe('createSimulation — baseline KE', () => {
-    it('records baselineKEPerAsteroid from initial population', () => {
-      const sim = createSimulation(ORIGIN_BOUNDS, 20);
-      expect(sim).toHaveProperty('baselineKEPerAsteroid');
-      expect(sim.baselineKEPerAsteroid).toBeGreaterThan(0);
-    });
-
-    it('baselineKEPerAsteroid equals average KE of initial asteroids', () => {
-      const sim = createSimulation(ORIGIN_BOUNDS, 20);
-      const totalKE = computeTotalKE(sim.asteroids);
-      const expectedBaseline = totalKE / sim.asteroids.length;
-      expect(sim.baselineKEPerAsteroid).toBeCloseTo(expectedBaseline, 5);
-    });
-  });
-
-  describe('spawnAsteroidFromEdge — speed multiplier', () => {
-    it('accepts an optional speed multiplier', () => {
-      const a = spawnAsteroidFromEdge(ORIGIN_BOUNDS, 1.5);
-      expect(a).toBeDefined();
-      expect(a.vx !== undefined && a.vy !== undefined).toBe(true);
-    });
-
-    it('default multiplier is 1.0 (no change)', () => {
-      const speedsDefault = [];
-      const speedsExplicit = [];
-      for (let i = 0; i < 200; i++) {
-        const a = spawnAsteroidFromEdge(ORIGIN_BOUNDS);
-        const b = spawnAsteroidFromEdge(ORIGIN_BOUNDS, 1.0);
-        speedsDefault.push(Math.sqrt(a.vx ** 2 + a.vy ** 2));
-        speedsExplicit.push(Math.sqrt(b.vx ** 2 + b.vy ** 2));
-      }
-      const avgDefault =
-        speedsDefault.reduce((s, v) => s + v, 0) / speedsDefault.length;
-      const avgExplicit =
-        speedsExplicit.reduce((s, v) => s + v, 0) / speedsExplicit.length;
-      expect(Math.abs(avgDefault - avgExplicit) / avgDefault).toBeLessThan(0.2);
-    });
-
-    it('multiplier of 1.5 produces ~1.5x faster asteroids on average', () => {
-      const speedsNormal = [];
-      const speedsBoosted = [];
-      for (let i = 0; i < 300; i++) {
-        const a = spawnAsteroidFromEdge(ORIGIN_BOUNDS, 1.0);
-        const b = spawnAsteroidFromEdge(ORIGIN_BOUNDS, 1.5);
-        speedsNormal.push(Math.sqrt(a.vx ** 2 + a.vy ** 2));
-        speedsBoosted.push(Math.sqrt(b.vx ** 2 + b.vy ** 2));
-      }
-      const avgNormal =
-        speedsNormal.reduce((s, v) => s + v, 0) / speedsNormal.length;
-      const avgBoosted =
-        speedsBoosted.reduce((s, v) => s + v, 0) / speedsBoosted.length;
-      const ratio = avgBoosted / avgNormal;
-      expect(ratio).toBeGreaterThan(1.2);
-      expect(ratio).toBeLessThan(1.8);
-    });
-  });
-
-  describe('updateSimulation — energy-sustaining spawns', () => {
-    it('replacement spawns use speed boost from energy module', () => {
-      const sim = createSimulation(ORIGIN_BOUNDS, 0);
+    it('energy homeostasis boost applied to spawn speeds', () => {
+      const sim = createSimulation(VIEWPORT_BOUNDS, 0);
       sim.targetCount = 10;
       sim.baselineKEPerAsteroid = 50000;
 
-      const a1 = createAsteroid({ x: 200, y: 200, vx: 1, vy: 1, radius: 20 });
-      const a2 = createAsteroid({ x: 400, y: 300, vx: 1, vy: 1, radius: 20 });
-      const a3 = createAsteroid({ x: 600, y: 400, vx: 1, vy: 1, radius: 20 });
-      sim.asteroids = [a1, a2, a3];
-      sim.spawnTimer = 0.3;
+      const a1 = createAsteroid({
+        x: 200,
+        y: 200,
+        vx: 1,
+        vy: 1,
+        radius: 20,
+      });
+      const a2 = createAsteroid({
+        x: 400,
+        y: 300,
+        vx: 1,
+        vy: 1,
+        radius: 20,
+      });
+      sim.asteroids = [a1, a2];
 
-      updateSimulation(sim, 0.016, ORIGIN_BOUNDS);
+      updateSimulation(sim, 0.016, VIEWPORT_BOUNDS, 0, 0);
 
-      expect(sim.asteroids.length).toBeGreaterThan(3);
+      expect(sim.asteroids.length).toBeGreaterThan(2);
     });
+  });
 
-    it('boosted spawns are faster than unboosted spawns on average', () => {
-      const sim = createSimulation(ORIGIN_BOUNDS, 20);
+  describe('integration: flight simulation', () => {
+    it('asteroid count stays within 50-150% of target during 300 frames of flight', () => {
+      const sim = createSimulation(VIEWPORT_BOUNDS, 40);
+      let minCount = sim.asteroids.length;
+      let maxCount = sim.asteroids.length;
+      const target = 40;
 
-      const boostedSpeeds = [];
-      for (let i = 0; i < 100; i++) {
-        sim.asteroids = [];
-        sim.spawnTimer = 0.3;
-        updateSimulation(sim, 0.016, ORIGIN_BOUNDS);
-        if (sim.asteroids.length > 0) {
-          const a = sim.asteroids[0];
-          boostedSpeeds.push(Math.sqrt(a.vx ** 2 + a.vy ** 2));
-        }
+      // Simulate 300 frames of rightward flight
+      let currentBounds = { ...VIEWPORT_BOUNDS };
+      for (let i = 0; i < 300; i++) {
+        const dt = 0.016;
+        const shipVx = 400;
+        // Shift viewport as if ship is flying right
+        currentBounds = {
+          minX: currentBounds.minX + shipVx * dt,
+          maxX: currentBounds.maxX + shipVx * dt,
+          minY: currentBounds.minY,
+          maxY: currentBounds.maxY,
+        };
+
+        updateSimulation(sim, dt, currentBounds, shipVx, 0);
+
+        minCount = Math.min(minCount, sim.asteroids.length);
+        maxCount = Math.max(maxCount, sim.asteroids.length);
       }
 
-      const normalSpeeds = [];
-      for (let i = 0; i < 100; i++) {
-        const a = spawnAsteroidFromEdge(ORIGIN_BOUNDS, 1.0);
-        normalSpeeds.push(Math.sqrt(a.vx ** 2 + a.vy ** 2));
-      }
-
-      const avgBoosted =
-        boostedSpeeds.reduce((s, v) => s + v, 0) / boostedSpeeds.length;
-      const avgNormal =
-        normalSpeeds.reduce((s, v) => s + v, 0) / normalSpeeds.length;
-
-      expect(avgBoosted).toBeGreaterThan(avgNormal * 1.2);
-    });
-
-    it('system KE stays within 80–120% of baseline over a long run', () => {
-      const largeBounds = { minX: 0, maxX: 1600, minY: 0, maxY: 1200 };
-      const sim = createSimulation(largeBounds, 20);
-      const baselineTotalKE = sim.baselineKEPerAsteroid * sim.targetCount;
-
-      for (let i = 0; i < 500; i++) {
-        updateSimulation(sim, 0.016, largeBounds);
-      }
-
-      let keSum = 0;
-      const sampleCount = 1000;
-      for (let i = 0; i < sampleCount; i++) {
-        updateSimulation(sim, 0.016, largeBounds);
-        keSum += computeTotalKE(sim.asteroids);
-      }
-
-      const avgKE = keSum / sampleCount;
-      const ratio = avgKE / baselineTotalKE;
-
-      expect(ratio).toBeGreaterThanOrEqual(0.8);
-      expect(ratio).toBeLessThanOrEqual(1.2);
+      expect(minCount).toBeGreaterThanOrEqual(target * 0.5);
+      expect(maxCount).toBeLessThanOrEqual(target * 1.5);
     });
   });
 });

@@ -407,28 +407,28 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 
 ---
 
-## Increment 21: World-Relative Asteroid Spawning
+## Increment 21: World-Relative Asteroid Spawning (Border-Zone Architecture)
 
-**Goal**: Asteroids spawn/despawn relative to the camera viewport, creating an infinite field. Dynamic density scaling and burst spawning keep the viewport populated at all times.
+**Goal**: Asteroids spawn/despawn using a three-zone system (viewport → spawn border → outside) relative to the camera viewport, creating a realistic infinite field. Direction-biased border spawning keeps the viewport populated at all times without asteroids popping into view.
 
-**Modify**: `src/simulation.js`, `test/simulation.test.js`, `src/main.js`, `src/settings.js`, `test/settings.test.js`
+**Modify**: `src/simulation.js`, `test/simulation.test.js`, `src/camera.js`, `test/camera.test.js`, `src/main.js`, `src/settings.js`, `test/settings.test.js`
 
 **Acceptance Criteria**:
-- [x] All simulation functions accept viewport bounds `{ minX, maxX, minY, maxY }` instead of `canvasWidth, canvasHeight`
-- [x] `isOffScreen(asteroid, bounds)` despawns asteroids outside bounds + margin
-- [x] `spawnAsteroidFromEdge(bounds, speedMultiplier)` spawns at bounds edges, aimed toward bounds center with ±30° spread
-- [x] `spawnAsteroidInBounds(bounds, speedMultiplier)` spawns at random positions within bounds (for initial population and burst recovery)
-- [x] `createSimulation(bounds, targetCount)` uses in-bounds spawning for immediate visibility
-- [x] `updateSimulation(sim, dt, bounds)` receives current viewport bounds each frame
-- [x] Burst spawning: when count < 75% of target, up to 5 asteroids/frame spawned within bounds
-- [x] Staggered edge spawning for steady-state replenishment (max 1 per 0.3s)
-- [x] `main.js` computes bounds from `getViewportBounds(camera, ...)` each frame
-- [x] Dynamic target count: `BASE_ASTEROID_COUNT (40) × asteroidDensity × (boundsArea / viewportArea)`
 - [x] "Asteroid Count" slider replaced with "Asteroid Density" multiplier (0.5x–3.0x, default 1.0x, step 0.1)
 - [x] Density setting persisted to localStorage
 - [x] Energy homeostasis unchanged (based on velocities, unaffected by coordinate system)
 - [x] Collision physics unchanged (all in world-space)
-- [x] **Visible**: Infinite asteroid field. Fly anywhere — asteroids always populate the viewport. No empty space when exploring new areas.
+- [ ] `getViewportBounds(camera, vw, vh, margin)` accepts optional margin parameter (default 0), `VIEWPORT_MARGIN` constant removed
+- [ ] `computeSpawnBounds(viewportBounds)` expands viewport bounds by `SPAWN_BORDER` (300px) on each side
+- [ ] `computeEdgeWeights(shipVx, shipVy)` returns direction-biased weights: `max(dot(velocity, edgeOutward), 0) + BASE_EDGE_WEIGHT`, normalized to sum to 1.0; stationary → ~0.25 each; no weight ever 0
+- [ ] `pickWeightedEdge(weights)` returns 0–3 using cumulative weighted random selection
+- [ ] `isOutsideZone(asteroid, spawnBounds)` replaces `isOffScreen`: removes asteroids past spawn bounds + `RECYCLE_MARGIN` (5px)
+- [ ] `spawnAsteroidInBorder(viewportBounds, spawnBounds, edgeWeights, speedMultiplier)` spawns ONLY in the border ring (outside viewport, inside spawn bounds), aimed inward with ±30° spread, direction-biased by edge weights
+- [ ] `spawnAsteroidInZone(spawnBounds, speedMultiplier)` replaces `spawnAsteroidInBounds`: random position within full zone, random direction
+- [ ] `createSimulation(viewportBounds, targetCount)` populates entire zone (viewport + border) for immediate visibility; records `baselineKEPerAsteroid`; no `spawnTimer`
+- [ ] `updateSimulation(sim, dt, viewportBounds, shipVx, shipVy)` — moves, collides, recycles outside zone, spawns in border when below target (up to `MAX_SPAWN_PER_FRAME` = 10/frame), direction-biased; no stagger timer
+- [ ] `main.js` passes tight viewport bounds (margin=0) + ship velocity to simulation; target count uses zone area ratio
+- [ ] **Visible**: Infinite asteroid field. No asteroids pop into view inside screen. Fly any direction at full speed — viewport always populated. Asteroids visible immediately on load.
 
 ---
 

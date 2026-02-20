@@ -20,7 +20,11 @@ import {
   updateAutoHide,
 } from './settings.js';
 import { createShip, drawShip, updateShip } from './ship.js';
-import { createSimulation, updateSimulation } from './simulation.js';
+import {
+  computeSpawnBounds,
+  createSimulation,
+  updateSimulation,
+} from './simulation.js';
 import {
   createParallaxLayers,
   drawParallaxLayers,
@@ -223,20 +227,30 @@ export function startApp() {
         settings.starDirection,
       );
     }
-    const bounds = getViewportBounds(
+    // Tight viewport bounds (no margin — simulation handles its own zones)
+    const viewportBounds = getViewportBounds(
       camera,
       logicalSize.width,
       logicalSize.height,
     );
-    const boundsArea =
-      (bounds.maxX - bounds.minX) * (bounds.maxY - bounds.minY);
+    // Target count uses zone area (viewport + border) for proportional density
+    const spawnBounds = computeSpawnBounds(viewportBounds);
+    const zoneArea =
+      (spawnBounds.maxX - spawnBounds.minX) *
+      (spawnBounds.maxY - spawnBounds.minY);
     const viewportArea = logicalSize.width * logicalSize.height;
     sim.targetCount = Math.round(
       BASE_ASTEROID_COUNT *
         settings.asteroidDensity *
-        (boundsArea / viewportArea),
+        (zoneArea / viewportArea),
     );
-    updateSimulation(sim, scaledDt, bounds);
+    updateSimulation(
+      sim,
+      scaledDt,
+      viewportBounds,
+      playerShip.vx,
+      playerShip.vy,
+    );
 
     ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, logicalSize.width, logicalSize.height);

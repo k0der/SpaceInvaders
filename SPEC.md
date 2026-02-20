@@ -77,26 +77,46 @@ Distribution: ~20% large, ~40% medium, ~40% small.
 
 ### 1.5 Spawning & Despawning
 
-All spawning and despawning is relative to the **camera viewport bounds** (an
-axis-aligned bounding box in world-space computed from the camera position and
-rotation). This creates an infinite asteroid field — flying in any direction
-always produces a populated viewport.
+All spawning and despawning uses a **three-zone architecture** relative to the
+camera viewport, creating an infinite asteroid field where the viewport is always
+populated and asteroids never appear out of thin air.
 
-- **Despawning**: When an asteroid is fully outside the viewport bounds + margin,
-  it is removed
-- **Target count**: The system maintains a dynamic target asteroid count:
-  `BASE_COUNT (40) × density_setting × (boundsArea / viewportArea)`. The area
-  ratio compensates for the AABB being larger than the visible viewport when
-  rotated.
-- **Initial population**: Asteroids are spawned **within the viewport bounds**
-  (random positions, random directions) for immediate visibility on startup
-- **Burst recovery**: When the asteroid count drops below 75% of the target,
-  up to 5 asteroids per frame are spawned **within the viewport bounds** to
-  quickly repopulate (e.g., when flying into unexplored space)
-- **Steady-state edge spawning**: When below the target count but above the
-  burst threshold, new asteroids spawn just outside a random viewport edge,
-  aimed roughly toward the bounds center with ±30° angular spread. Spawning
-  is staggered — max 1 per 0.3 seconds to avoid edge clusters.
+**Three zones**:
+
+```
++------------------------------------------------------+
+|                OUTSIDE (recycle immediately)          |
+|    +------------------------------------------+      |
+|    |       SPAWN BORDER (300px ring)          |      |
+|    |  (new asteroids appear here at runtime)  |      |
+|    |    +--------------------------------+    |      |
+|    |    |        VIEWPORT (AABB)         |    |      |
+|    |    |   (what the player sees)       |    |      |
+|    |    +--------------------------------+    |      |
+|    +------------------------------------------+      |
++------------------------------------------------------+
+```
+
+- **Viewport bounds**: tight AABB of rotated viewport (no padding)
+- **Spawn bounds**: viewport bounds expanded by `SPAWN_BORDER` (300px) on each side
+- **Outside**: anything beyond spawn bounds → remove immediately
+
+**Rules**:
+
+- **Initial population**: At startup, asteroids are spawned across the entire
+  zone (viewport + border) using random positions and directions, for immediate
+  visibility
+- **Runtime spawning**: New asteroids spawn ONLY in the border ring (never inside
+  the viewport), aimed roughly toward the viewport center with ±30° spread
+- **Direction bias**: Spawning is biased toward the ship's movement direction.
+  Edge weights are computed as `max(dot(shipVelocity, edgeOutward), 0) + BASE_EDGE_WEIGHT`.
+  The forward edge gets ~60% of spawns at full speed; all edges get ≥12.5%
+- **No stagger**: Border spawns are invisible to the player, so clustering doesn't
+  matter. Up to `MAX_SPAWN_PER_FRAME` (10) asteroids spawn per frame when below target
+- **Aggressive recycling**: Any asteroid outside the spawn bounds (+ 5px hysteresis)
+  is removed immediately
+- **Target count**: `BASE_COUNT (40) × density_setting × (zoneArea / viewportArea)`.
+  The area ratio ensures both viewport and border are populated proportionally
 
 ### 1.6 Energy Homeostasis
 
@@ -304,9 +324,8 @@ Each frame (`requestAnimationFrame` callback):
    a. Move each by velocity * dt
    b. Rotate each by angular velocity * dt
    c. Detect and resolve asteroid collisions
-   d. Remove asteroids outside viewport bounds (AABB from camera)
-   e. Burst-spawn within viewport bounds when count < 75% of target (up to 5/frame)
-   f. Stagger-spawn at viewport edges when below target (max 1 per 0.3s)
+   d. Remove asteroids outside spawn bounds (aggressive recycling)
+   e. Spawn in border ring when below target (up to 10/frame, direction-biased)
 9. Update bullets (move, expire)
 10. Check bullet-ship collisions
 11. Check ship-asteroid collisions
@@ -422,9 +441,10 @@ the context.
 
 ### 10.3 Viewport Bounds
 
-`getViewportBounds(camera, viewportW, viewportH)` returns the axis-aligned bounding
-box (AABB) of the rotated viewport in world-space, with a padding margin. Used for
-asteroid spawn/despawn decisions.
+`getViewportBounds(camera, viewportW, viewportH, margin)` returns the axis-aligned
+bounding box (AABB) of the rotated viewport in world-space, with an optional padding
+margin (default 0). The simulation computes its own spawn bounds from the tight
+viewport AABB.
 
 ---
 

@@ -1,6 +1,3 @@
-/** Padding margin around viewport bounds for spawn/despawn tolerance. */
-export const VIEWPORT_MARGIN = 100;
-
 /**
  * Create a camera state object.
  */
@@ -29,18 +26,18 @@ export function resetCameraTransform(ctx) {
 
 /**
  * Compute the axis-aligned bounding box of the rotated viewport in world-space.
- * Returns { minX, maxX, minY, maxY } with VIEWPORT_MARGIN padding.
+ * Returns { minX, maxX, minY, maxY } with optional padding margin.
  */
-export function getViewportBounds(camera, viewportW, viewportH) {
+export function getViewportBounds(camera, viewportW, viewportH, margin = 0) {
   const cosA = Math.abs(Math.cos(camera.rotation));
   const sinA = Math.abs(Math.sin(camera.rotation));
   const halfW = (viewportW * cosA + viewportH * sinA) / 2;
   const halfH = (viewportW * sinA + viewportH * cosA) / 2;
   return {
-    minX: camera.x - halfW - VIEWPORT_MARGIN,
-    maxX: camera.x + halfW + VIEWPORT_MARGIN,
-    minY: camera.y - halfH - VIEWPORT_MARGIN,
-    maxY: camera.y + halfH + VIEWPORT_MARGIN,
+    minX: camera.x - halfW - margin,
+    maxX: camera.x + halfW + margin,
+    minY: camera.y - halfH - margin,
+    maxY: camera.y + halfH + margin,
   };
 }
 

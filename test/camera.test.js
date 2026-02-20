@@ -5,7 +5,6 @@ import {
   getViewportBounds,
   resetCameraTransform,
   screenToWorld,
-  VIEWPORT_MARGIN,
   worldToScreen,
 } from '../src/camera.js';
 import { createShip } from '../src/ship.js';
@@ -107,13 +106,6 @@ describe('Increment 20: Camera Follows Ship', () => {
     });
   });
 
-  describe('VIEWPORT_MARGIN', () => {
-    it('is exported and is a positive number', () => {
-      expect(typeof VIEWPORT_MARGIN).toBe('number');
-      expect(VIEWPORT_MARGIN).toBeGreaterThan(0);
-    });
-  });
-
   describe('getViewportBounds', () => {
     it('returns object with exactly minX, maxX, minY, maxY', () => {
       const cam = createCamera(0, 0, 0);
@@ -126,13 +118,32 @@ describe('Increment 20: Camera Follows Ship', () => {
       ]);
     });
 
-    it('at zero rotation, bounds = camera ± half-viewport ± margin', () => {
+    it('with no margin (default), gives tight AABB at zero rotation', () => {
       const cam = createCamera(500, 400, 0);
       const bounds = getViewportBounds(cam, 800, 600);
-      expect(bounds.minX).toBeCloseTo(500 - 400 - VIEWPORT_MARGIN, 5);
-      expect(bounds.maxX).toBeCloseTo(500 + 400 + VIEWPORT_MARGIN, 5);
-      expect(bounds.minY).toBeCloseTo(400 - 300 - VIEWPORT_MARGIN, 5);
-      expect(bounds.maxY).toBeCloseTo(400 + 300 + VIEWPORT_MARGIN, 5);
+      expect(bounds.minX).toBeCloseTo(500 - 400, 5);
+      expect(bounds.maxX).toBeCloseTo(500 + 400, 5);
+      expect(bounds.minY).toBeCloseTo(400 - 300, 5);
+      expect(bounds.maxY).toBeCloseTo(400 + 300, 5);
+    });
+
+    it('with explicit margin, expands bounds by that amount', () => {
+      const cam = createCamera(500, 400, 0);
+      const bounds = getViewportBounds(cam, 800, 600, 100);
+      expect(bounds.minX).toBeCloseTo(500 - 400 - 100, 5);
+      expect(bounds.maxX).toBeCloseTo(500 + 400 + 100, 5);
+      expect(bounds.minY).toBeCloseTo(400 - 300 - 100, 5);
+      expect(bounds.maxY).toBeCloseTo(400 + 300 + 100, 5);
+    });
+
+    it('margin=0 gives same result as omitting margin', () => {
+      const cam = createCamera(300, 200, 0.5);
+      const b1 = getViewportBounds(cam, 800, 600);
+      const b2 = getViewportBounds(cam, 800, 600, 0);
+      expect(b1.minX).toBeCloseTo(b2.minX, 5);
+      expect(b1.maxX).toBeCloseTo(b2.maxX, 5);
+      expect(b1.minY).toBeCloseTo(b2.minY, 5);
+      expect(b1.maxY).toBeCloseTo(b2.maxY, 5);
     });
 
     it('at 90-degree rotation, width and height swap', () => {
@@ -141,10 +152,10 @@ describe('Increment 20: Camera Follows Ship', () => {
       // cos(90°)=0, sin(90°)=1
       // halfW = (800*0 + 600*1)/2 = 300
       // halfH = (800*1 + 600*0)/2 = 400
-      expect(bounds.minX).toBeCloseTo(-300 - VIEWPORT_MARGIN, 3);
-      expect(bounds.maxX).toBeCloseTo(300 + VIEWPORT_MARGIN, 3);
-      expect(bounds.minY).toBeCloseTo(-400 - VIEWPORT_MARGIN, 3);
-      expect(bounds.maxY).toBeCloseTo(400 + VIEWPORT_MARGIN, 3);
+      expect(bounds.minX).toBeCloseTo(-300, 3);
+      expect(bounds.maxX).toBeCloseTo(300, 3);
+      expect(bounds.minY).toBeCloseTo(-400, 3);
+      expect(bounds.maxY).toBeCloseTo(400, 3);
     });
 
     it('at 45-degree rotation, bounds expand (diagonal)', () => {
@@ -326,11 +337,6 @@ describe('Increment 20: Camera Follows Ship', () => {
 
   describe('ship points "up" on screen', () => {
     it('camera rotation = heading + PI/2 gives net -PI/2 so nose points up', () => {
-      // Ship shape has nose at +x. To appear pointing UP on screen,
-      // the net rotation (camera + drawShip) must be -PI/2.
-      // camera.rotation = heading + PI/2
-      // Camera applies rotate(-(heading + PI/2)), drawShip applies rotate(heading).
-      // Net = -(heading + PI/2) + heading = -PI/2 → nose at +x rotates to UP.
       const heading = 1.3;
       const cameraRotation = heading + Math.PI / 2;
       const cam = createCamera(0, 0, cameraRotation);

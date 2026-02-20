@@ -6,24 +6,58 @@ import {
   separateOverlap,
 } from './physics.js';
 
-const SPAWN_STAGGER = 0.3; // seconds between edge spawns
-const MARGIN = 5; // px margin beyond radius for off-screen detection
-const BURST_THRESHOLD = 0.75; // burst-spawn when below this fraction of target
-const BURST_COUNT = 5; // max asteroids to burst-spawn per frame
+const SPAWN_BORDER = 300; // px, width of border ring
+const RECYCLE_MARGIN = 5; // px, hysteresis beyond spawn bounds
+const MAX_SPAWN_PER_FRAME = 10; // cap spawns per frame
+const BASE_EDGE_WEIGHT = 100; // min weight per edge (prevents starvation)
 
 /**
- * Check if an asteroid is fully outside the viewport bounds (center + radius + margin past all edges).
- * @param {object} asteroid
- * @param {object} bounds - { minX, maxX, minY, maxY }
+ * Expand viewport bounds by SPAWN_BORDER on each side to get spawn bounds.
+ * @param {object} viewportBounds - { minX, maxX, minY, maxY }
+ * @returns {object} - { minX, maxX, minY, maxY }
  */
-export function isOffScreen(asteroid, bounds) {
-  const { x, y, radius } = asteroid;
-  return (
-    x + radius + MARGIN < bounds.minX ||
-    x - radius - MARGIN > bounds.maxX ||
-    y + radius + MARGIN < bounds.minY ||
-    y - radius - MARGIN > bounds.maxY
-  );
+export function computeSpawnBounds(viewportBounds) {
+  return {
+    minX: viewportBounds.minX - SPAWN_BORDER,
+    maxX: viewportBounds.maxX + SPAWN_BORDER,
+    minY: viewportBounds.minY - SPAWN_BORDER,
+    maxY: viewportBounds.maxY + SPAWN_BORDER,
+  };
+}
+
+/**
+ * Compute direction-biased edge selection weights from ship velocity.
+ * Edge outward normals: left=(-1,0), right=(+1,0), top=(0,-1), bottom=(0,+1)
+ * weight[edge] = max(dot(shipVelocity, edgeOutward), 0) + BASE_EDGE_WEIGHT
+ * Normalized to sum to 1.0.
+ * @param {number} shipVx
+ * @param {number} shipVy
+ * @returns {number[]} - [left, right, top, bottom] weights summing to 1.0
+ */
+export function computeEdgeWeights(shipVx, shipVy) {
+  const raw = [
+    Math.max(-shipVx, 0) + BASE_EDGE_WEIGHT, // left: outward = (-1, 0)
+    Math.max(shipVx, 0) + BASE_EDGE_WEIGHT, // right: outward = (+1, 0)
+    Math.max(-shipVy, 0) + BASE_EDGE_WEIGHT, // top: outward = (0, -1)
+    Math.max(shipVy, 0) + BASE_EDGE_WEIGHT, // bottom: outward = (0, +1)
+  ];
+  const total = raw[0] + raw[1] + raw[2] + raw[3];
+  return [raw[0] / total, raw[1] / total, raw[2] / total, raw[3] / total];
+}
+
+/**
+ * Pick an edge using cumulative weighted random selection.
+ * @param {number[]} weights - [left, right, top, bottom] summing to 1.0
+ * @returns {number} - 0=left, 1=right, 2=top, 3=bottom
+ */
+export function pickWeightedEdge(weights) {
+  const r = Math.random();
+  let cumulative = 0;
+  for (let i = 0; i < 3; i++) {
+    cumulative += weights[i];
+    if (r < cumulative) return i;
+  }
+  return 3;
 }
 
 /**
@@ -32,23 +66,14 @@ export function isOffScreen(asteroid, bounds) {
  */
 function randomRadius() {
   const roll = Math.random();
-  if (roll < 0.2) {
-    // Large: 50–80
-    return 50 + Math.random() * 30;
-  } else if (roll < 0.6) {
-    // Medium: 25–49
-    return 25 + Math.random() * 24;
-  } else {
-    // Small: 10–24
-    return 10 + Math.random() * 14;
-  }
+  if (roll < 0.2) return 50 + Math.random() * 30;
+  if (roll < 0.6) return 25 + Math.random() * 24;
+  return 10 + Math.random() * 14;
 }
 
 /**
  * Get speed range for a given radius.
- * Large (50–80): 15–30 px/s
- * Medium (25–49): 30–60 px/s
- * Small (10–24): 60–120 px/s
+ * Large (50–80): 15–30 px/s, Medium (25–49): 30–60 px/s, Small (10–24): 60–120 px/s
  */
 function speedForRadius(radius) {
   if (radius >= 50) return 15 + Math.random() * 15;
@@ -57,41 +82,82 @@ function speedForRadius(radius) {
 }
 
 /**
- * Spawn a new asteroid from a random viewport edge, aimed roughly inward toward bounds center.
- * @param {object} bounds - { minX, maxX, minY, maxY }
- * @param {number} speedMultiplier - scales the base speed (default 1.0)
+ * Check if an asteroid is outside the spawn zone (past spawn bounds + recycle margin).
+ * @param {object} asteroid
+ * @param {object} spawnBounds - { minX, maxX, minY, maxY }
+ * @returns {boolean}
  */
-export function spawnAsteroidFromEdge(bounds, speedMultiplier = 1.0) {
+export function isOutsideZone(asteroid, spawnBounds) {
+  const { x, y, radius } = asteroid;
+  return (
+    x + radius + RECYCLE_MARGIN < spawnBounds.minX ||
+    x - radius - RECYCLE_MARGIN > spawnBounds.maxX ||
+    y + radius + RECYCLE_MARGIN < spawnBounds.minY ||
+    y - radius - RECYCLE_MARGIN > spawnBounds.maxY
+  );
+}
+
+/**
+ * Spawn a new asteroid in the border ring (outside viewport, inside spawn bounds).
+ * Uses direction-biased edge selection and aims roughly toward viewport center.
+ * @param {object} viewportBounds - { minX, maxX, minY, maxY }
+ * @param {object} spawnBounds - { minX, maxX, minY, maxY }
+ * @param {number[]} edgeWeights - [left, right, top, bottom]
+ * @param {number} speedMultiplier
+ * @returns {object} asteroid
+ */
+export function spawnAsteroidInBorder(
+  viewportBounds,
+  spawnBounds,
+  edgeWeights,
+  speedMultiplier = 1.0,
+) {
   const radius = randomRadius();
   const speed = speedForRadius(radius) * speedMultiplier;
-  const edge = Math.floor(Math.random() * 4); // 0=left, 1=right, 2=top, 3=bottom
+  const edge = pickWeightedEdge(edgeWeights);
 
-  const centerX = (bounds.minX + bounds.maxX) / 2;
-  const centerY = (bounds.minY + bounds.maxY) / 2;
+  const vpCenterX = (viewportBounds.minX + viewportBounds.maxX) / 2;
+  const vpCenterY = (viewportBounds.minY + viewportBounds.maxY) / 2;
 
   let x, y;
 
   switch (edge) {
-    case 0: // left
-      x = bounds.minX - radius - 1;
-      y = bounds.minY + Math.random() * (bounds.maxY - bounds.minY);
+    case 0: // left border: between spawnBounds.minX and viewportBounds.minX
+      x =
+        spawnBounds.minX +
+        Math.random() * (viewportBounds.minX - spawnBounds.minX);
+      y =
+        spawnBounds.minY +
+        Math.random() * (spawnBounds.maxY - spawnBounds.minY);
       break;
-    case 1: // right
-      x = bounds.maxX + radius + 1;
-      y = bounds.minY + Math.random() * (bounds.maxY - bounds.minY);
+    case 1: // right border: between viewportBounds.maxX and spawnBounds.maxX
+      x =
+        viewportBounds.maxX +
+        Math.random() * (spawnBounds.maxX - viewportBounds.maxX);
+      y =
+        spawnBounds.minY +
+        Math.random() * (spawnBounds.maxY - spawnBounds.minY);
       break;
-    case 2: // top
-      x = bounds.minX + Math.random() * (bounds.maxX - bounds.minX);
-      y = bounds.minY - radius - 1;
+    case 2: // top border: between spawnBounds.minY and viewportBounds.minY
+      x =
+        spawnBounds.minX +
+        Math.random() * (spawnBounds.maxX - spawnBounds.minX);
+      y =
+        spawnBounds.minY +
+        Math.random() * (viewportBounds.minY - spawnBounds.minY);
       break;
-    default: // bottom
-      x = bounds.minX + Math.random() * (bounds.maxX - bounds.minX);
-      y = bounds.maxY + radius + 1;
+    default: // bottom border: between viewportBounds.maxY and spawnBounds.maxY
+      x =
+        spawnBounds.minX +
+        Math.random() * (spawnBounds.maxX - spawnBounds.minX);
+      y =
+        viewportBounds.maxY +
+        Math.random() * (spawnBounds.maxY - viewportBounds.maxY);
       break;
   }
 
-  // Aim toward bounds center with ±30° spread
-  const baseAngle = Math.atan2(centerY - y, centerX - x);
+  // Aim toward viewport center with ±30° spread
+  const baseAngle = Math.atan2(vpCenterY - y, vpCenterX - x);
   const spread = (Math.random() * 2 - 1) * (Math.PI / 6);
   const angle = baseAngle + spread;
 
@@ -105,16 +171,19 @@ export function spawnAsteroidFromEdge(bounds, speedMultiplier = 1.0) {
 }
 
 /**
- * Spawn a new asteroid at a random position within the bounds, with a random direction.
- * Used for initial population and burst recovery so asteroids appear throughout the viewport.
- * @param {object} bounds - { minX, maxX, minY, maxY }
- * @param {number} speedMultiplier - scales the base speed (default 1.0)
+ * Spawn a new asteroid at a random position within the full zone (spawn bounds),
+ * with a random direction. Used for initial population.
+ * @param {object} spawnBounds - { minX, maxX, minY, maxY }
+ * @param {number} speedMultiplier
+ * @returns {object} asteroid
  */
-export function spawnAsteroidInBounds(bounds, speedMultiplier = 1.0) {
+export function spawnAsteroidInZone(spawnBounds, speedMultiplier = 1.0) {
   const radius = randomRadius();
   const speed = speedForRadius(radius) * speedMultiplier;
-  const x = bounds.minX + Math.random() * (bounds.maxX - bounds.minX);
-  const y = bounds.minY + Math.random() * (bounds.maxY - bounds.minY);
+  const x =
+    spawnBounds.minX + Math.random() * (spawnBounds.maxX - spawnBounds.minX);
+  const y =
+    spawnBounds.minY + Math.random() * (spawnBounds.maxY - spawnBounds.minY);
   const angle = Math.random() * Math.PI * 2;
 
   return createAsteroid({
@@ -128,14 +197,16 @@ export function spawnAsteroidInBounds(bounds, speedMultiplier = 1.0) {
 
 /**
  * Create the simulation state with an initial population of asteroids.
- * Asteroids are distributed within the bounds (not at edges) for immediate visibility.
- * @param {object} bounds - { minX, maxX, minY, maxY }
+ * Asteroids are distributed across the entire zone (viewport + border) for
+ * immediate visibility and pre-populated border.
+ * @param {object} viewportBounds - { minX, maxX, minY, maxY }
  * @param {number} targetCount
  */
-export function createSimulation(bounds, targetCount = 20) {
+export function createSimulation(viewportBounds, targetCount = 20) {
+  const spawnBounds = computeSpawnBounds(viewportBounds);
   const asteroids = [];
   for (let i = 0; i < targetCount; i++) {
-    asteroids.push(spawnAsteroidInBounds(bounds));
+    asteroids.push(spawnAsteroidInZone(spawnBounds));
   }
 
   const baselineKEPerAsteroid = computeTotalKE(asteroids) / asteroids.length;
@@ -143,21 +214,27 @@ export function createSimulation(bounds, targetCount = 20) {
   return {
     asteroids,
     targetCount,
-    spawnTimer: 0,
     baselineKEPerAsteroid,
   };
 }
 
 /**
- * Update the simulation: move asteroids, remove off-screen ones, spawn replacements.
- * Uses burst spawning (within bounds) when count drops far below target,
- * and staggered edge spawning for steady-state replenishment.
+ * Update the simulation: move asteroids, resolve collisions, recycle outside zone,
+ * spawn in border when below target with direction-biased edge selection.
  * @param {object} sim
  * @param {number} dt
- * @param {object} bounds - { minX, maxX, minY, maxY }
+ * @param {object} viewportBounds - { minX, maxX, minY, maxY }
+ * @param {number} shipVx - ship x velocity for direction bias
+ * @param {number} shipVy - ship y velocity for direction bias
  */
-export function updateSimulation(sim, dt, bounds) {
-  // Update all asteroids
+export function updateSimulation(
+  sim,
+  dt,
+  viewportBounds,
+  shipVx = 0,
+  shipVy = 0,
+) {
+  // Move all asteroids
   for (const a of sim.asteroids) {
     updateAsteroid(a, dt);
   }
@@ -169,31 +246,26 @@ export function updateSimulation(sim, dt, bounds) {
     resolveCollision(a, b);
   }
 
-  // Remove off-screen asteroids
-  sim.asteroids = sim.asteroids.filter((a) => !isOffScreen(a, bounds));
+  // Compute spawn bounds and remove asteroids outside zone
+  const spawnBounds = computeSpawnBounds(viewportBounds);
+  sim.asteroids = sim.asteroids.filter((a) => !isOutsideZone(a, spawnBounds));
 
+  // Compute energy boost
   const boost = computeSpeedBoost(
     sim.baselineKEPerAsteroid,
     sim.targetCount,
     sim.asteroids,
   );
 
-  // Burst-spawn within bounds when count is far below target
-  if (sim.asteroids.length < sim.targetCount * BURST_THRESHOLD) {
-    const deficit = sim.targetCount - sim.asteroids.length;
-    const toSpawn = Math.min(deficit, BURST_COUNT);
-    for (let i = 0; i < toSpawn; i++) {
-      sim.asteroids.push(spawnAsteroidInBounds(bounds, boost));
-    }
-  }
+  // Compute direction-biased edge weights
+  const edgeWeights = computeEdgeWeights(shipVx, shipVy);
 
-  // Staggered edge-spawn for steady-state replenishment
-  sim.spawnTimer += dt;
-  if (
-    sim.asteroids.length < sim.targetCount &&
-    sim.spawnTimer >= SPAWN_STAGGER
-  ) {
-    sim.asteroids.push(spawnAsteroidFromEdge(bounds, boost));
-    sim.spawnTimer = 0;
+  // Spawn in border when below target
+  const deficit = sim.targetCount - sim.asteroids.length;
+  const toSpawn = Math.min(Math.max(deficit, 0), MAX_SPAWN_PER_FRAME);
+  for (let i = 0; i < toSpawn; i++) {
+    sim.asteroids.push(
+      spawnAsteroidInBorder(viewportBounds, spawnBounds, edgeWeights, boost),
+    );
   }
 }
