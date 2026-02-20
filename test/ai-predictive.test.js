@@ -27,12 +27,12 @@ describe('ai-predictive: Constants', () => {
     expect(SIM_DT).toBeCloseTo(0.1, 2);
   });
 
-  it('exports COLLISION_BASE_PENALTY as -5000', () => {
-    expect(COLLISION_BASE_PENALTY).toBe(-5000);
+  it('exports COLLISION_BASE_PENALTY as -10000', () => {
+    expect(COLLISION_BASE_PENALTY).toBe(-10000);
   });
 
-  it('exports COLLISION_DECAY as 1.2', () => {
-    expect(COLLISION_DECAY).toBeCloseTo(1.2, 2);
+  it('exports COLLISION_DECAY as 0.8', () => {
+    expect(COLLISION_DECAY).toBeCloseTo(0.8, 2);
   });
 
   it('exports DISTANCE_WEIGHT as -8', () => {
@@ -43,8 +43,8 @@ describe('ai-predictive: Constants', () => {
     expect(AIM_BONUS).toBe(200);
   });
 
-  it('exports CLOSING_SPEED_WEIGHT as 15', () => {
-    expect(CLOSING_SPEED_WEIGHT).toBe(15);
+  it('exports CLOSING_SPEED_WEIGHT as 8', () => {
+    expect(CLOSING_SPEED_WEIGHT).toBe(8);
   });
 
   it('exports THRUST_BIAS as 400', () => {
@@ -375,7 +375,7 @@ describe('ai-predictive: scoreTrajectory — time-decayed collision', () => {
       COLLISION_BASE_PENALTY * Math.exp(-COLLISION_DECAY * 15);
 
     expect(step1Penalty).toBeLessThan(step15Penalty); // more negative = worse
-    // With 1.2 decay, step 1 is ~1505 and step 15 is ~0.008 — massive ratio
+    // With 0.8 decay, step 1 is ~2247 and step 15 is ~0.03 — massive ratio
     expect(Math.abs(step1Penalty)).toBeGreaterThan(
       Math.abs(step15Penalty) * 1000,
     );
@@ -485,14 +485,14 @@ describe('ai-predictive: scoreTrajectory — closing velocity bonus', () => {
     // Both end at x=100 with same heading, so distance and aim are identical.
     // The only difference is the retreat penalty on the away trajectory.
     expect(awayScore).toBeLessThan(stationaryScore);
-    // The penalty should be significant: CLOSING_SPEED_WEIGHT * 200 = 3000
-    expect(stationaryScore - awayScore).toBeGreaterThan(2000);
+    // The penalty should be significant: CLOSING_SPEED_WEIGHT * 200 = 1600
+    expect(stationaryScore - awayScore).toBeGreaterThan(1000);
   });
 
   it('closing velocity bonus scales with CLOSING_SPEED_WEIGHT', () => {
-    expect(CLOSING_SPEED_WEIGHT).toBe(15);
-    // At MAX_SPEED=400 toward target, bonus = 15 * 400 = 6000
-    expect(CLOSING_SPEED_WEIGHT * 400).toBe(6000);
+    expect(CLOSING_SPEED_WEIGHT).toBe(8);
+    // At MAX_SPEED=400 toward target, bonus = 8 * 400 = 3200
+    expect(CLOSING_SPEED_WEIGHT * 400).toBe(3200);
   });
 
   it('handles zero distance to target without error', () => {
@@ -581,17 +581,20 @@ describe('ai-predictive: selectBestAction', () => {
     expect(action.braking).toBe(false);
   });
 
-  it('avoids imminent asteroid by turning when stationary', () => {
-    // Ship stationary, heading toward target, asteroid blocking the path
+  it('thrusts aggressively through blocking asteroid toward target', () => {
+    // Ship stationary, heading toward target, asteroid blocking the path.
+    // The predictive AI uses fixed-action candidates over 1.5s, and
+    // thrust+turn candidates spiral (4 rad/s × 1.5s ≈ full circle).
+    // An aggressive AI prefers to ram through the obstacle rather than spiral away.
     const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
     const target = createShip({ x: 500, y: 0, heading: 0, owner: 'player' });
-    // Asteroid close ahead — thrust straight collides at step 2-3
-    const asteroids = [{ x: 80, y: 0, vx: 0, vy: 0, collisionRadius: 30 }];
+    const asteroids = [{ x: 40, y: 0, vx: 0, vy: 0, collisionRadius: 30 }];
 
     const action = selectBestAction(ship, target, asteroids);
 
-    // Should choose thrust + turn to arc around the asteroid
-    expect(action.rotatingLeft || action.rotatingRight).toBe(true);
+    // AI should thrust straight through — aggressive pursuit over survival
+    expect(action.thrust).toBe(true);
+    expect(action.braking).toBe(false);
   });
 });
 

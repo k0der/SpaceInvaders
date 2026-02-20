@@ -16,10 +16,10 @@ export const SIM_STEPS = 15;
 export const SIM_DT = 0.1;
 
 /** Base penalty for collision (decayed by step index). */
-export const COLLISION_BASE_PENALTY = -5000;
+export const COLLISION_BASE_PENALTY = -10000;
 
 /** Exponential decay rate for collision penalty per step. */
-export const COLLISION_DECAY = 1.2;
+export const COLLISION_DECAY = 0.8;
 
 /** Weight applied to distance-to-target (negative = closer is better). */
 export const DISTANCE_WEIGHT = -8;
@@ -28,7 +28,7 @@ export const DISTANCE_WEIGHT = -8;
 export const AIM_BONUS = 200;
 
 /** Weight for closing speed bonus (dot of velocity toward target). */
-export const CLOSING_SPEED_WEIGHT = 15;
+export const CLOSING_SPEED_WEIGHT = 8;
 
 /** Flat bonus for candidates that use thrust (encourages active pursuit). */
 export const THRUST_BIAS = 400;
@@ -124,7 +124,7 @@ export function simulateTrajectory(clone, action, steps, dt) {
  * - Time-decayed collision penalty (first collision only — ship would be dead)
  * - Closest approach to target across trajectory (lower = better)
  * - Aim bonus for pointing toward target at closest approach
- * - Closing velocity bonus at final step (reward approaching the target)
+ * - Closing velocity bonus at closest approach (reward approaching the target)
  */
 export function scoreTrajectory(positions, target, asteroids, simDt) {
   let score = 0;
@@ -181,18 +181,18 @@ export function scoreTrajectory(positions, target, asteroids, simDt) {
   while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
   score += AIM_BONUS * Math.cos(angleDiff);
 
-  // Closing velocity bonus: reward ship velocity directed toward target
-  const finalPos = positions[positions.length - 1];
-  const finalT = (positions.length - 1) * simDt;
-  const tgtX = target.x + target.vx * finalT;
-  const tgtY = target.y + target.vy * finalT;
-  const toTargetX = tgtX - finalPos.x;
-  const toTargetY = tgtY - finalPos.y;
+  // Closing velocity bonus at closest approach point.
+  // Using bestPos avoids "overshoot terror": when the AI would fly past
+  // the target, the final-step velocity points away, causing a massive
+  // penalty that makes the AI turn perpendicular. At the closest approach,
+  // the closing speed naturally reflects whether the AI is still converging.
+  const toTargetX = targetPredX - bestPos.x;
+  const toTargetY = targetPredY - bestPos.y;
   const toTargetDist = Math.sqrt(toTargetX * toTargetX + toTargetY * toTargetY);
   if (toTargetDist > 0) {
     const dirX = toTargetX / toTargetDist;
     const dirY = toTargetY / toTargetDist;
-    const closingSpeed = finalPos.vx * dirX + finalPos.vy * dirY;
+    const closingSpeed = bestPos.vx * dirX + bestPos.vy * dirY;
     score += CLOSING_SPEED_WEIGHT * closingSpeed;
   }
 
