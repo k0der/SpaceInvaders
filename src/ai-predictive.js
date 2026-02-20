@@ -28,7 +28,7 @@ export const SIM_STEPS = 15;
 export const SIM_DT = 0.1;
 
 /** Base penalty for collision — always catastrophic (collision = death). */
-export const COLLISION_BASE_PENALTY = -10000;
+export const COLLISION_BASE_PENALTY = -20000;
 
 /** Linear tiebreaker: later collisions are slightly less bad (more time to re-evaluate). */
 export const COLLISION_EARLY_BONUS = 50;
@@ -60,8 +60,11 @@ export const AIM_PROXIMITY_SCALE = 5;
 /** Bonus per sim step where ship has a viable firing solution. */
 export const FIRE_OPPORTUNITY_BONUS = 300;
 
+/** Distance below which current scoring balance applies (close-range combat zone). */
+export const ENGAGE_RANGE = 350;
+
 /** Score bonus for matching the previous frame's action (reduces oscillation). */
-export const HYSTERESIS_BONUS = 80;
+export const HYSTERESIS_BONUS = 250;
 
 /**
  * Clone only the physics-relevant fields of a ship for simulation.
@@ -181,6 +184,11 @@ export function scoreTrajectory(positions, target, asteroids, simDt) {
     }
   }
 
+  // Compute initial distance to target (used for approach urgency and closing rate)
+  const initDx = positions[0].x - target.x;
+  const initDy = positions[0].y - target.y;
+  const initialDist = Math.sqrt(initDx * initDx + initDy * initDy);
+
   // Find the closest approach to the predicted target across the trajectory
   let minDist = Infinity;
   for (let i = 1; i < positions.length; i++) {
@@ -194,7 +202,11 @@ export function scoreTrajectory(positions, target, asteroids, simDt) {
       minDist = d;
     }
   }
-  score += DISTANCE_WEIGHT * minDist;
+
+  // Distance-scaled approach urgency: stronger pull to close at long range
+  const distanceScale =
+    1 + Math.max(0, initialDist - ENGAGE_RANGE) / ENGAGE_RANGE;
+  score += DISTANCE_WEIGHT * distanceScale * minDist;
 
   // Aim bonus: average alignment across all trajectory steps.
   // Averaging avoids the "crossover artifact" where a ship passing through
@@ -222,10 +234,6 @@ export function scoreTrajectory(positions, target, asteroids, simDt) {
   // Uses (initialDist - finalDist) / simTime instead of instantaneous velocity
   // at a single point, avoiding "overshoot terror" where passing through the
   // target produces a massive negative closing speed.
-  const initDx = positions[0].x - target.x;
-  const initDy = positions[0].y - target.y;
-  const initialDist = Math.sqrt(initDx * initDx + initDy * initDy);
-
   const lastIdx = positions.length - 1;
   const lastT = lastIdx * simDt;
   const finalTargetX = target.x + target.vx * lastT;

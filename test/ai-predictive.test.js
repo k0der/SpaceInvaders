@@ -9,6 +9,7 @@ import {
   cloneShipForSim,
   DISTANCE_WEIGHT,
   defineCandidates,
+  ENGAGE_RANGE,
   FIRE_OPPORTUNITY_BONUS,
   getLastDebugInfo,
   HYSTERESIS_BONUS,
@@ -32,16 +33,20 @@ describe('ai-predictive: Constants', () => {
     expect(SIM_DT).toBeCloseTo(0.1, 2);
   });
 
-  it('exports COLLISION_BASE_PENALTY as -10000', () => {
-    expect(COLLISION_BASE_PENALTY).toBe(-10000);
+  it('exports COLLISION_BASE_PENALTY as -20000', () => {
+    expect(COLLISION_BASE_PENALTY).toBe(-20000);
   });
 
   it('exports COLLISION_EARLY_BONUS as 50', () => {
     expect(COLLISION_EARLY_BONUS).toBe(50);
   });
 
-  it('exports HYSTERESIS_BONUS as 80', () => {
-    expect(HYSTERESIS_BONUS).toBe(80);
+  it('exports ENGAGE_RANGE as 350', () => {
+    expect(ENGAGE_RANGE).toBe(350);
+  });
+
+  it('exports HYSTERESIS_BONUS as 250', () => {
+    expect(HYSTERESIS_BONUS).toBe(250);
   });
 
   it('exports DISTANCE_WEIGHT as -8', () => {
@@ -354,6 +359,72 @@ describe('ai-predictive: scoreTrajectory', () => {
   });
 });
 
+describe('ai-predictive: scoreTrajectory — distance-scaled approach urgency', () => {
+  it('distance penalty grows faster than linearly beyond ENGAGE_RANGE', () => {
+    const target = { x: 0, y: 0, vx: 0, vy: 0 };
+
+    // Perpendicular heading neutralizes aim and fire (cos(PI/2)=0, angle > FIRE_ANGLE)
+    const atEngage = [
+      { x: ENGAGE_RANGE, y: 0, heading: Math.PI / 2, vx: 0, vy: 0 },
+      { x: ENGAGE_RANGE, y: 0, heading: Math.PI / 2, vx: 0, vy: 0 },
+    ];
+    const atDouble = [
+      { x: 2 * ENGAGE_RANGE, y: 0, heading: Math.PI / 2, vx: 0, vy: 0 },
+      { x: 2 * ENGAGE_RANGE, y: 0, heading: Math.PI / 2, vx: 0, vy: 0 },
+    ];
+
+    const sEngage = scoreTrajectory(atEngage, target, [], 0.1);
+    const sDouble = scoreTrajectory(atDouble, target, [], 0.1);
+
+    // At ENGAGE_RANGE: scale=1.0, dist component = -8 * 350 = -2800
+    // At 2*ENGAGE_RANGE: scale=2.0, dist component = -8 * 2 * 700 = -11200
+    // Without scaling: diff = 8*(700-350) = 2800
+    // With scaling: diff = 11200-2800 = 8400 (3x the unscaled diff)
+    const unscaledDiff = Math.abs(DISTANCE_WEIGHT) * ENGAGE_RANGE; // 2800
+    const actualDiff = sEngage - sDouble;
+    expect(actualDiff).toBeGreaterThan(unscaledDiff * 2);
+  });
+
+  it('within ENGAGE_RANGE, distance penalty is proportional (scale=1.0)', () => {
+    const target = { x: 0, y: 0, vx: 0, vy: 0 };
+
+    // Perpendicular heading neutralizes aim and fire
+    const at100 = [
+      { x: 100, y: 0, heading: Math.PI / 2, vx: 0, vy: 0 },
+      { x: 100, y: 0, heading: Math.PI / 2, vx: 0, vy: 0 },
+    ];
+    const at200 = [
+      { x: 200, y: 0, heading: Math.PI / 2, vx: 0, vy: 0 },
+      { x: 200, y: 0, heading: Math.PI / 2, vx: 0, vy: 0 },
+    ];
+    const at300 = [
+      { x: 300, y: 0, heading: Math.PI / 2, vx: 0, vy: 0 },
+      { x: 300, y: 0, heading: Math.PI / 2, vx: 0, vy: 0 },
+    ];
+
+    const s100 = scoreTrajectory(at100, target, [], 0.1);
+    const s200 = scoreTrajectory(at200, target, [], 0.1);
+    const s300 = scoreTrajectory(at300, target, [], 0.1);
+
+    // All within ENGAGE_RANGE (350), scale=1.0, equal spacing → equal gaps
+    const gap100to200 = s100 - s200;
+    const gap200to300 = s200 - s300;
+    expect(gap100to200 / gap200to300).toBeCloseTo(1.0, 1);
+  });
+
+  it('at long range, closing candidates decisively beat non-closing', () => {
+    const ship = createShip({ x: 800, y: 0, heading: Math.PI, owner: 'enemy' });
+    const target = createShip({ x: 0, y: 0, heading: 0, owner: 'player' });
+
+    const action = selectBestAction(ship, target, []);
+
+    // At 800px, distance urgency should dominate — AI must take action to close
+    const takesClosingAction =
+      action.thrust || action.rotatingLeft || action.rotatingRight;
+    expect(takesClosingAction).toBe(true);
+  });
+});
+
 describe('ai-predictive: scoreTrajectory — catastrophic collision penalty', () => {
   it('early collision (step 1) penalizes more than late collision (step 3)', () => {
     const target = { x: 500, y: 0, vx: 0, vy: 0 };
@@ -380,7 +451,7 @@ describe('ai-predictive: scoreTrajectory — catastrophic collision penalty', ()
   it('collision penalty is catastrophic at all steps (linear tiebreaker)', () => {
     // With linear tiebreaker: penalty = BASE + EARLY_BONUS * step
     // Step 1: -10000 + 50 = -9950
-    // Step 15: -10000 + 750 = -9250
+    // Step 15: -20000 + 750 = -19250
     // Both are catastrophic — the difference is only the small tiebreaker
     const step1Penalty = COLLISION_BASE_PENALTY + COLLISION_EARLY_BONUS * 1;
     const step15Penalty = COLLISION_BASE_PENALTY + COLLISION_EARLY_BONUS * 15;
@@ -391,7 +462,7 @@ describe('ai-predictive: scoreTrajectory — catastrophic collision penalty', ()
       Math.abs(step15Penalty) * 0.9,
     );
     // Step 15 is still massively negative
-    expect(step15Penalty).toBeLessThan(-9000);
+    expect(step15Penalty).toBeLessThan(-18000);
   });
 });
 
@@ -858,8 +929,8 @@ describe('ai-predictive: selectBestAction', () => {
     // With catastrophic collision penalty, the AI must choose a non-colliding path.
     const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
     const target = createShip({ x: 500, y: 0, heading: 0, owner: 'player' });
-    // Asteroid ahead at (120, 10) — T___ collides but T_R_ (turning away) clears it
-    const asteroids = [{ x: 120, y: 10, vx: 0, vy: 0, collisionRadius: 30 }];
+    // Asteroid dead-center on path at (120, 0) — T___ collides, turning candidates dodge
+    const asteroids = [{ x: 120, y: 0, vx: 0, vy: 0, collisionRadius: 30 }];
 
     const action = selectBestAction(ship, target, asteroids);
 
