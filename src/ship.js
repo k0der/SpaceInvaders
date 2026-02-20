@@ -19,20 +19,23 @@ export const BRAKE_POWER = 200;
 /** Maximum ship speed in pixels/s. */
 export const MAX_SPEED = 400;
 
-/** Maximum number of trail points (~2 seconds at 60 fps). */
-export const TRAIL_MAX_LENGTH = 120;
+/** Maximum number of trail points (~4 seconds at 60 fps). */
+export const TRAIL_MAX_LENGTH = 240;
 
 /** Opacity of the newest coasting trail segment. */
-export const TRAIL_BASE_OPACITY = 0.15;
+export const TRAIL_BASE_OPACITY = 0.2;
 
 /** Opacity of the newest thrust trail segment. */
-export const TRAIL_THRUST_OPACITY = 0.4;
+export const TRAIL_THRUST_OPACITY = 0.6;
 
 /** Line width for coasting trail segments. */
 export const TRAIL_BASE_WIDTH = 1;
 
 /** Line width for thrust trail segments. */
 export const TRAIL_THRUST_WIDTH = 2.5;
+
+/** Thrust intensity ramp speed (per second). Full transition ~0.33s. */
+export const TRAIL_RAMP_SPEED = 3.0;
 
 /** Dark orange exhaust color. */
 export const TRAIL_COLOR = { r: 255, g: 120, b: 0 };
@@ -140,19 +143,31 @@ export function drawShip(ctx, ship) {
  * Create a new motion trail.
  */
 export function createTrail() {
-  return { points: [] };
+  return { points: [], thrustIntensity: 0 };
 }
 
 /**
  * Record the ship's rear-nozzle position in the trail.
- * Always records a point; stores thrust state for per-segment rendering.
- * Evicts the oldest point when the trail exceeds TRAIL_MAX_LENGTH.
+ * Always records a point; ramps thrust intensity smoothly and stores
+ * it per-point for gradient rendering. Evicts oldest when full.
  */
-export function updateTrail(trail, x, y, heading, isThrusting) {
+export function updateTrail(trail, x, y, heading, isThrusting, dt) {
+  if (isThrusting) {
+    trail.thrustIntensity = Math.min(
+      trail.thrustIntensity + TRAIL_RAMP_SPEED * dt,
+      1.0,
+    );
+  } else {
+    trail.thrustIntensity = Math.max(
+      trail.thrustIntensity - TRAIL_RAMP_SPEED * dt,
+      0.0,
+    );
+  }
+
   const nozzleOffset = SHIP_SIZE * 0.5;
   const rearX = x - Math.cos(heading) * nozzleOffset;
   const rearY = y - Math.sin(heading) * nozzleOffset;
-  trail.points.push({ x: rearX, y: rearY, thrust: isThrusting });
+  trail.points.push({ x: rearX, y: rearY, intensity: trail.thrustIntensity });
   if (trail.points.length > TRAIL_MAX_LENGTH) {
     trail.points.shift();
   }
@@ -160,7 +175,8 @@ export function updateTrail(trail, x, y, heading, isThrusting) {
 
 /**
  * Draw the exhaust trail as fading dark orange line segments.
- * Thrust segments are wider and brighter than coasting segments.
+ * Width and opacity are interpolated per-segment using the stored
+ * thrust intensity (0=coasting, 1=full thrust) for smooth gradients.
  * Alpha increases linearly from 0 (oldest) to max opacity (newest).
  */
 export function drawTrail(ctx, trail) {
@@ -171,10 +187,13 @@ export function drawTrail(ctx, trail) {
 
   for (let i = 1; i < len; i++) {
     const ageFactor = i / (len - 1);
-    const isThrust = trail.points[i].thrust;
-    const maxAlpha = isThrust ? TRAIL_THRUST_OPACITY : TRAIL_BASE_OPACITY;
+    const intensity = trail.points[i].intensity;
+    const maxAlpha =
+      TRAIL_BASE_OPACITY +
+      (TRAIL_THRUST_OPACITY - TRAIL_BASE_OPACITY) * intensity;
     const alpha = ageFactor * maxAlpha;
-    ctx.lineWidth = isThrust ? TRAIL_THRUST_WIDTH : TRAIL_BASE_WIDTH;
+    ctx.lineWidth =
+      TRAIL_BASE_WIDTH + (TRAIL_THRUST_WIDTH - TRAIL_BASE_WIDTH) * intensity;
     ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
     ctx.beginPath();
     ctx.moveTo(trail.points[i - 1].x, trail.points[i - 1].y);
