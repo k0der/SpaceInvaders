@@ -475,7 +475,11 @@ function startApp() {
     // Compute camera deltas and rotate to screen space for starfield parallax
     const cameraDeltaX = camera.x - prevCameraX;
     const cameraDeltaY = camera.y - prevCameraY;
-    const cameraDeltaRotation = camera.rotation - prevCameraRotation;
+    // Normalize rotation delta to [-PI, PI] so heading wrapping doesn't
+    // produce a ±2PI spike that snaps stars across the screen
+    let cameraDeltaRotation = camera.rotation - prevCameraRotation;
+    while (cameraDeltaRotation > Math.PI) cameraDeltaRotation -= 2 * Math.PI;
+    while (cameraDeltaRotation < -Math.PI) cameraDeltaRotation += 2 * Math.PI;
     const cosR = Math.cos(-camera.rotation);
     const sinR = Math.sin(-camera.rotation);
     const screenDx = cameraDeltaX * cosR - cameraDeltaY * sinR;
