@@ -19,7 +19,14 @@ import {
   saveSettings,
   updateAutoHide,
 } from './settings.js';
-import { createShip, drawShip, updateShip } from './ship.js';
+import {
+  createShip,
+  createTrail,
+  drawShip,
+  drawTrail,
+  updateShip,
+  updateTrail,
+} from './ship.js';
 import {
   computeSpawnBounds,
   createSimulation,
@@ -105,6 +112,7 @@ export function startApp() {
     playerShip.y,
     playerShip.heading + Math.PI / 2,
   );
+  const playerTrail = createTrail();
   let prevCameraX = camera.x;
   let prevCameraY = camera.y;
   let prevCameraRotation = camera.rotation;
@@ -215,6 +223,7 @@ export function startApp() {
     // Ship input + update
     applyInput(inputState, playerShip);
     updateShip(playerShip, scaledDt);
+    updateTrail(playerTrail, playerShip.x, playerShip.y);
 
     // Camera follows ship (PI/2 offset so ship nose points UP on screen)
     camera.x = playerShip.x;
@@ -282,6 +291,7 @@ export function startApp() {
       drawAsteroid(ctx, asteroid);
     }
 
+    drawTrail(ctx, playerTrail);
     drawShip(ctx, playerShip);
 
     resetCameraTransform(ctx);

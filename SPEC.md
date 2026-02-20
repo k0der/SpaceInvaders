@@ -421,6 +421,22 @@ produces a standalone `index.html` with all modules inlined — zero external de
 - When thrusting, a flickering engine flame (randomized triangle) drawn behind the ship
 - Enemy ship visually distinguished (e.g., dashed lines or different shape)
 
+### 9.4 Motion Trail
+
+A fading trail behind each ship reinforces the sense of speed and makes
+turning arcs visible. The trail is drawn in **world space** (inside the
+camera transform), so it drifts and rotates relative to the screen-locked
+ship — providing a strong local motion cue.
+
+- **Data**: Ring buffer of recent world positions (`{ x, y }`), max
+  `TRAIL_MAX_LENGTH` entries (120 — ~2 seconds at 60 fps)
+- **Sampling**: One point pushed per frame after the ship position updates
+- **Rendering**: Drawn as consecutive line segments, newest to oldest,
+  with linearly decreasing alpha (`TRAIL_MAX_OPACITY` at newest → 0 at oldest).
+  Thin white stroke (`lineWidth = 1`). Drawn inside camera transform, before
+  the ship body (so the ship renders on top).
+- **Constants**: `TRAIL_MAX_LENGTH = 120`, `TRAIL_MAX_OPACITY = 0.4`
+
 ---
 
 ## 10. Camera
@@ -451,11 +467,12 @@ the context.
 2. Draw starfield (screen-space, before camera transform)
 3. Apply camera transform
 4. Draw asteroids (world-space)
-5. Draw ships (world-space — player maps to screen center)
-6. Draw bullets (world-space)
-7. Reset camera transform
-8. Draw HUD text (screen-space)
-9. Draw settings menu icon
+5. Draw ship motion trails (world-space, behind ships)
+6. Draw ships (world-space — player maps to screen center)
+7. Draw bullets (world-space)
+8. Reset camera transform
+9. Draw HUD text (screen-space)
+10. Draw settings menu icon
 
 ### 10.3 Viewport Bounds
 

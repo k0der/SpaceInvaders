@@ -19,6 +19,12 @@ export const BRAKE_POWER = 200;
 /** Maximum ship speed in pixels/s. */
 export const MAX_SPEED = 400;
 
+/** Maximum number of trail points (~2 seconds at 60 fps). */
+export const TRAIL_MAX_LENGTH = 120;
+
+/** Opacity of the newest trail segment. */
+export const TRAIL_MAX_OPACITY = 0.4;
+
 /**
  * Normalize an angle to the range [-PI, PI].
  */
@@ -116,4 +122,42 @@ export function drawShip(ctx, ship) {
   ctx.stroke();
 
   ctx.restore();
+}
+
+/**
+ * Create a new motion trail.
+ */
+export function createTrail() {
+  return { points: [] };
+}
+
+/**
+ * Record the ship's current world position in the trail.
+ * Evicts the oldest point when the trail exceeds TRAIL_MAX_LENGTH.
+ */
+export function updateTrail(trail, x, y) {
+  trail.points.push({ x, y });
+  if (trail.points.length > TRAIL_MAX_LENGTH) {
+    trail.points.shift();
+  }
+}
+
+/**
+ * Draw the motion trail as fading line segments.
+ * Alpha increases linearly from 0 (oldest) to TRAIL_MAX_OPACITY (newest).
+ */
+export function drawTrail(ctx, trail) {
+  if (trail.points.length < 2) return;
+
+  ctx.lineWidth = 1;
+  const len = trail.points.length;
+
+  for (let i = 1; i < len; i++) {
+    const alpha = (i / (len - 1)) * TRAIL_MAX_OPACITY;
+    ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+    ctx.beginPath();
+    ctx.moveTo(trail.points[i - 1].x, trail.points[i - 1].y);
+    ctx.lineTo(trail.points[i].x, trail.points[i].y);
+    ctx.stroke();
+  }
 }

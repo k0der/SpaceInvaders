@@ -451,6 +451,25 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 
 ---
 
+## Increment 22b: Ship Motion Trail
+
+**Goal**: A fading trail behind the ship that shows where it's been, reinforcing the sense of speed and making turning arcs visible.
+
+**Modify**: `src/ship.js`, `test/ship.test.js`, `src/main.js`
+
+**Acceptance Criteria**:
+- [ ] `TRAIL_MAX_LENGTH` (120) and `TRAIL_MAX_OPACITY` (0.4) exported from `ship.js`
+- [ ] `createTrail()` returns `{ points: [] }`
+- [ ] `updateTrail(trail, x, y)` pushes `{ x, y }` and evicts oldest point when length exceeds `TRAIL_MAX_LENGTH`
+- [ ] `drawTrail(ctx, trail)` draws consecutive line segments with linearly fading alpha (newest = `TRAIL_MAX_OPACITY`, oldest = 0)
+- [ ] Trail drawn with `lineWidth = 1`, white stroke
+- [ ] Trail with fewer than 2 points draws nothing (no crash)
+- [ ] Trail drawn inside camera transform, before ship body (ship renders on top)
+- [ ] `main.js` creates a trail, updates it each frame with ship position, and draws it
+- [ ] **Visible**: A smooth fading white arc trails behind the ship. Turning carves visible curves. Stopping makes the trail shrink to nothing. Strong sense of movement.
+
+---
+
 ## Increment 23: Minimum Forward Velocity + Thrust Flame
 
 **Goal**: Ship always drifts forward and shows a flame when boosting.

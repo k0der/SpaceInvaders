@@ -2,12 +2,17 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   BRAKE_POWER,
   createShip,
+  createTrail,
   DRAG,
   drawShip,
+  drawTrail,
   MAX_SPEED,
   ROTATION_SPEED,
   THRUST_POWER,
+  TRAIL_MAX_LENGTH,
+  TRAIL_MAX_OPACITY,
   updateShip,
+  updateTrail,
 } from '../src/ship.js';
 
 describe('Increment 17: Static Ship at Screen Center', () => {
@@ -492,6 +497,200 @@ describe('Increment 19: Ship Thrusts and Drifts', () => {
       expect(ship.heading).toBeCloseTo(ROTATION_SPEED * 0.1, 5);
       // Velocity should have increased (thrust at heading=0 before rotation)
       expect(ship.vx).toBeGreaterThan(0);
+    });
+  });
+});
+
+describe('Increment 22b: Ship Motion Trail', () => {
+  describe('constants', () => {
+    it('TRAIL_MAX_LENGTH is 120', () => {
+      expect(TRAIL_MAX_LENGTH).toBe(120);
+    });
+
+    it('TRAIL_MAX_OPACITY is 0.4', () => {
+      expect(TRAIL_MAX_OPACITY).toBe(0.4);
+    });
+  });
+
+  describe('createTrail', () => {
+    it('returns an object with an empty points array', () => {
+      const trail = createTrail();
+      expect(trail).toEqual({ points: [] });
+    });
+  });
+
+  describe('updateTrail', () => {
+    it('pushes a new point with x and y', () => {
+      const trail = createTrail();
+      updateTrail(trail, 100, 200);
+      expect(trail.points).toEqual([{ x: 100, y: 200 }]);
+    });
+
+    it('accumulates multiple points in order', () => {
+      const trail = createTrail();
+      updateTrail(trail, 10, 20);
+      updateTrail(trail, 30, 40);
+      updateTrail(trail, 50, 60);
+      expect(trail.points).toEqual([
+        { x: 10, y: 20 },
+        { x: 30, y: 40 },
+        { x: 50, y: 60 },
+      ]);
+    });
+
+    it('evicts the oldest point when exceeding TRAIL_MAX_LENGTH', () => {
+      const trail = createTrail();
+      for (let i = 0; i < TRAIL_MAX_LENGTH + 5; i++) {
+        updateTrail(trail, i, i * 2);
+      }
+      expect(trail.points.length).toBe(TRAIL_MAX_LENGTH);
+      // Oldest point should be index 5 (first 5 were evicted)
+      expect(trail.points[0]).toEqual({ x: 5, y: 10 });
+    });
+
+    it('maintains exactly TRAIL_MAX_LENGTH after many updates', () => {
+      const trail = createTrail();
+      for (let i = 0; i < 300; i++) {
+        updateTrail(trail, i, i);
+      }
+      expect(trail.points.length).toBe(TRAIL_MAX_LENGTH);
+      // Newest point should be the last one pushed
+      expect(trail.points[trail.points.length - 1]).toEqual({ x: 299, y: 299 });
+    });
+  });
+
+  describe('drawTrail', () => {
+    it('draws nothing when trail has fewer than 2 points', () => {
+      const trail = createTrail();
+      const ctx = {
+        beginPath: vi.fn(),
+        moveTo: vi.fn(),
+        lineTo: vi.fn(),
+        stroke: vi.fn(),
+      };
+
+      drawTrail(ctx, trail);
+      expect(ctx.beginPath).not.toHaveBeenCalled();
+
+      updateTrail(trail, 100, 200);
+      drawTrail(ctx, trail);
+      expect(ctx.beginPath).not.toHaveBeenCalled();
+    });
+
+    it('draws line segments between consecutive points', () => {
+      const trail = createTrail();
+      updateTrail(trail, 10, 20);
+      updateTrail(trail, 30, 40);
+      updateTrail(trail, 50, 60);
+
+      const ctx = {
+        beginPath: vi.fn(),
+        moveTo: vi.fn(),
+        lineTo: vi.fn(),
+        stroke: vi.fn(),
+        strokeStyle: '',
+        lineWidth: 0,
+      };
+
+      drawTrail(ctx, trail);
+
+      // Should draw 2 segments (3 points → 2 segments)
+      expect(ctx.beginPath).toHaveBeenCalledTimes(2);
+      expect(ctx.stroke).toHaveBeenCalledTimes(2);
+    });
+
+    it('sets lineWidth to 1', () => {
+      const trail = createTrail();
+      updateTrail(trail, 0, 0);
+      updateTrail(trail, 10, 10);
+
+      const ctx = {
+        beginPath: vi.fn(),
+        moveTo: vi.fn(),
+        lineTo: vi.fn(),
+        stroke: vi.fn(),
+        strokeStyle: '',
+        lineWidth: 0,
+      };
+
+      drawTrail(ctx, trail);
+      expect(ctx.lineWidth).toBe(1);
+    });
+
+    it('newest segment has highest alpha, oldest has lowest', () => {
+      const trail = createTrail();
+      updateTrail(trail, 0, 0);
+      updateTrail(trail, 10, 10);
+      updateTrail(trail, 20, 20);
+
+      const styles = [];
+      const ctx = {
+        beginPath: vi.fn(),
+        moveTo: vi.fn(),
+        lineTo: vi.fn(),
+        stroke: vi.fn(() => styles.push(ctx.strokeStyle)),
+        strokeStyle: '',
+        lineWidth: 0,
+      };
+
+      drawTrail(ctx, trail);
+
+      // Extract alpha values from rgba strings
+      const alphas = styles.map((s) => {
+        const match = s.match(/rgba\(255,\s*255,\s*255,\s*([\d.]+)\)/);
+        return match ? Number.parseFloat(match[1]) : null;
+      });
+
+      // Alpha should increase from oldest to newest segment
+      expect(alphas[1]).toBeGreaterThan(alphas[0]);
+    });
+
+    it('newest segment alpha is close to TRAIL_MAX_OPACITY', () => {
+      const trail = createTrail();
+      // Fill trail to max so the last segment is at full opacity
+      for (let i = 0; i <= TRAIL_MAX_LENGTH; i++) {
+        updateTrail(trail, i, i);
+      }
+
+      const styles = [];
+      const ctx = {
+        beginPath: vi.fn(),
+        moveTo: vi.fn(),
+        lineTo: vi.fn(),
+        stroke: vi.fn(() => styles.push(ctx.strokeStyle)),
+        strokeStyle: '',
+        lineWidth: 0,
+      };
+
+      drawTrail(ctx, trail);
+
+      // Last segment should be at TRAIL_MAX_OPACITY
+      const lastStyle = styles[styles.length - 1];
+      const match = lastStyle.match(/rgba\(255,\s*255,\s*255,\s*([\d.]+)\)/);
+      expect(Number.parseFloat(match[1])).toBeCloseTo(TRAIL_MAX_OPACITY, 2);
+    });
+
+    it('uses white color for all segments', () => {
+      const trail = createTrail();
+      updateTrail(trail, 0, 0);
+      updateTrail(trail, 10, 10);
+      updateTrail(trail, 20, 20);
+
+      const styles = [];
+      const ctx = {
+        beginPath: vi.fn(),
+        moveTo: vi.fn(),
+        lineTo: vi.fn(),
+        stroke: vi.fn(() => styles.push(ctx.strokeStyle)),
+        strokeStyle: '',
+        lineWidth: 0,
+      };
+
+      drawTrail(ctx, trail);
+
+      for (const style of styles) {
+        expect(style).toMatch(/^rgba\(255, 255, 255,/);
+      }
     });
   });
 });
