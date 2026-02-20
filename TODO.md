@@ -439,15 +439,15 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 **Modify**: `src/starfield.js`, `test/starfield.test.js`, `src/main.js`
 
 **Acceptance Criteria**:
-- [ ] New function `updateStarLayersCamera(layers, cameraDeltaX, cameraDeltaY, cameraDeltaRotation, viewportW, viewportH)` shifts stars based on camera position/rotation delta
-- [ ] Far layers shift less than near layers (parallax depth preserved)
-- [ ] Camera rotation rotates the shift direction (stars respond to turning)
-- [ ] Stars wrap when they exit viewport edges
-- [ ] When ships are active, starfield uses camera-relative mode instead of directional scroll
-- [ ] Existing direction modes (`left`/`right`/`up`/`down`/`radial`) remain available when ships are off
-- [ ] Star twinkling continues to work
-- [ ] `main.js` tracks `prevCamera` to compute deltas each frame
-- [ ] **Visible**: Full parallax scrolling tied to ship movement. Stars stream past when flying forward. Turning makes them wheel around the ship. Complete "flying through space" feel.
+- [x] New function `updateStarLayersCamera(layers, cameraDeltaX, cameraDeltaY, cameraDeltaRotation, viewportW, viewportH)` shifts stars based on camera position/rotation delta
+- [x] Far layers shift less than near layers (parallax depth preserved)
+- [x] Camera rotation rotates the shift direction (stars respond to turning)
+- [x] Stars wrap when they exit viewport edges
+- [x] When ships are active, starfield uses camera-relative mode instead of directional scroll
+- [x] Existing direction modes (`left`/`right`/`up`/`down`/`radial`) remain available when ships are off
+- [x] Star twinkling continues to work
+- [x] `main.js` tracks `prevCamera` to compute deltas each frame
+- [x] **Visible**: Full parallax scrolling tied to ship movement. Stars stream past when flying forward. Turning makes them wheel around the ship. Complete "flying through space" feel.
 
 ---
 
@@ -458,24 +458,24 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 **Modify**: `src/ship.js`, `test/ship.test.js`, `src/main.js`
 
 **Acceptance Criteria**:
-- [ ] `TRAIL_MAX_LENGTH` (240) exported from `ship.js`
-- [ ] `TRAIL_BASE_OPACITY` (0.2) and `TRAIL_THRUST_OPACITY` (0.6) exported from `ship.js`
-- [ ] `TRAIL_BASE_WIDTH` (1) and `TRAIL_THRUST_WIDTH` (2.5) exported from `ship.js`
-- [ ] `THRUST_RAMP_SPEED` (6.0) exported from `ship.js` (physics constant — controls engine spool rate)
-- [ ] `TRAIL_COLOR` (`{ r: 255, g: 120, b: 0 }`) exported from `ship.js`
-- [ ] `createShip` returns `thrustIntensity: 0` (ramp state lives on ship, not trail)
-- [ ] `updateShip` ramps `ship.thrustIntensity` toward 1.0 (thrusting) or 0.0 (coasting) at `THRUST_RAMP_SPEED * dt`; thrust force scales by `thrustIntensity`
-- [ ] `createTrail()` returns `{ points: [] }` (no independent ramp state)
-- [ ] `updateTrail(trail, x, y, heading, thrustIntensity)` — receives intensity from ship, no `dt` param, no ramping; pushes `{ x, y, intensity }` with nozzle offset
-- [ ] Trail point is offset to the ship's rear nozzle: `x - cos(heading) * SHIP_SIZE * 0.5`, `y - sin(heading) * SHIP_SIZE * 0.5`
-- [ ] Each point stores `intensity` float (0.0–1.0) for per-segment interpolation
-- [ ] Evicts oldest point when length exceeds `TRAIL_MAX_LENGTH`
-- [ ] `drawTrail(ctx, trail)` interpolates width and opacity per-segment using stored `intensity`: `width = BASE + (THRUST - BASE) * intensity`, `maxAlpha = BASE_OPACITY + (THRUST_OPACITY - BASE_OPACITY) * intensity`
-- [ ] Trail drawn with dark orange stroke using `TRAIL_COLOR`
-- [ ] Trail with fewer than 2 points draws nothing (no crash)
-- [ ] Trail drawn inside camera transform, before ship body (ship renders on top)
-- [ ] `main.js` creates a trail, updates it each frame with ship position/heading/`ship.thrustIntensity`, and draws it
-- [ ] **Visible**: Dark orange trail always visible behind the ship. Thrusting gradually brightens and widens the trail. Releasing thrust smoothly fades to thinner dimmer trail (~0.17s transition). Turning carves visible arcs. Clear throttle feedback with no binary snapping.
+- [x] `TRAIL_MAX_LENGTH` (240) exported from `ship.js`
+- [x] `TRAIL_BASE_OPACITY` (0.2) and `TRAIL_THRUST_OPACITY` (0.6) exported from `ship.js`
+- [x] `TRAIL_BASE_WIDTH` (1) and `TRAIL_THRUST_WIDTH` (2.5) exported from `ship.js`
+- [x] `THRUST_RAMP_SPEED` (6.0) exported from `ship.js` (physics constant — controls engine spool rate)
+- [x] `TRAIL_COLOR` (`{ r: 255, g: 120, b: 0 }`) exported from `ship.js`
+- [x] `createShip` returns `thrustIntensity: 0` (ramp state lives on ship, not trail)
+- [x] `updateShip` ramps `ship.thrustIntensity` toward 1.0 (thrusting) or 0.0 (coasting) at `THRUST_RAMP_SPEED * dt`; thrust force scales by `thrustIntensity`
+- [x] `createTrail()` returns `{ points: [] }` (no independent ramp state)
+- [x] `updateTrail(trail, x, y, heading, thrustIntensity)` — receives intensity from ship, no `dt` param, no ramping; pushes `{ x, y, intensity }` with nozzle offset
+- [x] Trail point is offset to the ship's rear nozzle: `x - cos(heading) * SHIP_SIZE * 0.5`, `y - sin(heading) * SHIP_SIZE * 0.5`
+- [x] Each point stores `intensity` float (0.0–1.0) for per-segment interpolation
+- [x] Evicts oldest point when length exceeds `TRAIL_MAX_LENGTH`
+- [x] `drawTrail(ctx, trail)` interpolates width and opacity per-segment using stored `intensity`: `width = BASE + (THRUST - BASE) * intensity`, `maxAlpha = BASE_OPACITY + (THRUST_OPACITY - BASE_OPACITY) * intensity`
+- [x] Trail drawn with dark orange stroke using `TRAIL_COLOR`
+- [x] Trail with fewer than 2 points draws nothing (no crash)
+- [x] Trail drawn inside camera transform, before ship body (ship renders on top)
+- [x] `main.js` creates a trail, updates it each frame with ship position/heading/`ship.thrustIntensity`, and draws it
+- [x] **Visible**: Dark orange trail always visible behind the ship. Thrusting gradually brightens and widens the trail. Releasing thrust smoothly fades to thinner dimmer trail (~0.17s transition). Turning carves visible arcs. Clear throttle feedback with no binary snapping.
 
 ---
 
