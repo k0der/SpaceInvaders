@@ -1070,8 +1070,10 @@ function drawShip(ctx, ship) {
 
 // ===== simulation.js =====
 
-const SPAWN_STAGGER = 0.3; // seconds between spawns
+const SPAWN_STAGGER = 0.3; // seconds between edge spawns
 const MARGIN = 5; // px margin beyond radius for off-screen detection
+const BURST_THRESHOLD = 0.75; // burst-spawn when below this fraction of target
+const BURST_COUNT = 5; // max asteroids to burst-spawn per frame
 
 /**
  * Check if an asteroid is fully outside the viewport bounds (center + radius + margin past all edges).
@@ -1167,14 +1169,37 @@ function spawnAsteroidFromEdge(bounds, speedMultiplier = 1.0) {
 }
 
 /**
+ * Spawn a new asteroid at a random position within the bounds, with a random direction.
+ * Used for initial population and burst recovery so asteroids appear throughout the viewport.
+ * @param {object} bounds - { minX, maxX, minY, maxY }
+ * @param {number} speedMultiplier - scales the base speed (default 1.0)
+ */
+function spawnAsteroidInBounds(bounds, speedMultiplier = 1.0) {
+  const radius = randomRadius();
+  const speed = speedForRadius(radius) * speedMultiplier;
+  const x = bounds.minX + Math.random() * (bounds.maxX - bounds.minX);
+  const y = bounds.minY + Math.random() * (bounds.maxY - bounds.minY);
+  const angle = Math.random() * Math.PI * 2;
+
+  return createAsteroid({
+    x,
+    y,
+    vx: Math.cos(angle) * speed,
+    vy: Math.sin(angle) * speed,
+    radius,
+  });
+}
+
+/**
  * Create the simulation state with an initial population of asteroids.
+ * Asteroids are distributed within the bounds (not at edges) for immediate visibility.
  * @param {object} bounds - { minX, maxX, minY, maxY }
  * @param {number} targetCount
  */
 function createSimulation(bounds, targetCount = 20) {
   const asteroids = [];
   for (let i = 0; i < targetCount; i++) {
-    asteroids.push(spawnAsteroidFromEdge(bounds));
+    asteroids.push(spawnAsteroidInBounds(bounds));
   }
 
   const baselineKEPerAsteroid = computeTotalKE(asteroids) / asteroids.length;
@@ -1189,6 +1214,8 @@ function createSimulation(bounds, targetCount = 20) {
 
 /**
  * Update the simulation: move asteroids, remove off-screen ones, spawn replacements.
+ * Uses burst spawning (within bounds) when count drops far below target,
+ * and staggered edge spawning for steady-state replenishment.
  * @param {object} sim
  * @param {number} dt
  * @param {object} bounds - { minX, maxX, minY, maxY }
@@ -1209,17 +1236,27 @@ function updateSimulation(sim, dt, bounds) {
   // Remove off-screen asteroids
   sim.asteroids = sim.asteroids.filter((a) => !isOffScreen(a, bounds));
 
-  // Spawn new asteroids if below target (staggered), with energy-sustaining boost
+  const boost = computeSpeedBoost(
+    sim.baselineKEPerAsteroid,
+    sim.targetCount,
+    sim.asteroids,
+  );
+
+  // Burst-spawn within bounds when count is far below target
+  if (sim.asteroids.length < sim.targetCount * BURST_THRESHOLD) {
+    const deficit = sim.targetCount - sim.asteroids.length;
+    const toSpawn = Math.min(deficit, BURST_COUNT);
+    for (let i = 0; i < toSpawn; i++) {
+      sim.asteroids.push(spawnAsteroidInBounds(bounds, boost));
+    }
+  }
+
+  // Staggered edge-spawn for steady-state replenishment
   sim.spawnTimer += dt;
   if (
     sim.asteroids.length < sim.targetCount &&
     sim.spawnTimer >= SPAWN_STAGGER
   ) {
-    const boost = computeSpeedBoost(
-      sim.baselineKEPerAsteroid,
-      sim.targetCount,
-      sim.asteroids,
-    );
     sim.asteroids.push(spawnAsteroidFromEdge(bounds, boost));
     sim.spawnTimer = 0;
   }

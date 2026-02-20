@@ -5,6 +5,7 @@ import {
   createSimulation,
   isOffScreen,
   spawnAsteroidFromEdge,
+  spawnAsteroidInBounds,
   updateSimulation,
 } from '../src/simulation.js';
 
@@ -267,11 +268,78 @@ describe('Increment 8: Asteroids Come and Go', () => {
     });
   });
 
+  describe('spawnAsteroidInBounds', () => {
+    it('creates an asteroid within the bounds', () => {
+      for (let i = 0; i < 50; i++) {
+        const a = spawnAsteroidInBounds(ORIGIN_BOUNDS);
+        expect(a.x).toBeGreaterThanOrEqual(0);
+        expect(a.x).toBeLessThanOrEqual(800);
+        expect(a.y).toBeGreaterThanOrEqual(0);
+        expect(a.y).toBeLessThanOrEqual(600);
+      }
+    });
+
+    it('produces asteroids with valid radius in range [10, 80]', () => {
+      for (let i = 0; i < 50; i++) {
+        const a = spawnAsteroidInBounds(ORIGIN_BOUNDS);
+        expect(a.radius).toBeGreaterThanOrEqual(10);
+        expect(a.radius).toBeLessThanOrEqual(80);
+      }
+    });
+
+    it('produces asteroids with non-zero velocity', () => {
+      for (let i = 0; i < 20; i++) {
+        const a = spawnAsteroidInBounds(ORIGIN_BOUNDS);
+        const speed = Math.sqrt(a.vx ** 2 + a.vy ** 2);
+        expect(speed).toBeGreaterThan(0);
+      }
+    });
+
+    it('respects speed multiplier', () => {
+      const speedsNormal = [];
+      const speedsBoosted = [];
+      for (let i = 0; i < 200; i++) {
+        const a = spawnAsteroidInBounds(ORIGIN_BOUNDS, 1.0);
+        const b = spawnAsteroidInBounds(ORIGIN_BOUNDS, 1.5);
+        speedsNormal.push(Math.sqrt(a.vx ** 2 + a.vy ** 2));
+        speedsBoosted.push(Math.sqrt(b.vx ** 2 + b.vy ** 2));
+      }
+      const avgNormal =
+        speedsNormal.reduce((s, v) => s + v, 0) / speedsNormal.length;
+      const avgBoosted =
+        speedsBoosted.reduce((s, v) => s + v, 0) / speedsBoosted.length;
+      const ratio = avgBoosted / avgNormal;
+      expect(ratio).toBeGreaterThan(1.2);
+      expect(ratio).toBeLessThan(1.8);
+    });
+
+    it('works with non-origin-centered bounds', () => {
+      const bounds = { minX: 500, maxX: 1300, minY: 200, maxY: 800 };
+      for (let i = 0; i < 50; i++) {
+        const a = spawnAsteroidInBounds(bounds);
+        expect(a.x).toBeGreaterThanOrEqual(500);
+        expect(a.x).toBeLessThanOrEqual(1300);
+        expect(a.y).toBeGreaterThanOrEqual(200);
+        expect(a.y).toBeLessThanOrEqual(800);
+      }
+    });
+  });
+
   describe('createSimulation', () => {
     it('creates a simulation with the target asteroid count', () => {
       const sim = createSimulation(ORIGIN_BOUNDS, 20);
       expect(sim.asteroids.length).toBe(20);
       expect(sim.targetCount).toBe(20);
+    });
+
+    it('initial asteroids are within the bounds', () => {
+      const sim = createSimulation(ORIGIN_BOUNDS, 20);
+      for (const a of sim.asteroids) {
+        expect(a.x).toBeGreaterThanOrEqual(0);
+        expect(a.x).toBeLessThanOrEqual(800);
+        expect(a.y).toBeGreaterThanOrEqual(0);
+        expect(a.y).toBeLessThanOrEqual(600);
+      }
     });
 
     it('defaults to 20 asteroids', () => {
@@ -321,10 +389,9 @@ describe('Increment 8: Asteroids Come and Go', () => {
       expect(sim.asteroids.length).toBe(0);
     });
 
-    it('spawns new asteroids to reach target count (respecting stagger)', () => {
+    it('spawns new asteroids to reach target count', () => {
       const sim = createSimulation(ORIGIN_BOUNDS, 5);
       sim.asteroids.length = 0;
-      sim.spawnTimer = 0.3;
 
       for (let i = 0; i < 100; i++) {
         updateSimulation(sim, 0.05, ORIGIN_BOUNDS);
@@ -334,16 +401,56 @@ describe('Increment 8: Asteroids Come and Go', () => {
       expect(sim.asteroids.length).toBeLessThanOrEqual(5);
     });
 
-    it('staggers spawning — max 1 new asteroid per 0.3s', () => {
+    it('burst-spawns multiple asteroids when count is far below target', () => {
+      const sim = createSimulation(ORIGIN_BOUNDS, 0);
+      sim.targetCount = 20;
+      sim.asteroids = [];
+
+      // Single frame should spawn multiple via burst
+      updateSimulation(sim, 0.016, ORIGIN_BOUNDS);
+
+      expect(sim.asteroids.length).toBeGreaterThan(1);
+    });
+
+    it('burst-spawned asteroids are within bounds', () => {
+      const sim = createSimulation(ORIGIN_BOUNDS, 0);
+      sim.targetCount = 20;
+      sim.asteroids = [];
+
+      updateSimulation(sim, 0.016, ORIGIN_BOUNDS);
+
+      for (const a of sim.asteroids) {
+        expect(a.x).toBeGreaterThanOrEqual(0);
+        expect(a.x).toBeLessThanOrEqual(800);
+        expect(a.y).toBeGreaterThanOrEqual(0);
+        expect(a.y).toBeLessThanOrEqual(600);
+      }
+    });
+
+    it('recovers to near target quickly after mass loss (within a few frames)', () => {
       const sim = createSimulation(ORIGIN_BOUNDS, 20);
-      sim.asteroids.length = 0;
+      sim.asteroids = [];
+
+      // Run just 10 frames
+      for (let i = 0; i < 10; i++) {
+        updateSimulation(sim, 0.016, ORIGIN_BOUNDS);
+      }
+
+      // Should have recovered to at least 50% of target
+      expect(sim.asteroids.length).toBeGreaterThanOrEqual(10);
+    });
+
+    it('staggers edge-spawns when near target count', () => {
+      const sim = createSimulation(ORIGIN_BOUNDS, 20);
+      // Set to just below target (above burst threshold)
+      sim.asteroids.length = 19;
       sim.spawnTimer = 0;
 
       updateSimulation(sim, 0.05, ORIGIN_BOUNDS);
-      expect(sim.asteroids.length).toBe(0);
+      const countAfterShortDt = sim.asteroids.length;
 
-      updateSimulation(sim, 0.3, ORIGIN_BOUNDS);
-      expect(sim.asteroids.length).toBe(1);
+      // Should not have spawned yet (stagger not reached, above burst threshold)
+      expect(countAfterShortDt).toBeLessThanOrEqual(19);
     });
 
     it('detects and resolves collisions between overlapping asteroids', () => {
