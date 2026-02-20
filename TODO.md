@@ -583,12 +583,12 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 - [ ] Closer obstacles produce stronger steering offset: strength scales with `max(cylinderUrgency, proximityUrgency)²`
 - [x] Dead-center obstacle (lateral ≈ 0) defaults to steering right (breaks symmetry)
 - [x] Returns 0 when no obstacles are on collision course
-- [x] `updateAI` builds obstacle list from asteroids (`collisionRadius`) + target ship (`SHIP_SIZE` as proxy radius)
+- [x] `updateAI` builds obstacle list from asteroids only (`collisionRadius`) — target ship is NOT included (AI approaches to fire, not avoids)
 - [ ] `computeAvoidanceOffset` returns `{ offset, maxUrgency }` — maxUrgency is the highest raw urgency (before squaring) across all obstacles
 - [ ] `AVOIDANCE_PRIORITY` (3) exported — controls how aggressively pursuit is suppressed when avoiding
 - [ ] Survival-first blending: `survivalWeight = clamp(maxUrgency * AVOIDANCE_PRIORITY, 0, 1)`; pursuit scaled by `(1 - survivalWeight)`. At zero threat → pure pursuit; at moderate threat → pure avoidance
 - [ ] Pursuit cannot override avoidance: when obstacles are close, ship steers to avoid regardless of target direction
-- [x] When strong avoidance is active, thrust is maintained (don't stop mid-avoidance)
+- [x] During avoidance, thrust engages only when facing the effective heading (turned toward escape direction); AI brakes when not facing it and speed exceeds threshold
 - [x] Avoidance and pursuit blend smoothly (no jittering between states)
 
 ### Visible

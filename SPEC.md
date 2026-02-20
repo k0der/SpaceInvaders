@@ -614,17 +614,17 @@ obstacles.
 - Final heading diff: `pursuitInfluence + avoidanceOffset`
 - At zero threat: pure pursuit (survivalWeight = 0)
 - At moderate+ threat: pure avoidance (survivalWeight = 1)
-- Thrust is maintained when avoidance is active (escape the danger zone)
+- Thrust only engages when facing the effective heading direction (turned
+  toward escape route); the AI does not accelerate toward obstacles
+- Braking engages when not facing effective direction and speed exceeds
+  `BRAKE_SPEED` — slows down while turning, then accelerates once clear
 - Firing decision uses raw pursuit heading diff (unaffected by avoidance)
 
 **Obstacle list** (built in `updateAI`):
 
 - All asteroids → `{ x, y, radius: collisionRadius }`
-- Target ship → `{ x, y, radius: SHIP_SIZE }` (ship `collisionRadius` defined
-  in Increment 27; `SHIP_SIZE` used as proxy until then)
-
-This creates natural strafing/orbiting behavior: the AI approaches to firing
-range but curves around the player ship instead of charging head-on.
+- Target ship is **not** included — the AI's goal is to approach and shoot
+  the target, not avoid it. Anti-ramming comes from bullet combat.
 
 **Constants** (exported from `ai.js`):
 `FIRE_ANGLE`, `MAX_FIRE_RANGE`, `AVOID_LOOKAHEAD` (500px), `AVOID_MARGIN` (50px),

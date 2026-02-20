@@ -705,7 +705,7 @@ describe('Increment 26: AI Fires Bullets + Asteroid Avoidance', () => {
       expect(ai.rotatingLeft || ai.rotatingRight).toBe(true);
     });
 
-    it('maintains thrust during avoidance to escape danger zone', () => {
+    it('does not thrust during close avoidance until turned toward escape direction', () => {
       const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
       const target = createShip({
         x: 1000,
@@ -713,7 +713,7 @@ describe('Increment 26: AI Fires Bullets + Asteroid Avoidance', () => {
         heading: 0,
         owner: 'player',
       });
-      // Asteroid directly ahead
+      // Asteroid directly ahead, close — large avoidance offset, not yet facing escape
       const asteroids = [
         { x: 100, y: 0, collisionRadius: 40, radius: 50, vx: 0, vy: 0 },
       ];
@@ -721,35 +721,55 @@ describe('Increment 26: AI Fires Bullets + Asteroid Avoidance', () => {
 
       updateAI(state, ai, target, asteroids, 0.016);
 
-      // Thrust should be maintained even during avoidance
+      // AI should NOT thrust while still facing the asteroid — turns first, thrusts later
+      expect(ai.thrust).toBe(false);
+    });
+
+    it('thrusts during avoidance when near escape direction (mild avoidance)', () => {
+      const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+      const target = createShip({
+        x: 1000,
+        y: 0,
+        heading: 0,
+        owner: 'player',
+      });
+      // Asteroid far ahead — mild avoidance, heading nearly matches effective direction
+      const asteroids = [
+        { x: 400, y: 0, collisionRadius: 30, radius: 40, vx: 0, vy: 0 },
+      ];
+      const state = createAIState();
+
+      updateAI(state, ai, target, asteroids, 0.016);
+
+      // Mild avoidance → small heading offset → still roughly facing effective direction → thrust
       expect(ai.thrust).toBe(true);
     });
 
-    it('includes target ship in obstacle list (avoids ramming)', () => {
-      // AI heading straight at the target, very close
+    it('does not include target ship in obstacle list (pursues freely)', () => {
+      // AI heading straight at a close target with no asteroids
       const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
       const target = createShip({ x: 80, y: 0, heading: 0, owner: 'player' });
       const state = createAIState();
 
       updateAI(state, ai, target, [], 0.016);
 
-      // Should be steering away from the close target ship (not just charging)
-      // At close range with target dead ahead, avoidance should override pure pursuit
-      expect(ai.rotatingLeft || ai.rotatingRight).toBe(true);
+      // No asteroids → no avoidance → pure pursuit → target is dead ahead → no rotation
+      expect(ai.rotatingLeft).toBe(false);
+      expect(ai.rotatingRight).toBe(false);
     });
 
-    it('does not brake during active avoidance even at high speed', () => {
+    it('brakes during avoidance when not facing escape direction and speed exceeds threshold', () => {
       const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
       ai.vx = BRAKE_SPEED + 100;
       ai.vy = 0;
-      // Target behind (would normally trigger braking)
+      // Target behind
       const target = createShip({
         x: -500,
         y: 0,
         heading: 0,
         owner: 'player',
       });
-      // But asteroid directly ahead triggers avoidance
+      // Asteroid directly ahead — AI not yet facing escape direction
       const asteroids = [
         { x: 100, y: 0, collisionRadius: 40, radius: 50, vx: 0, vy: 0 },
       ];
@@ -757,9 +777,9 @@ describe('Increment 26: AI Fires Bullets + Asteroid Avoidance', () => {
 
       updateAI(state, ai, target, asteroids, 0.016);
 
-      // Avoidance active → braking suppressed, thrust maintained
-      expect(ai.braking).toBe(false);
-      expect(ai.thrust).toBe(true);
+      // Not facing escape direction → brake to slow down while turning
+      expect(ai.braking).toBe(true);
+      expect(ai.thrust).toBe(false);
     });
 
     it('survival-first: avoidance overrides pursuit when obstacle is between AI and target', () => {

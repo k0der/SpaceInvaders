@@ -1,4 +1,4 @@
-import { SHIP_SIZE, THRUST_POWER } from './ship.js';
+import { THRUST_POWER } from './ship.js';
 
 /** Dead zone for rotation — prevents oscillation (~3°). */
 export const ROTATION_DEADZONE = 0.05;
@@ -175,13 +175,12 @@ export function updateAI(_aiState, aiShip, targetShip, asteroids, _dt) {
   // Angle to predicted position (pursuit angle)
   const pursuitAngle = Math.atan2(predictedY - aiShip.y, predictedX - aiShip.x);
 
-  // Build obstacle list: asteroids + target ship
+  // Build obstacle list: asteroids only (target ship excluded — AI pursues it)
   const obstacles = asteroids.map((a) => ({
     x: a.x,
     y: a.y,
     radius: a.collisionRadius,
   }));
-  obstacles.push({ x: targetShip.x, y: targetShip.y, radius: SHIP_SIZE });
 
   // Compute avoidance offset and survival-first blending
   const { offset: avoidanceOffset, maxUrgency } = computeAvoidanceOffset(
@@ -201,14 +200,13 @@ export function updateAI(_aiState, aiShip, targetShip, asteroids, _dt) {
   aiShip.rotatingLeft = headingDiff < -ROTATION_DEADZONE;
   aiShip.rotatingRight = headingDiff > ROTATION_DEADZONE;
 
-  // Thrust: engage when roughly facing effective direction, or during active avoidance
+  // Thrust: engage only when facing effective direction (turned toward escape route)
   const facingEffective = Math.abs(headingDiff) < THRUST_ANGLE;
-  const avoidanceActive = avoidanceOffset !== 0;
-  aiShip.thrust = facingEffective || avoidanceActive;
+  aiShip.thrust = facingEffective;
 
-  // Brake: engage when NOT facing target AND speed exceeds threshold AND no avoidance
+  // Brake: engage when NOT facing effective direction AND speed exceeds threshold
   const speed = Math.sqrt(aiShip.vx * aiShip.vx + aiShip.vy * aiShip.vy);
-  aiShip.braking = !facingEffective && !avoidanceActive && speed > BRAKE_SPEED;
+  aiShip.braking = !facingEffective && speed > BRAKE_SPEED;
 
   // Fire: aimed within FIRE_ANGLE of predicted target AND within range
   aiShip.fire =
