@@ -24,14 +24,14 @@ export const COLLISION_DECAY = 0.8;
 /** Weight applied to distance-to-target (negative = closer is better). */
 export const DISTANCE_WEIGHT = -8;
 
-/** Bonus for aiming toward target at end of trajectory. */
-export const AIM_BONUS = 200;
+/** Bonus for aiming toward target at closest approach. */
+export const AIM_BONUS = 400;
 
 /** Weight for closing speed bonus (dot of velocity toward target). */
 export const CLOSING_SPEED_WEIGHT = 8;
 
-/** Flat bonus for candidates that use thrust (encourages active pursuit). */
-export const THRUST_BIAS = 400;
+/** Bonus per sim step where ship has a viable firing solution. */
+export const FIRE_OPPORTUNITY_BONUS = 300;
 
 /**
  * Clone only the physics-relevant fields of a ship for simulation.
@@ -125,6 +125,7 @@ export function simulateTrajectory(clone, action, steps, dt) {
  * - Closest approach to target across trajectory (lower = better)
  * - Aim bonus for pointing toward target at closest approach
  * - Closing velocity bonus at closest approach (reward approaching the target)
+ * - Fire opportunity bonus for steps with viable firing solutions
  */
 export function scoreTrajectory(positions, target, asteroids, simDt) {
   let score = 0;
@@ -196,6 +197,26 @@ export function scoreTrajectory(positions, target, asteroids, simDt) {
     score += CLOSING_SPEED_WEIGHT * closingSpeed;
   }
 
+  // Fire opportunity bonus: count steps with a viable firing solution
+  // (aimed within FIRE_ANGLE and within MAX_FIRE_RANGE of predicted target).
+  // This breaks circular orbits by rewarding trajectories that create shots.
+  for (let i = 1; i < positions.length; i++) {
+    const t = i * simDt;
+    const predX = target.x + target.vx * t;
+    const predY = target.y + target.vy * t;
+    const fdx = predX - positions[i].x;
+    const fdy = predY - positions[i].y;
+    const fDist = Math.sqrt(fdx * fdx + fdy * fdy);
+    if (fDist > MAX_FIRE_RANGE) continue;
+    const fireAngle = Math.atan2(fdy, fdx);
+    let fireDiff = fireAngle - positions[i].heading;
+    while (fireDiff > Math.PI) fireDiff -= 2 * Math.PI;
+    while (fireDiff < -Math.PI) fireDiff += 2 * Math.PI;
+    if (Math.abs(fireDiff) < FIRE_ANGLE) {
+      score += FIRE_OPPORTUNITY_BONUS;
+    }
+  }
+
   return score;
 }
 
@@ -210,11 +231,7 @@ export function selectBestAction(ship, target, asteroids) {
   for (const action of candidates) {
     const clone = cloneShipForSim(ship);
     const positions = simulateTrajectory(clone, action, SIM_STEPS, SIM_DT);
-    let score = scoreTrajectory(positions, target, asteroids, SIM_DT);
-
-    if (action.thrust) {
-      score += THRUST_BIAS;
-    }
+    const score = scoreTrajectory(positions, target, asteroids, SIM_DT);
 
     if (score > bestScore) {
       bestScore = score;

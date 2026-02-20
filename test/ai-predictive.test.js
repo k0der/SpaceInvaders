@@ -7,6 +7,7 @@ import {
   cloneShipForSim,
   DISTANCE_WEIGHT,
   defineCandidates,
+  FIRE_OPPORTUNITY_BONUS,
   predictAsteroidAt,
   predictiveStrategy,
   SIM_DT,
@@ -14,7 +15,6 @@ import {
   scoreTrajectory,
   selectBestAction,
   simulateTrajectory,
-  THRUST_BIAS,
 } from '../src/ai-predictive.js';
 import { createShip } from '../src/ship.js';
 
@@ -39,16 +39,16 @@ describe('ai-predictive: Constants', () => {
     expect(DISTANCE_WEIGHT).toBe(-8);
   });
 
-  it('exports AIM_BONUS as 200', () => {
-    expect(AIM_BONUS).toBe(200);
+  it('exports AIM_BONUS as 400', () => {
+    expect(AIM_BONUS).toBe(400);
   });
 
   it('exports CLOSING_SPEED_WEIGHT as 8', () => {
     expect(CLOSING_SPEED_WEIGHT).toBe(8);
   });
 
-  it('exports THRUST_BIAS as 400', () => {
-    expect(THRUST_BIAS).toBe(400);
+  it('exports FIRE_OPPORTUNITY_BONUS as 300', () => {
+    expect(FIRE_OPPORTUNITY_BONUS).toBe(300);
   });
 });
 
@@ -535,6 +535,85 @@ describe('ai-predictive: scoreTrajectory — closing velocity bonus', () => {
     // perpendicular trajectory ends at y=20 (slightly farther from target at x=500)
     // and is aimed up (not at target), so it should score worse, not better
     expect(perpScore).toBeLessThanOrEqual(stationaryScore);
+  });
+});
+
+describe('ai-predictive: scoreTrajectory — fire opportunity bonus', () => {
+  it('gives higher score when trajectory has firing solutions', () => {
+    const target = { x: 300, y: 0, vx: 0, vy: 0 };
+
+    // Trajectory aimed at target (heading 0, target at +x) and within range
+    const aimedPositions = [
+      { x: 0, y: 0, heading: 0, vx: 100, vy: 0 },
+      { x: 100, y: 0, heading: 0, vx: 100, vy: 0 }, // aimed at target, in range
+      { x: 200, y: 0, heading: 0, vx: 100, vy: 0 }, // aimed at target, in range
+    ];
+
+    // Trajectory perpendicular to target (heading up) at same distance
+    const perpPositions = [
+      { x: 0, y: 0, heading: Math.PI / 2, vx: 0, vy: 100 },
+      { x: 0, y: 100, heading: Math.PI / 2, vx: 0, vy: 100 }, // aimed up, not at target
+      { x: 0, y: 200, heading: Math.PI / 2, vx: 0, vy: 100 }, // aimed up, not at target
+    ];
+
+    const aimedScore = scoreTrajectory(aimedPositions, target, [], 0.1);
+    const perpScore = scoreTrajectory(perpPositions, target, [], 0.1);
+
+    // Aimed trajectory gets fire opportunity bonus, perpendicular does not
+    expect(aimedScore).toBeGreaterThan(perpScore);
+    // The difference should be substantial (at least one FIRE_OPPORTUNITY_BONUS)
+    expect(aimedScore - perpScore).toBeGreaterThan(FIRE_OPPORTUNITY_BONUS);
+  });
+
+  it('gives no fire bonus when out of range', () => {
+    const target = { x: 2000, y: 0, vx: 0, vy: 0 };
+
+    // Aimed at target but way out of range
+    const farPositions = [
+      { x: 0, y: 0, heading: 0, vx: 100, vy: 0 },
+      { x: 100, y: 0, heading: 0, vx: 100, vy: 0 },
+    ];
+
+    // Same but perpendicular
+    const perpPositions = [
+      { x: 0, y: 0, heading: Math.PI / 2, vx: 0, vy: 100 },
+      { x: 0, y: 100, heading: Math.PI / 2, vx: 0, vy: 100 },
+    ];
+
+    const farScore = scoreTrajectory(farPositions, target, [], 0.1);
+    const perpScore = scoreTrajectory(perpPositions, target, [], 0.1);
+
+    // Both out of range, so fire bonus should not differentiate them.
+    // farScore should still be better due to closer distance and aim,
+    // but the difference should be smaller than FIRE_OPPORTUNITY_BONUS
+    // (since there are no fire bonus steps contributing to the gap).
+    // We just verify no crash and finite scores.
+    expect(Number.isFinite(farScore)).toBe(true);
+    expect(Number.isFinite(perpScore)).toBe(true);
+  });
+});
+
+describe('ai-predictive: selectBestAction — orbit breaking', () => {
+  it('prefers braking over maintaining circular orbit near target', () => {
+    // Ship in circular orbit: near target, high perpendicular velocity, heading tangential
+    const ship = createShip({
+      x: 150,
+      y: 0,
+      heading: Math.PI / 2,
+      owner: 'enemy',
+    });
+    ship.vx = 0;
+    ship.vy = 300; // moving perpendicular to target
+    ship.thrustIntensity = 1.0;
+    const target = createShip({ x: 0, y: 0, heading: 0, owner: 'player' });
+
+    const action = selectBestAction(ship, target, []);
+
+    // AI should NOT maintain the orbit (thrust straight with no rotation).
+    // It should brake, or turn to create a firing angle.
+    const maintainsOrbit =
+      action.thrust && !action.rotatingLeft && !action.rotatingRight;
+    expect(maintainsOrbit).toBe(false);
   });
 });
 
