@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
+  AVOID_LOOKAHEAD,
+  AVOID_MARGIN,
+  AVOID_STRENGTH,
   BRAKE_SPEED,
+  computeAvoidanceOffset,
   createAIState,
+  FIRE_ANGLE,
+  MAX_FIRE_RANGE,
   MAX_PREDICTION_TIME,
   MAX_SPAWN_DISTANCE,
   MIN_SPAWN_DISTANCE,
@@ -255,18 +261,6 @@ describe('Increment 25: Enemy Ship + Basic AI', () => {
     });
   });
 
-  describe('updateAI — fire flag', () => {
-    it('does not fire in basic pursuit (increment 26 feature)', () => {
-      const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
-      const target = createShip({ x: 500, y: 0, heading: 0, owner: 'player' });
-      const state = createAIState();
-
-      updateAI(state, ai, target, [], 0.016);
-
-      expect(ai.fire).toBe(false);
-    });
-  });
-
   describe('AI ship uses same physics as player', () => {
     it('AI-controlled ship accelerates via updateShip after updateAI sets thrust', () => {
       const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
@@ -311,6 +305,326 @@ describe('Increment 25: Enemy Ship + Basic AI', () => {
       }
       const uniqueX = new Set(positions.map((p) => Math.round(p.x)));
       expect(uniqueX.size).toBeGreaterThan(1);
+    });
+  });
+});
+
+describe('Increment 26: AI Fires Bullets + Asteroid Avoidance', () => {
+  describe('AI combat constants', () => {
+    it('exports FIRE_ANGLE as a positive number (~0.15 rad)', () => {
+      expect(typeof FIRE_ANGLE).toBe('number');
+      expect(FIRE_ANGLE).toBeGreaterThan(0);
+      expect(FIRE_ANGLE).toBeCloseTo(0.15, 1);
+    });
+
+    it('exports MAX_FIRE_RANGE as a positive number (500px)', () => {
+      expect(typeof MAX_FIRE_RANGE).toBe('number');
+      expect(MAX_FIRE_RANGE).toBe(500);
+    });
+  });
+
+  describe('AI avoidance constants', () => {
+    it('exports AVOID_LOOKAHEAD as a positive number (300px)', () => {
+      expect(typeof AVOID_LOOKAHEAD).toBe('number');
+      expect(AVOID_LOOKAHEAD).toBe(300);
+    });
+
+    it('exports AVOID_MARGIN as a positive number (30px)', () => {
+      expect(typeof AVOID_MARGIN).toBe('number');
+      expect(AVOID_MARGIN).toBe(30);
+    });
+
+    it('exports AVOID_STRENGTH as a positive number (1.5 rad)', () => {
+      expect(typeof AVOID_STRENGTH).toBe('number');
+      expect(AVOID_STRENGTH).toBe(1.5);
+    });
+  });
+
+  describe('updateAI — firing', () => {
+    it('fires when aimed at nearby target directly ahead', () => {
+      const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+      const target = createShip({ x: 300, y: 0, heading: 0, owner: 'player' });
+      const state = createAIState();
+
+      updateAI(state, ai, target, [], 0.016);
+
+      expect(ai.fire).toBe(true);
+    });
+
+    it('does not fire when target is beyond MAX_FIRE_RANGE', () => {
+      const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+      const target = createShip({
+        x: MAX_FIRE_RANGE + 100,
+        y: 0,
+        heading: 0,
+        owner: 'player',
+      });
+      const state = createAIState();
+
+      updateAI(state, ai, target, [], 0.016);
+
+      expect(ai.fire).toBe(false);
+    });
+
+    it('does not fire when heading diff exceeds FIRE_ANGLE', () => {
+      const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+      // Target at 45° angle — well outside FIRE_ANGLE (~8.6°)
+      const target = createShip({
+        x: 200,
+        y: 200,
+        heading: 0,
+        owner: 'player',
+      });
+      const state = createAIState();
+
+      updateAI(state, ai, target, [], 0.016);
+
+      expect(ai.fire).toBe(false);
+    });
+
+    it('does not fire when AI ship is dead', () => {
+      const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+      ai.alive = false;
+      const target = createShip({ x: 300, y: 0, heading: 0, owner: 'player' });
+      const state = createAIState();
+
+      updateAI(state, ai, target, [], 0.016);
+
+      expect(ai.fire).toBe(false);
+    });
+
+    it('does not fire when target ship is dead', () => {
+      const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+      const target = createShip({ x: 300, y: 0, heading: 0, owner: 'player' });
+      target.alive = false;
+      const state = createAIState();
+
+      updateAI(state, ai, target, [], 0.016);
+
+      expect(ai.fire).toBe(false);
+    });
+
+    it('fires when just inside MAX_FIRE_RANGE', () => {
+      const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+      const target = createShip({
+        x: MAX_FIRE_RANGE - 10,
+        y: 0,
+        heading: 0,
+        owner: 'player',
+      });
+      const state = createAIState();
+
+      updateAI(state, ai, target, [], 0.016);
+
+      expect(ai.fire).toBe(true);
+    });
+  });
+
+  describe('computeAvoidanceOffset', () => {
+    it('returns 0 when no obstacles are present', () => {
+      const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+      const offset = computeAvoidanceOffset(ai, []);
+      expect(offset).toBe(0);
+    });
+
+    it('returns 0 when obstacle is behind the ship', () => {
+      const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+      // Obstacle behind: negative x
+      const obstacles = [{ x: -100, y: 0, radius: 30 }];
+      const offset = computeAvoidanceOffset(ai, obstacles);
+      expect(offset).toBe(0);
+    });
+
+    it('returns 0 when obstacle is ahead but far outside lateral range', () => {
+      const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+      // Obstacle 200px ahead but 200px off to the side (well beyond radius+margin)
+      const obstacles = [{ x: 200, y: 200, radius: 20 }];
+      const offset = computeAvoidanceOffset(ai, obstacles);
+      expect(offset).toBe(0);
+    });
+
+    it('returns 0 when obstacle is beyond AVOID_LOOKAHEAD', () => {
+      const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+      // Obstacle directly ahead but too far away
+      const obstacles = [{ x: AVOID_LOOKAHEAD + 100, y: 0, radius: 20 }];
+      const offset = computeAvoidanceOffset(ai, obstacles);
+      expect(offset).toBe(0);
+    });
+
+    it('returns negative offset (steer left) for obstacle to the right', () => {
+      const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+      // Obstacle ahead and slightly to the right (positive y)
+      const obstacles = [{ x: 150, y: 20, radius: 30 }];
+      const offset = computeAvoidanceOffset(ai, obstacles);
+      expect(offset).toBeLessThan(0);
+    });
+
+    it('returns positive offset (steer right) for obstacle to the left', () => {
+      const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+      // Obstacle ahead and slightly to the left (negative y)
+      const obstacles = [{ x: 150, y: -20, radius: 30 }];
+      const offset = computeAvoidanceOffset(ai, obstacles);
+      expect(offset).toBeGreaterThan(0);
+    });
+
+    it('defaults to steering right when obstacle is dead center (lateral ≈ 0)', () => {
+      const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+      // Obstacle directly ahead, dead center
+      const obstacles = [{ x: 150, y: 0, radius: 30 }];
+      const offset = computeAvoidanceOffset(ai, obstacles);
+      // Positive offset = steer right (clockwise), negative = steer left
+      expect(offset).toBeGreaterThan(0);
+    });
+
+    it('produces stronger offset for closer obstacles', () => {
+      const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+      const nearObstacle = [{ x: 50, y: 10, radius: 30 }];
+      const farObstacle = [{ x: 250, y: 10, radius: 30 }];
+
+      const nearOffset = Math.abs(computeAvoidanceOffset(ai, nearObstacle));
+      const farOffset = Math.abs(computeAvoidanceOffset(ai, farObstacle));
+
+      expect(nearOffset).toBeGreaterThan(farOffset);
+    });
+
+    it('sums avoidance from multiple obstacles', () => {
+      const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+      // Two obstacles both to the right — should produce stronger left steer
+      const oneObstacle = [{ x: 150, y: 20, radius: 30 }];
+      const twoObstacles = [
+        { x: 150, y: 20, radius: 30 },
+        { x: 100, y: 15, radius: 25 },
+      ];
+
+      const singleOffset = Math.abs(computeAvoidanceOffset(ai, oneObstacle));
+      const doubleOffset = Math.abs(computeAvoidanceOffset(ai, twoObstacles));
+
+      expect(doubleOffset).toBeGreaterThan(singleOffset);
+    });
+
+    it('works with non-zero heading (rotated frame)', () => {
+      // AI heading upward (−PI/2), obstacle directly ahead (above)
+      const ai = createShip({
+        x: 0,
+        y: 0,
+        heading: -Math.PI / 2,
+        owner: 'enemy',
+      });
+      // Obstacle above and slightly to the right (in screen: positive x)
+      const obstacles = [{ x: 10, y: -150, radius: 30 }];
+      const offset = computeAvoidanceOffset(ai, obstacles);
+      expect(offset).not.toBe(0);
+    });
+
+    it('works with obstacles that have varying radius', () => {
+      const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+      // Large radius obstacle — wider danger zone
+      const largeObs = [{ x: 150, y: 50, radius: 60 }];
+      // Small radius obstacle at same position — narrower danger zone
+      const smallObs = [{ x: 150, y: 50, radius: 10 }];
+
+      const largeOffset = Math.abs(computeAvoidanceOffset(ai, largeObs));
+      const smallOffset = Math.abs(computeAvoidanceOffset(ai, smallObs));
+
+      // Large obstacle should trigger avoidance, small one might not at y=50
+      expect(largeOffset).toBeGreaterThanOrEqual(smallOffset);
+    });
+  });
+
+  describe('updateAI — avoidance integration', () => {
+    it('steers away from asteroid directly ahead on collision course', () => {
+      const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+      // Target far ahead (pursuit says go straight)
+      const target = createShip({
+        x: 1000,
+        y: 0,
+        heading: 0,
+        owner: 'player',
+      });
+      // Asteroid directly ahead and close
+      const asteroids = [
+        { x: 100, y: 0, collisionRadius: 40, radius: 50, vx: 0, vy: 0 },
+      ];
+      const state = createAIState();
+
+      updateAI(state, ai, target, asteroids, 0.016);
+
+      // Should be rotating to avoid (not going straight)
+      expect(ai.rotatingLeft || ai.rotatingRight).toBe(true);
+    });
+
+    it('maintains thrust during avoidance to escape danger zone', () => {
+      const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+      const target = createShip({
+        x: 1000,
+        y: 0,
+        heading: 0,
+        owner: 'player',
+      });
+      // Asteroid directly ahead
+      const asteroids = [
+        { x: 100, y: 0, collisionRadius: 40, radius: 50, vx: 0, vy: 0 },
+      ];
+      const state = createAIState();
+
+      updateAI(state, ai, target, asteroids, 0.016);
+
+      // Thrust should be maintained even during avoidance
+      expect(ai.thrust).toBe(true);
+    });
+
+    it('includes target ship in obstacle list (avoids ramming)', () => {
+      // AI heading straight at the target, very close
+      const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+      const target = createShip({ x: 80, y: 0, heading: 0, owner: 'player' });
+      const state = createAIState();
+
+      updateAI(state, ai, target, [], 0.016);
+
+      // Should be steering away from the close target ship (not just charging)
+      // At close range with target dead ahead, avoidance should override pure pursuit
+      expect(ai.rotatingLeft || ai.rotatingRight).toBe(true);
+    });
+
+    it('does not brake during active avoidance even at high speed', () => {
+      const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+      ai.vx = BRAKE_SPEED + 100;
+      ai.vy = 0;
+      // Target behind (would normally trigger braking)
+      const target = createShip({
+        x: -500,
+        y: 0,
+        heading: 0,
+        owner: 'player',
+      });
+      // But asteroid directly ahead triggers avoidance
+      const asteroids = [
+        { x: 100, y: 0, collisionRadius: 40, radius: 50, vx: 0, vy: 0 },
+      ];
+      const state = createAIState();
+
+      updateAI(state, ai, target, asteroids, 0.016);
+
+      // Avoidance active → braking suppressed, thrust maintained
+      expect(ai.braking).toBe(false);
+      expect(ai.thrust).toBe(true);
+    });
+
+    it('does not avoid asteroids that are off to the side (no false positives)', () => {
+      const ai = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+      const target = createShip({ x: 300, y: 0, heading: 0, owner: 'player' });
+      // Asteroid far to the side, not on collision course
+      const asteroids = [
+        { x: 100, y: 300, collisionRadius: 30, radius: 40, vx: 0, vy: 0 },
+      ];
+      const state = createAIState();
+
+      updateAI(state, ai, target, asteroids, 0.016);
+
+      // Should aim straight at target, no avoidance needed
+      expect(ai.rotatingLeft).toBe(false);
+      expect(ai.rotatingRight).toBe(false);
+      expect(ai.fire).toBe(true);
     });
   });
 });

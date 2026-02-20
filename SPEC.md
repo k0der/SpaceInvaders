@@ -548,14 +548,52 @@ viewport AABB.
 
 ### 12.2 AI Combat
 
-- Fires when aimed within an angular threshold of the target
-- Respects same `FIRE_COOLDOWN` as player
-- Does not fire when target is too far away
+- AI sets `fire = true` when heading difference to predicted target is within
+  `FIRE_ANGLE` (~0.15 rad / ~8.6°) AND distance to target < `MAX_FIRE_RANGE` (500px)
+- Does not fire when either ship is dead (already handled by dead-ship guard)
+- Fire cooldown handled identically to player — in `main.js`, not in `ai.js`.
+  The AI module only sets the flag; `main.js` checks cooldown and creates bullets
+- AI bullets use same `createBullet` with `owner: 'enemy'` and same physics
 
 ### 12.3 AI Obstacle Avoidance
 
-- Steers away from nearby asteroids when a collision course is detected
-- Avoidance and pursuit blend smoothly (no jittering between states)
+Avoidance uses a **look-ahead cylinder** projected along the AI ship's heading.
+The system avoids both asteroids and the target ship (ramming is a mutual kill).
+
+**Algorithm** — `computeAvoidanceOffset(aiShip, obstacles)`:
+
+1. For each obstacle `{ x, y, radius }`, compute the vector from AI to obstacle
+2. Project onto heading axis → `ahead` (forward distance) and perpendicular
+   axis → `lateral` (side distance)
+3. **Collision course** detected when:
+   - `ahead > 0` (obstacle is in front, not behind)
+   - `ahead < AVOID_LOOKAHEAD` (300px — within look-ahead range)
+   - `|lateral| < obstacle.radius + AVOID_MARGIN` (30px buffer)
+4. For each collision-course obstacle, compute a lateral steering offset:
+   - Direction: perpendicular to heading, pushing away from the obstacle
+   - Strength: `AVOID_STRENGTH * (1 - ahead / AVOID_LOOKAHEAD)` — closer = stronger
+   - When lateral ≈ 0 (dead center), default to steering right to break symmetry
+5. Sum all offsets → total `avoidanceOffset` (radians)
+
+**Blending with pursuit**:
+
+- The avoidance offset is added to the pursuit target angle before rotation
+  and thrust decisions: `effectiveAngle = pursuitAngle + avoidanceOffset`
+- When no obstacles are nearby, offset is 0 → pure pursuit
+- When obstacles are detected, offset curves the AI around them
+- When strong avoidance is active, thrust is maintained to escape the danger zone
+
+**Obstacle list** (built in `updateAI`):
+
+- All asteroids → `{ x, y, radius: collisionRadius }`
+- Target ship → `{ x, y, radius: SHIP_SIZE }` (ship `collisionRadius` defined
+  in Increment 27; `SHIP_SIZE` used as proxy until then)
+
+This creates natural strafing/orbiting behavior: the AI approaches to firing
+range but curves around the player ship instead of charging head-on.
+
+**Constants** (exported from `ai.js`):
+`FIRE_ANGLE`, `MAX_FIRE_RANGE`, `AVOID_LOOKAHEAD`, `AVOID_MARGIN`, `AVOID_STRENGTH`
 
 ---
 

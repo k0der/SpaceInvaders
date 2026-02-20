@@ -251,7 +251,7 @@ export function startApp() {
     updateAI(aiState, enemyShip, playerShip, sim.asteroids, scaledDt);
     updateShip(enemyShip, scaledDt);
 
-    // Bullet firing
+    // Bullet firing — player
     playerShip.fireCooldown = Math.max(playerShip.fireCooldown - scaledDt, 0);
     if (playerShip.fire && playerShip.fireCooldown <= 0 && playerShip.alive) {
       const noseX = playerShip.x + Math.cos(playerShip.heading) * SHIP_SIZE;
@@ -267,6 +267,24 @@ export function startApp() {
         ),
       );
       playerShip.fireCooldown = FIRE_COOLDOWN;
+    }
+
+    // Bullet firing — enemy (AI)
+    enemyShip.fireCooldown = Math.max(enemyShip.fireCooldown - scaledDt, 0);
+    if (enemyShip.fire && enemyShip.fireCooldown <= 0 && enemyShip.alive) {
+      const noseX = enemyShip.x + Math.cos(enemyShip.heading) * SHIP_SIZE;
+      const noseY = enemyShip.y + Math.sin(enemyShip.heading) * SHIP_SIZE;
+      bullets.push(
+        createBullet(
+          noseX,
+          noseY,
+          enemyShip.heading,
+          enemyShip.vx,
+          enemyShip.vy,
+          'enemy',
+        ),
+      );
+      enemyShip.fireCooldown = FIRE_COOLDOWN;
     }
 
     updateTrail(

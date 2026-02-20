@@ -1,3 +1,5 @@
+import { SHIP_SIZE } from './ship.js';
+
 /** Dead zone for rotation — prevents oscillation (~3°). */
 export const ROTATION_DEADZONE = 0.05;
 
@@ -19,6 +21,21 @@ export const MIN_SPAWN_DISTANCE = 600;
 /** Maximum enemy spawn offset from player (px). */
 export const MAX_SPAWN_DISTANCE = 1000;
 
+/** Angular threshold for AI firing (~8.6°). */
+export const FIRE_ANGLE = 0.15;
+
+/** Max distance (px) at which AI will fire. */
+export const MAX_FIRE_RANGE = 500;
+
+/** How far ahead (px) the AI scans for obstacles along its heading. */
+export const AVOID_LOOKAHEAD = 300;
+
+/** Buffer (px) around obstacle collision radius for avoidance. */
+export const AVOID_MARGIN = 30;
+
+/** Maximum steering offset (rad) from avoidance. */
+export const AVOID_STRENGTH = 1.5;
+
 /**
  * Normalize an angle to the range [-PI, PI].
  */
@@ -36,12 +53,55 @@ export function createAIState() {
 }
 
 /**
- * Update AI control flags on aiShip to pursue targetShip.
+ * Compute a steering angle offset to avoid obstacles on a collision course.
+ *
+ * Uses a look-ahead cylinder along the ship's heading. For each obstacle
+ * in the forward cone within AVOID_LOOKAHEAD, checks if the ship's heading
+ * line passes within (obstacle.radius + AVOID_MARGIN). Returns a summed
+ * angle offset in radians — positive steers right, negative steers left.
+ */
+export function computeAvoidanceOffset(aiShip, obstacles) {
+  let totalOffset = 0;
+  const cosH = Math.cos(aiShip.heading);
+  const sinH = Math.sin(aiShip.heading);
+
+  for (const obs of obstacles) {
+    const dx = obs.x - aiShip.x;
+    const dy = obs.y - aiShip.y;
+
+    // Project onto heading axis (ahead) and perpendicular axis (lateral)
+    const ahead = dx * cosH + dy * sinH;
+    const lateral = -dx * sinH + dy * cosH;
+
+    // Skip obstacles behind the ship or beyond lookahead
+    if (ahead <= 0 || ahead >= AVOID_LOOKAHEAD) continue;
+
+    const dangerRadius = obs.radius + AVOID_MARGIN;
+
+    // Skip if lateral distance exceeds danger zone
+    if (Math.abs(lateral) >= dangerRadius) continue;
+
+    // Collision course detected — compute steering offset
+    const urgency = 1 - ahead / AVOID_LOOKAHEAD;
+
+    // Steer away from obstacle: if lateral > 0 (obstacle to right), steer left (negative)
+    // If lateral ≈ 0 (dead center), default to steering right (positive offset)
+    const steerDirection = lateral > 0 ? -1 : 1;
+
+    totalOffset += steerDirection * AVOID_STRENGTH * urgency;
+  }
+
+  return totalOffset;
+}
+
+/**
+ * Update AI control flags on aiShip to pursue targetShip,
+ * fire when aimed, and avoid obstacles.
  *
  * Sets the same 5 control flags as keyboard input so the ship physics
  * engine treats AI and player identically.
  */
-export function updateAI(_aiState, aiShip, targetShip, _asteroids, _dt) {
+export function updateAI(_aiState, aiShip, targetShip, asteroids, _dt) {
   // If either ship is dead, clear all flags
   if (!aiShip.alive || !targetShip.alive) {
     aiShip.thrust = false;
@@ -62,24 +122,41 @@ export function updateAI(_aiState, aiShip, targetShip, _asteroids, _dt) {
   const predictedX = targetShip.x + targetShip.vx * lookAheadTime;
   const predictedY = targetShip.y + targetShip.vy * lookAheadTime;
 
-  // Angle to predicted position
-  const targetAngle = Math.atan2(predictedY - aiShip.y, predictedX - aiShip.x);
-  const headingDiff = normalizeAngleAI(targetAngle - aiShip.heading);
+  // Angle to predicted position (pursuit angle)
+  const pursuitAngle = Math.atan2(predictedY - aiShip.y, predictedX - aiShip.x);
 
-  // Rotation: turn toward predicted position with dead zone
+  // Build obstacle list: asteroids + target ship
+  const obstacles = asteroids.map((a) => ({
+    x: a.x,
+    y: a.y,
+    radius: a.collisionRadius,
+  }));
+  obstacles.push({ x: targetShip.x, y: targetShip.y, radius: SHIP_SIZE });
+
+  // Compute avoidance offset and blend with pursuit
+  const avoidanceOffset = computeAvoidanceOffset(aiShip, obstacles);
+  const effectiveAngle = pursuitAngle + avoidanceOffset;
+  const headingDiff = normalizeAngleAI(effectiveAngle - aiShip.heading);
+
+  // Heading diff to raw pursuit target (for firing decision — fire at target, not avoidance direction)
+  const pursuitHeadingDiff = normalizeAngleAI(pursuitAngle - aiShip.heading);
+
+  // Rotation: turn toward effective angle with dead zone
   aiShip.rotatingLeft = headingDiff < -ROTATION_DEADZONE;
   aiShip.rotatingRight = headingDiff > ROTATION_DEADZONE;
 
-  // Thrust: engage when roughly facing target
-  const facingTarget = Math.abs(headingDiff) < THRUST_ANGLE;
-  aiShip.thrust = facingTarget;
+  // Thrust: engage when roughly facing effective direction, or during active avoidance
+  const facingEffective = Math.abs(headingDiff) < THRUST_ANGLE;
+  const avoidanceActive = avoidanceOffset !== 0;
+  aiShip.thrust = facingEffective || avoidanceActive;
 
-  // Brake: engage when NOT facing target AND speed exceeds threshold
+  // Brake: engage when NOT facing target AND speed exceeds threshold AND no avoidance
   const speed = Math.sqrt(aiShip.vx * aiShip.vx + aiShip.vy * aiShip.vy);
-  aiShip.braking = !facingTarget && speed > BRAKE_SPEED;
+  aiShip.braking = !facingEffective && !avoidanceActive && speed > BRAKE_SPEED;
 
-  // Fire: disabled in basic pursuit (increment 26)
-  aiShip.fire = false;
+  // Fire: aimed within FIRE_ANGLE of predicted target AND within range
+  aiShip.fire =
+    Math.abs(pursuitHeadingDiff) < FIRE_ANGLE && dist < MAX_FIRE_RANGE;
 }
 
 /**
