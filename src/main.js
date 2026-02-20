@@ -228,8 +228,7 @@ export function startApp() {
       playerShip.x,
       playerShip.y,
       playerShip.heading,
-      playerShip.thrust,
-      scaledDt,
+      playerShip.thrustIntensity,
     );
 
     // Camera follows ship (PI/2 offset so ship nose points UP on screen)

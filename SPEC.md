@@ -403,10 +403,11 @@ produces a standalone `index.html` with all modules inlined — zero external de
 ### 9.1 Ship Entity
 
 - Ships are classic Asteroids chevron/triangle wireframes — white stroke, no fill
-- Each ship has: `x, y, vx, vy, heading, alive`, control booleans (`thrust, rotatingLeft, rotatingRight, braking, fire`), and a `collisionRadius`
+- Each ship has: `x, y, vx, vy, heading, alive, thrustIntensity`, control booleans (`thrust, rotatingLeft, rotatingRight, braking, fire`), and a `collisionRadius`
 - Ships use **Newtonian physics**: thrust accelerates in heading direction, drag always applies, braking decelerates opposite to velocity
+- **Thrust ramp**: `thrustIntensity` (0.0–1.0) ramps toward 1.0 when thrusting and toward 0.0 when coasting, at `THRUST_RAMP_SPEED` per second. Thrust force is proportional: `THRUST_POWER * thrustIntensity * dt`. This means the engine spools up/down smoothly rather than snapping to full power.
 - Speed capped at `MAX_SPEED`; a `MIN_SPEED` ensures the ship always drifts forward gently
-- Constants: `THRUST_POWER`, `DRAG`, `BRAKE_POWER`, `ROTATION_SPEED`, `MAX_SPEED`, `MIN_SPEED`
+- Constants: `THRUST_POWER`, `THRUST_RAMP_SPEED`, `DRAG`, `BRAKE_POWER`, `ROTATION_SPEED`, `MAX_SPEED`, `MIN_SPEED`
 
 ### 9.2 Controls
 
@@ -431,12 +432,11 @@ screen-locked ship — providing a strong local motion cue.
 - **Origin**: Trail points start at the ship's rear nozzle, not the center.
   Offset from `(x, y)` by `-cos(heading) * SHIP_SIZE * 0.5` in x and
   `-sin(heading) * SHIP_SIZE * 0.5` in y.
-- **Always-on**: Points are recorded every frame. Each point stores a
-  `thrustIntensity` float (0.0–1.0) representing the smoothed thrust state.
-- **Smooth transitions**: The trail object maintains a `thrustIntensity`
-  state that ramps toward 1.0 when thrusting and toward 0.0 when coasting,
-  at `TRAIL_RAMP_SPEED` per second. `updateTrail` receives `dt` for
-  frame-rate-independent ramping. Each point captures the current intensity.
+- **Always-on**: Points are recorded every frame. Each point stores the
+  ship's current `thrustIntensity` float (0.0–1.0) for per-segment rendering.
+- **Reads ship intensity directly**: The trail has no independent ramp state.
+  `updateTrail` receives the ship's `thrustIntensity` value and stores it
+  per-point. The ramp lives in the ship physics model (see §9.1).
 - **Throttle feedback**: Width and opacity are interpolated per-segment
   between coasting and thrust values using the stored intensity:
   `width = BASE + (THRUST - BASE) * intensity`,
@@ -450,7 +450,7 @@ screen-locked ship — providing a strong local motion cue.
   Drawn inside camera transform, before the ship body.
 - **Constants**: `TRAIL_MAX_LENGTH = 240`, `TRAIL_BASE_OPACITY = 0.2`,
   `TRAIL_THRUST_OPACITY = 0.6`, `TRAIL_BASE_WIDTH = 1`,
-  `TRAIL_THRUST_WIDTH = 2.5`, `TRAIL_RAMP_SPEED = 6.0`,
+  `TRAIL_THRUST_WIDTH = 2.5`,
   `TRAIL_COLOR = { r: 255, g: 120, b: 0 }`
 
 ---

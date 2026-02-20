@@ -474,8 +474,7 @@ function startApp() {
       playerShip.x,
       playerShip.y,
       playerShip.heading,
-      playerShip.thrust,
-      scaledDt,
+      playerShip.thrustIntensity,
     );
 
     // Camera follows ship (PI/2 offset so ship nose points UP on screen)
@@ -1023,8 +1022,8 @@ const TRAIL_BASE_WIDTH = 1;
 /** Line width for thrust trail segments. */
 const TRAIL_THRUST_WIDTH = 2.5;
 
-/** Thrust intensity ramp speed (per second). Full transition ~0.17s. */
-const TRAIL_RAMP_SPEED = 6.0;
+/** Engine spool rate — thrust intensity ramp speed (per second). Full transition ~0.17s. */
+const THRUST_RAMP_SPEED = 6.0;
 
 /** Dark orange exhaust color. */
 const TRAIL_COLOR = { r: 255, g: 120, b: 0 };
@@ -1054,6 +1053,7 @@ function createShip({ x, y, heading }) {
     rotatingRight: false,
     braking: false,
     fire: false,
+    thrustIntensity: 0,
   };
 }
 
@@ -1067,14 +1067,27 @@ function updateShip(ship, dt) {
   if (ship.rotatingRight) ship.heading += ROTATION_SPEED * dt;
   ship.heading = normalizeAngle(ship.heading);
 
-  // 2. Thrust — accelerate in heading direction
+  // 2. Thrust intensity ramp
   if (ship.thrust) {
-    const power = ship.thrustPower ?? THRUST_POWER;
-    ship.vx += Math.cos(ship.heading) * power * dt;
-    ship.vy += Math.sin(ship.heading) * power * dt;
+    ship.thrustIntensity = Math.min(
+      ship.thrustIntensity + THRUST_RAMP_SPEED * dt,
+      1.0,
+    );
+  } else {
+    ship.thrustIntensity = Math.max(
+      ship.thrustIntensity - THRUST_RAMP_SPEED * dt,
+      0.0,
+    );
   }
 
-  // 3. Braking — decelerate opposite to velocity direction
+  // 3. Thrust — accelerate in heading direction, scaled by intensity
+  if (ship.thrustIntensity > 0) {
+    const power = ship.thrustPower ?? THRUST_POWER;
+    ship.vx += Math.cos(ship.heading) * power * ship.thrustIntensity * dt;
+    ship.vy += Math.sin(ship.heading) * power * ship.thrustIntensity * dt;
+  }
+
+  // 4. Braking — decelerate opposite to velocity direction
   if (ship.braking) {
     const speed = Math.sqrt(ship.vx * ship.vx + ship.vy * ship.vy);
     if (speed > 0) {
@@ -1084,18 +1097,18 @@ function updateShip(ship, dt) {
     }
   }
 
-  // 4. Drag — friction always applied
+  // 5. Drag — friction always applied
   ship.vx *= 1 - DRAG * dt;
   ship.vy *= 1 - DRAG * dt;
 
-  // 5. Speed cap
+  // 6. Speed cap
   const currentSpeed = Math.sqrt(ship.vx * ship.vx + ship.vy * ship.vy);
   if (currentSpeed > MAX_SPEED) {
     ship.vx = (ship.vx / currentSpeed) * MAX_SPEED;
     ship.vy = (ship.vy / currentSpeed) * MAX_SPEED;
   }
 
-  // 6. Position update
+  // 7. Position update
   ship.x += ship.vx * dt;
   ship.y += ship.vy * dt;
 }
@@ -1132,31 +1145,19 @@ function drawShip(ctx, ship) {
  * Create a new motion trail.
  */
 function createTrail() {
-  return { points: [], thrustIntensity: 0 };
+  return { points: [] };
 }
 
 /**
  * Record the ship's rear-nozzle position in the trail.
- * Always records a point; ramps thrust intensity smoothly and stores
- * it per-point for gradient rendering. Evicts oldest when full.
+ * Always records a point. Stores the passed thrustIntensity per-point
+ * for gradient rendering. Evicts oldest when full.
  */
-function updateTrail(trail, x, y, heading, isThrusting, dt) {
-  if (isThrusting) {
-    trail.thrustIntensity = Math.min(
-      trail.thrustIntensity + TRAIL_RAMP_SPEED * dt,
-      1.0,
-    );
-  } else {
-    trail.thrustIntensity = Math.max(
-      trail.thrustIntensity - TRAIL_RAMP_SPEED * dt,
-      0.0,
-    );
-  }
-
+function updateTrail(trail, x, y, heading, thrustIntensity) {
   const nozzleOffset = SHIP_SIZE * 0.5;
   const rearX = x - Math.cos(heading) * nozzleOffset;
   const rearY = y - Math.sin(heading) * nozzleOffset;
-  trail.points.push({ x: rearX, y: rearY, intensity: trail.thrustIntensity });
+  trail.points.push({ x: rearX, y: rearY, intensity: thrustIntensity });
   if (trail.points.length > TRAIL_MAX_LENGTH) {
     trail.points.shift();
   }

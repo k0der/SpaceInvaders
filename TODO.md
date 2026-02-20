@@ -461,20 +461,21 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 - [ ] `TRAIL_MAX_LENGTH` (240) exported from `ship.js`
 - [ ] `TRAIL_BASE_OPACITY` (0.2) and `TRAIL_THRUST_OPACITY` (0.6) exported from `ship.js`
 - [ ] `TRAIL_BASE_WIDTH` (1) and `TRAIL_THRUST_WIDTH` (2.5) exported from `ship.js`
-- [ ] `TRAIL_RAMP_SPEED` (6.0) exported from `ship.js`
+- [ ] `THRUST_RAMP_SPEED` (6.0) exported from `ship.js` (physics constant — controls engine spool rate)
 - [ ] `TRAIL_COLOR` (`{ r: 255, g: 120, b: 0 }`) exported from `ship.js`
-- [ ] `createTrail()` returns `{ points: [], thrustIntensity: 0 }`
-- [ ] `updateTrail(trail, x, y, heading, isThrusting, dt)` ramps `trail.thrustIntensity` toward 1.0 (thrusting) or 0.0 (coasting) at `TRAIL_RAMP_SPEED * dt`, then pushes `{ x, y, intensity }` with nozzle offset
+- [ ] `createShip` returns `thrustIntensity: 0` (ramp state lives on ship, not trail)
+- [ ] `updateShip` ramps `ship.thrustIntensity` toward 1.0 (thrusting) or 0.0 (coasting) at `THRUST_RAMP_SPEED * dt`; thrust force scales by `thrustIntensity`
+- [ ] `createTrail()` returns `{ points: [] }` (no independent ramp state)
+- [ ] `updateTrail(trail, x, y, heading, thrustIntensity)` — receives intensity from ship, no `dt` param, no ramping; pushes `{ x, y, intensity }` with nozzle offset
 - [ ] Trail point is offset to the ship's rear nozzle: `x - cos(heading) * SHIP_SIZE * 0.5`, `y - sin(heading) * SHIP_SIZE * 0.5`
 - [ ] Each point stores `intensity` float (0.0–1.0) for per-segment interpolation
-- [ ] `thrustIntensity` clamps to [0, 1] range
 - [ ] Evicts oldest point when length exceeds `TRAIL_MAX_LENGTH`
 - [ ] `drawTrail(ctx, trail)` interpolates width and opacity per-segment using stored `intensity`: `width = BASE + (THRUST - BASE) * intensity`, `maxAlpha = BASE_OPACITY + (THRUST_OPACITY - BASE_OPACITY) * intensity`
 - [ ] Trail drawn with dark orange stroke using `TRAIL_COLOR`
 - [ ] Trail with fewer than 2 points draws nothing (no crash)
 - [ ] Trail drawn inside camera transform, before ship body (ship renders on top)
-- [ ] `main.js` creates a trail, updates it each frame with ship position/heading/thrust/dt, and draws it
-- [ ] **Visible**: Dark orange trail always visible behind the ship. Thrusting gradually brightens and widens the trail. Releasing thrust smoothly fades to thinner dimmer trail (~0.3s transition). Turning carves visible arcs. Clear throttle feedback with no binary snapping.
+- [ ] `main.js` creates a trail, updates it each frame with ship position/heading/`ship.thrustIntensity`, and draws it
+- [ ] **Visible**: Dark orange trail always visible behind the ship. Thrusting gradually brightens and widens the trail. Releasing thrust smoothly fades to thinner dimmer trail (~0.17s transition). Turning carves visible arcs. Clear throttle feedback with no binary snapping.
 
 ---
 
