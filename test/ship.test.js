@@ -9,9 +9,12 @@ import {
   MAX_SPEED,
   ROTATION_SPEED,
   THRUST_POWER,
+  TRAIL_BASE_OPACITY,
+  TRAIL_BASE_WIDTH,
   TRAIL_COLOR,
   TRAIL_MAX_LENGTH,
-  TRAIL_MAX_OPACITY,
+  TRAIL_THRUST_OPACITY,
+  TRAIL_THRUST_WIDTH,
   updateShip,
   updateTrail,
 } from '../src/ship.js';
@@ -508,8 +511,20 @@ describe('Increment 22b: Ship Exhaust Trail', () => {
       expect(TRAIL_MAX_LENGTH).toBe(120);
     });
 
-    it('TRAIL_MAX_OPACITY is 0.4', () => {
-      expect(TRAIL_MAX_OPACITY).toBe(0.4);
+    it('TRAIL_BASE_OPACITY is 0.15', () => {
+      expect(TRAIL_BASE_OPACITY).toBe(0.15);
+    });
+
+    it('TRAIL_THRUST_OPACITY is 0.4', () => {
+      expect(TRAIL_THRUST_OPACITY).toBe(0.4);
+    });
+
+    it('TRAIL_BASE_WIDTH is 1', () => {
+      expect(TRAIL_BASE_WIDTH).toBe(1);
+    });
+
+    it('TRAIL_THRUST_WIDTH is 2.5', () => {
+      expect(TRAIL_THRUST_WIDTH).toBe(2.5);
     });
 
     it('TRAIL_COLOR is dark orange { r: 255, g: 120, b: 0 }', () => {
@@ -524,29 +539,25 @@ describe('Increment 22b: Ship Exhaust Trail', () => {
     });
   });
 
-  describe('updateTrail — throttle gating', () => {
+  describe('updateTrail — always records', () => {
     it('pushes a point when isThrusting is true', () => {
       const trail = createTrail();
       updateTrail(trail, 100, 200, 0, true);
       expect(trail.points.length).toBe(1);
     });
 
-    it('does NOT push a point when isThrusting is false', () => {
+    it('pushes a point when isThrusting is false (always-on)', () => {
       const trail = createTrail();
       updateTrail(trail, 100, 200, 0, false);
-      expect(trail.points.length).toBe(0);
+      expect(trail.points.length).toBe(1);
     });
 
-    it('existing trail fades naturally when thrust stops (no new points)', () => {
+    it('stores thrust boolean on each point', () => {
       const trail = createTrail();
       updateTrail(trail, 10, 20, 0, true);
-      updateTrail(trail, 30, 40, 0, true);
-      expect(trail.points.length).toBe(2);
-
-      // Stop thrusting — length stays the same
-      updateTrail(trail, 50, 60, 0, false);
-      updateTrail(trail, 70, 80, 0, false);
-      expect(trail.points.length).toBe(2);
+      updateTrail(trail, 30, 40, 0, false);
+      expect(trail.points[0].thrust).toBe(true);
+      expect(trail.points[1].thrust).toBe(false);
     });
   });
 
@@ -554,7 +565,6 @@ describe('Increment 22b: Ship Exhaust Trail', () => {
     it('offsets point to ship rear when heading is 0 (pointing right)', () => {
       const trail = createTrail();
       updateTrail(trail, 100, 200, 0, true);
-      // Rear offset: x - cos(0) * 7.5 = 92.5, y - sin(0) * 7.5 = 200
       expect(trail.points[0].x).toBeCloseTo(92.5, 1);
       expect(trail.points[0].y).toBeCloseTo(200, 1);
     });
@@ -562,7 +572,6 @@ describe('Increment 22b: Ship Exhaust Trail', () => {
     it('offsets point to ship rear when heading is PI/2 (pointing down)', () => {
       const trail = createTrail();
       updateTrail(trail, 100, 200, Math.PI / 2, true);
-      // Rear offset: x - cos(PI/2) * 7.5 = 100, y - sin(PI/2) * 7.5 = 192.5
       expect(trail.points[0].x).toBeCloseTo(100, 1);
       expect(trail.points[0].y).toBeCloseTo(192.5, 1);
     });
@@ -570,9 +579,14 @@ describe('Increment 22b: Ship Exhaust Trail', () => {
     it('offsets point to ship rear when heading is -PI/2 (pointing up)', () => {
       const trail = createTrail();
       updateTrail(trail, 100, 200, -Math.PI / 2, true);
-      // Rear offset: x - cos(-PI/2) * 7.5 = 100, y - sin(-PI/2) * 7.5 = 207.5
       expect(trail.points[0].x).toBeCloseTo(100, 1);
       expect(trail.points[0].y).toBeCloseTo(207.5, 1);
+    });
+
+    it('applies nozzle offset even when not thrusting', () => {
+      const trail = createTrail();
+      updateTrail(trail, 100, 200, 0, false);
+      expect(trail.points[0].x).toBeCloseTo(92.5, 1);
     });
   });
 
@@ -628,57 +642,93 @@ describe('Increment 22b: Ship Exhaust Trail', () => {
       };
 
       drawTrail(ctx, trail);
-
-      // Should draw 2 segments (3 points → 2 segments)
       expect(ctx.beginPath).toHaveBeenCalledTimes(2);
       expect(ctx.stroke).toHaveBeenCalledTimes(2);
     });
 
-    it('sets lineWidth to 1', () => {
+    it('thrust segments use TRAIL_THRUST_WIDTH', () => {
       const trail = createTrail();
       updateTrail(trail, 0, 0, 0, true);
       updateTrail(trail, 10, 10, 0, true);
 
+      const widths = [];
       const ctx = {
         beginPath: vi.fn(),
         moveTo: vi.fn(),
         lineTo: vi.fn(),
-        stroke: vi.fn(),
+        stroke: vi.fn(() => widths.push(ctx.lineWidth)),
         strokeStyle: '',
         lineWidth: 0,
       };
 
       drawTrail(ctx, trail);
-      expect(ctx.lineWidth).toBe(1);
+      expect(widths[0]).toBe(TRAIL_THRUST_WIDTH);
     });
 
-    it('newest segment has highest alpha, oldest has lowest', () => {
+    it('coasting segments use TRAIL_BASE_WIDTH', () => {
       const trail = createTrail();
-      updateTrail(trail, 0, 0, 0, true);
-      updateTrail(trail, 10, 10, 0, true);
-      updateTrail(trail, 20, 20, 0, true);
+      updateTrail(trail, 0, 0, 0, false);
+      updateTrail(trail, 10, 10, 0, false);
 
-      const styles = [];
+      const widths = [];
       const ctx = {
         beginPath: vi.fn(),
         moveTo: vi.fn(),
         lineTo: vi.fn(),
-        stroke: vi.fn(() => styles.push(ctx.strokeStyle)),
+        stroke: vi.fn(() => widths.push(ctx.lineWidth)),
         strokeStyle: '',
         lineWidth: 0,
       };
 
       drawTrail(ctx, trail);
+      expect(widths[0]).toBe(TRAIL_BASE_WIDTH);
+    });
 
-      const alphas = styles.map((s) => {
-        const match = s.match(/rgba\(\d+,\s*\d+,\s*\d+,\s*([\d.]+)\)/);
-        return match ? Number.parseFloat(match[1]) : null;
+    it('thrust segments are brighter than coasting segments at same age', () => {
+      // Trail with thrust points
+      const thrustTrail = createTrail();
+      updateTrail(thrustTrail, 0, 0, 0, true);
+      updateTrail(thrustTrail, 10, 10, 0, true);
+      updateTrail(thrustTrail, 20, 20, 0, true);
+
+      // Trail with coasting points
+      const coastTrail = createTrail();
+      updateTrail(coastTrail, 0, 0, 0, false);
+      updateTrail(coastTrail, 10, 10, 0, false);
+      updateTrail(coastTrail, 20, 20, 0, false);
+
+      const thrustStyles = [];
+      const coastStyles = [];
+      const makeCtx = (arr) => ({
+        beginPath: vi.fn(),
+        moveTo: vi.fn(),
+        lineTo: vi.fn(),
+        stroke: vi.fn(() => arr.push(makeCtx.lastStyle)),
+        set strokeStyle(v) {
+          makeCtx.lastStyle = v;
+        },
+        get strokeStyle() {
+          return makeCtx.lastStyle;
+        },
+        lineWidth: 0,
       });
 
-      expect(alphas[1]).toBeGreaterThan(alphas[0]);
+      const ctx1 = makeCtx(thrustStyles);
+      drawTrail(ctx1, thrustTrail);
+      const ctx2 = makeCtx(coastStyles);
+      drawTrail(ctx2, coastTrail);
+
+      // Extract alpha from last (newest) segment of each
+      const getAlpha = (s) => {
+        const m = s.match(/rgba\(\d+,\s*\d+,\s*\d+,\s*([\d.]+)\)/);
+        return m ? Number.parseFloat(m[1]) : 0;
+      };
+      const thrustAlpha = getAlpha(thrustStyles[thrustStyles.length - 1]);
+      const coastAlpha = getAlpha(coastStyles[coastStyles.length - 1]);
+      expect(thrustAlpha).toBeGreaterThan(coastAlpha);
     });
 
-    it('newest segment alpha is close to TRAIL_MAX_OPACITY', () => {
+    it('newest thrust segment alpha is close to TRAIL_THRUST_OPACITY', () => {
       const trail = createTrail();
       for (let i = 0; i <= TRAIL_MAX_LENGTH; i++) {
         updateTrail(trail, i, i, 0, true);
@@ -698,13 +748,36 @@ describe('Increment 22b: Ship Exhaust Trail', () => {
 
       const lastStyle = styles[styles.length - 1];
       const match = lastStyle.match(/rgba\(\d+,\s*\d+,\s*\d+,\s*([\d.]+)\)/);
-      expect(Number.parseFloat(match[1])).toBeCloseTo(TRAIL_MAX_OPACITY, 2);
+      expect(Number.parseFloat(match[1])).toBeCloseTo(TRAIL_THRUST_OPACITY, 2);
+    });
+
+    it('newest coasting segment alpha is close to TRAIL_BASE_OPACITY', () => {
+      const trail = createTrail();
+      for (let i = 0; i <= TRAIL_MAX_LENGTH; i++) {
+        updateTrail(trail, i, i, 0, false);
+      }
+
+      const styles = [];
+      const ctx = {
+        beginPath: vi.fn(),
+        moveTo: vi.fn(),
+        lineTo: vi.fn(),
+        stroke: vi.fn(() => styles.push(ctx.strokeStyle)),
+        strokeStyle: '',
+        lineWidth: 0,
+      };
+
+      drawTrail(ctx, trail);
+
+      const lastStyle = styles[styles.length - 1];
+      const match = lastStyle.match(/rgba\(\d+,\s*\d+,\s*\d+,\s*([\d.]+)\)/);
+      expect(Number.parseFloat(match[1])).toBeCloseTo(TRAIL_BASE_OPACITY, 2);
     });
 
     it('uses dark orange color (TRAIL_COLOR) for all segments', () => {
       const trail = createTrail();
       updateTrail(trail, 0, 0, 0, true);
-      updateTrail(trail, 10, 10, 0, true);
+      updateTrail(trail, 10, 10, 0, false);
       updateTrail(trail, 20, 20, 0, true);
 
       const styles = [];

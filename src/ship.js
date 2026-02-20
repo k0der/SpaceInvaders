@@ -22,8 +22,17 @@ export const MAX_SPEED = 400;
 /** Maximum number of trail points (~2 seconds at 60 fps). */
 export const TRAIL_MAX_LENGTH = 120;
 
-/** Opacity of the newest trail segment. */
-export const TRAIL_MAX_OPACITY = 0.4;
+/** Opacity of the newest coasting trail segment. */
+export const TRAIL_BASE_OPACITY = 0.15;
+
+/** Opacity of the newest thrust trail segment. */
+export const TRAIL_THRUST_OPACITY = 0.4;
+
+/** Line width for coasting trail segments. */
+export const TRAIL_BASE_WIDTH = 1;
+
+/** Line width for thrust trail segments. */
+export const TRAIL_THRUST_WIDTH = 2.5;
 
 /** Dark orange exhaust color. */
 export const TRAIL_COLOR = { r: 255, g: 120, b: 0 };
@@ -136,15 +145,14 @@ export function createTrail() {
 
 /**
  * Record the ship's rear-nozzle position in the trail.
- * Only records when thrusting; otherwise the existing trail fades naturally.
+ * Always records a point; stores thrust state for per-segment rendering.
  * Evicts the oldest point when the trail exceeds TRAIL_MAX_LENGTH.
  */
 export function updateTrail(trail, x, y, heading, isThrusting) {
-  if (!isThrusting) return;
   const nozzleOffset = SHIP_SIZE * 0.5;
   const rearX = x - Math.cos(heading) * nozzleOffset;
   const rearY = y - Math.sin(heading) * nozzleOffset;
-  trail.points.push({ x: rearX, y: rearY });
+  trail.points.push({ x: rearX, y: rearY, thrust: isThrusting });
   if (trail.points.length > TRAIL_MAX_LENGTH) {
     trail.points.shift();
   }
@@ -152,17 +160,21 @@ export function updateTrail(trail, x, y, heading, isThrusting) {
 
 /**
  * Draw the exhaust trail as fading dark orange line segments.
- * Alpha increases linearly from 0 (oldest) to TRAIL_MAX_OPACITY (newest).
+ * Thrust segments are wider and brighter than coasting segments.
+ * Alpha increases linearly from 0 (oldest) to max opacity (newest).
  */
 export function drawTrail(ctx, trail) {
   if (trail.points.length < 2) return;
 
-  ctx.lineWidth = 1;
   const { r, g, b } = TRAIL_COLOR;
   const len = trail.points.length;
 
   for (let i = 1; i < len; i++) {
-    const alpha = (i / (len - 1)) * TRAIL_MAX_OPACITY;
+    const ageFactor = i / (len - 1);
+    const isThrust = trail.points[i].thrust;
+    const maxAlpha = isThrust ? TRAIL_THRUST_OPACITY : TRAIL_BASE_OPACITY;
+    const alpha = ageFactor * maxAlpha;
+    ctx.lineWidth = isThrust ? TRAIL_THRUST_WIDTH : TRAIL_BASE_WIDTH;
     ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
     ctx.beginPath();
     ctx.moveTo(trail.points[i - 1].x, trail.points[i - 1].y);

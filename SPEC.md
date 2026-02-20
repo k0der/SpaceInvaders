@@ -431,17 +431,20 @@ screen-locked ship — providing a strong local motion cue.
 - **Origin**: Trail points start at the ship's rear nozzle, not the center.
   Offset from `(x, y)` by `-cos(heading) * SHIP_SIZE * 0.5` in x and
   `-sin(heading) * SHIP_SIZE * 0.5` in y.
-- **Throttle-gated**: Points are only recorded when `ship.thrust` is true.
-  When thrust stops, no new points are added and the existing trail fades
-  away naturally as old points age out.
-- **Data**: Ring buffer of recent world positions (`{ x, y }`), max
-  `TRAIL_MAX_LENGTH` entries (120 — ~2 seconds at 60 fps)
+- **Always-on**: Points are recorded every frame. Each point stores a
+  `thrust` boolean indicating whether the ship was thrusting at that moment.
+- **Throttle feedback**: Thrust segments are drawn wider and brighter than
+  coasting segments, giving a clear visual cue of engine state.
+- **Data**: Ring buffer of recent nozzle positions (`{ x, y, thrust }`),
+  max `TRAIL_MAX_LENGTH` entries (120 — ~2 seconds at 60 fps)
 - **Rendering**: Drawn as consecutive line segments with linearly
-  decreasing alpha (`TRAIL_MAX_OPACITY` at newest → 0 at oldest).
-  Dark orange stroke (`rgb(255, 120, 0)`), `lineWidth = 1`. Drawn inside
-  camera transform, before the ship body (so the ship renders on top).
-- **Constants**: `TRAIL_MAX_LENGTH = 120`, `TRAIL_MAX_OPACITY = 0.4`,
-  `TRAIL_COLOR = { r: 255, g: 120, b: 0 }`
+  decreasing alpha. Thrust segments use `TRAIL_THRUST_OPACITY` (0.4) and
+  `TRAIL_THRUST_WIDTH` (2.5). Coasting segments use `TRAIL_BASE_OPACITY`
+  (0.15) and `TRAIL_BASE_WIDTH` (1). Dark orange stroke (`rgb(255, 120, 0)`).
+  Drawn inside camera transform, before the ship body.
+- **Constants**: `TRAIL_MAX_LENGTH = 120`, `TRAIL_BASE_OPACITY = 0.15`,
+  `TRAIL_THRUST_OPACITY = 0.4`, `TRAIL_BASE_WIDTH = 1`,
+  `TRAIL_THRUST_WIDTH = 2.5`, `TRAIL_COLOR = { r: 255, g: 120, b: 0 }`
 
 ---
 

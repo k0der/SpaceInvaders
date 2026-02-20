@@ -453,24 +453,26 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 
 ## Increment 22b: Ship Exhaust Trail
 
-**Goal**: A fading rocket-exhaust trail behind the ship that starts at the nozzle, uses dark orange color, and only appears when thrusting — giving throttle feedback and reinforcing the sense of speed.
+**Goal**: A fading rocket-exhaust trail behind the ship that starts at the nozzle, uses dark orange color, is always on while moving, and visually distinguishes thrust vs coasting — giving throttle feedback and reinforcing the sense of speed.
 
 **Modify**: `src/ship.js`, `test/ship.test.js`, `src/main.js`
 
 **Acceptance Criteria**:
-- [x] `TRAIL_MAX_LENGTH` (120) and `TRAIL_MAX_OPACITY` (0.4) exported from `ship.js`
-- [x] `TRAIL_COLOR` (`{ r: 255, g: 120, b: 0 }`) exported from `ship.js`
-- [x] `createTrail()` returns `{ points: [] }`
-- [x] `updateTrail(trail, x, y, heading, isThrusting)` only pushes when `isThrusting` is true
-- [x] Trail point is offset to the ship's rear nozzle: `x - cos(heading) * SHIP_SIZE * 0.5`, `y - sin(heading) * SHIP_SIZE * 0.5`
-- [x] When `isThrusting` is false, no points are added (existing trail fades naturally)
-- [x] Evicts oldest point when length exceeds `TRAIL_MAX_LENGTH`
-- [x] `drawTrail(ctx, trail)` draws consecutive line segments with linearly fading alpha (newest = `TRAIL_MAX_OPACITY`, oldest = 0)
-- [x] Trail drawn with `lineWidth = 1`, dark orange stroke using `TRAIL_COLOR`
-- [x] Trail with fewer than 2 points draws nothing (no crash)
-- [x] Trail drawn inside camera transform, before ship body (ship renders on top)
-- [x] `main.js` creates a trail, updates it each frame with ship position/heading/thrust, and draws it
-- [x] **Visible**: Dark orange exhaust trail streams from the ship's rear when thrusting. Releasing thrust lets the trail fade away. Turning carves visible orange arcs. Clear throttle feedback.
+- [ ] `TRAIL_MAX_LENGTH` (120) exported from `ship.js`
+- [ ] `TRAIL_BASE_OPACITY` (0.15) and `TRAIL_THRUST_OPACITY` (0.4) exported from `ship.js`
+- [ ] `TRAIL_BASE_WIDTH` (1) and `TRAIL_THRUST_WIDTH` (2.5) exported from `ship.js`
+- [ ] `TRAIL_COLOR` (`{ r: 255, g: 120, b: 0 }`) exported from `ship.js`
+- [ ] `createTrail()` returns `{ points: [] }`
+- [ ] `updateTrail(trail, x, y, heading, isThrusting)` always pushes `{ x, y, thrust }` with nozzle offset
+- [ ] Trail point is offset to the ship's rear nozzle: `x - cos(heading) * SHIP_SIZE * 0.5`, `y - sin(heading) * SHIP_SIZE * 0.5`
+- [ ] Each point stores `thrust` boolean for per-segment rendering
+- [ ] Evicts oldest point when length exceeds `TRAIL_MAX_LENGTH`
+- [ ] `drawTrail(ctx, trail)` draws thrust segments wider (`TRAIL_THRUST_WIDTH`) and brighter (`TRAIL_THRUST_OPACITY`) than coasting segments (`TRAIL_BASE_WIDTH`, `TRAIL_BASE_OPACITY`)
+- [ ] Trail drawn with dark orange stroke using `TRAIL_COLOR`
+- [ ] Trail with fewer than 2 points draws nothing (no crash)
+- [ ] Trail drawn inside camera transform, before ship body (ship renders on top)
+- [ ] `main.js` creates a trail, updates it each frame with ship position/heading/thrust, and draws it
+- [ ] **Visible**: Dark orange trail always visible behind the ship. Thrusting makes it wider and brighter. Releasing thrust shows a thinner dimmer trail. Turning carves visible arcs. Clear throttle feedback.
 
 ---
 
