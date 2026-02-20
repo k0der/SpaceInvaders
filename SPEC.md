@@ -421,21 +421,27 @@ produces a standalone `index.html` with all modules inlined — zero external de
 - When thrusting, a flickering engine flame (randomized triangle) drawn behind the ship
 - Enemy ship visually distinguished (e.g., dashed lines or different shape)
 
-### 9.4 Motion Trail
+### 9.4 Exhaust Trail
 
-A fading trail behind each ship reinforces the sense of speed and makes
-turning arcs visible. The trail is drawn in **world space** (inside the
-camera transform), so it drifts and rotates relative to the screen-locked
-ship — providing a strong local motion cue.
+A fading rocket-exhaust trail behind each ship reinforces the sense of
+speed and gives throttle feedback. The trail is drawn in **world space**
+(inside the camera transform), so it drifts and rotates relative to the
+screen-locked ship — providing a strong local motion cue.
 
+- **Origin**: Trail points start at the ship's rear nozzle, not the center.
+  Offset from `(x, y)` by `-cos(heading) * SHIP_SIZE * 0.5` in x and
+  `-sin(heading) * SHIP_SIZE * 0.5` in y.
+- **Throttle-gated**: Points are only recorded when `ship.thrust` is true.
+  When thrust stops, no new points are added and the existing trail fades
+  away naturally as old points age out.
 - **Data**: Ring buffer of recent world positions (`{ x, y }`), max
   `TRAIL_MAX_LENGTH` entries (120 — ~2 seconds at 60 fps)
-- **Sampling**: One point pushed per frame after the ship position updates
-- **Rendering**: Drawn as consecutive line segments, newest to oldest,
-  with linearly decreasing alpha (`TRAIL_MAX_OPACITY` at newest → 0 at oldest).
-  Thin white stroke (`lineWidth = 1`). Drawn inside camera transform, before
-  the ship body (so the ship renders on top).
-- **Constants**: `TRAIL_MAX_LENGTH = 120`, `TRAIL_MAX_OPACITY = 0.4`
+- **Rendering**: Drawn as consecutive line segments with linearly
+  decreasing alpha (`TRAIL_MAX_OPACITY` at newest → 0 at oldest).
+  Dark orange stroke (`rgb(255, 120, 0)`), `lineWidth = 1`. Drawn inside
+  camera transform, before the ship body (so the ship renders on top).
+- **Constants**: `TRAIL_MAX_LENGTH = 120`, `TRAIL_MAX_OPACITY = 0.4`,
+  `TRAIL_COLOR = { r: 255, g: 120, b: 0 }`
 
 ---
 

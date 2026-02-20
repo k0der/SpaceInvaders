@@ -223,7 +223,13 @@ export function startApp() {
     // Ship input + update
     applyInput(inputState, playerShip);
     updateShip(playerShip, scaledDt);
-    updateTrail(playerTrail, playerShip.x, playerShip.y);
+    updateTrail(
+      playerTrail,
+      playerShip.x,
+      playerShip.y,
+      playerShip.heading,
+      playerShip.thrust,
+    );
 
     // Camera follows ship (PI/2 offset so ship nose points UP on screen)
     camera.x = playerShip.x;

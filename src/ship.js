@@ -25,6 +25,9 @@ export const TRAIL_MAX_LENGTH = 120;
 /** Opacity of the newest trail segment. */
 export const TRAIL_MAX_OPACITY = 0.4;
 
+/** Dark orange exhaust color. */
+export const TRAIL_COLOR = { r: 255, g: 120, b: 0 };
+
 /**
  * Normalize an angle to the range [-PI, PI].
  */
@@ -132,29 +135,35 @@ export function createTrail() {
 }
 
 /**
- * Record the ship's current world position in the trail.
+ * Record the ship's rear-nozzle position in the trail.
+ * Only records when thrusting; otherwise the existing trail fades naturally.
  * Evicts the oldest point when the trail exceeds TRAIL_MAX_LENGTH.
  */
-export function updateTrail(trail, x, y) {
-  trail.points.push({ x, y });
+export function updateTrail(trail, x, y, heading, isThrusting) {
+  if (!isThrusting) return;
+  const nozzleOffset = SHIP_SIZE * 0.5;
+  const rearX = x - Math.cos(heading) * nozzleOffset;
+  const rearY = y - Math.sin(heading) * nozzleOffset;
+  trail.points.push({ x: rearX, y: rearY });
   if (trail.points.length > TRAIL_MAX_LENGTH) {
     trail.points.shift();
   }
 }
 
 /**
- * Draw the motion trail as fading line segments.
+ * Draw the exhaust trail as fading dark orange line segments.
  * Alpha increases linearly from 0 (oldest) to TRAIL_MAX_OPACITY (newest).
  */
 export function drawTrail(ctx, trail) {
   if (trail.points.length < 2) return;
 
   ctx.lineWidth = 1;
+  const { r, g, b } = TRAIL_COLOR;
   const len = trail.points.length;
 
   for (let i = 1; i < len; i++) {
     const alpha = (i / (len - 1)) * TRAIL_MAX_OPACITY;
-    ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+    ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
     ctx.beginPath();
     ctx.moveTo(trail.points[i - 1].x, trail.points[i - 1].y);
     ctx.lineTo(trail.points[i].x, trail.points[i].y);
