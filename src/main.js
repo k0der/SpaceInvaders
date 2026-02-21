@@ -318,6 +318,8 @@ export function startApp() {
 
     gameState.phase = 'playing';
     gameState.explosions = [];
+    gameState.deathTimer = 0;
+    gameState.resultTimer = 0;
 
     enemyStrategy = getStrategy(settings.enemyIntelligence);
     enemyAIState = enemyStrategy.createState();
@@ -622,6 +624,18 @@ export function startApp() {
       logicalSize.height,
     );
     drawHUD(ctx, gameState.phase, logicalSize.width, logicalSize.height);
+
+    // Auto-restart in AI-vs-AI mode after showing result for 1 second
+    const terminalPhase =
+      gameState.phase === 'playerWin' ||
+      gameState.phase === 'playerDead' ||
+      gameState.phase === 'draw';
+    if (terminalPhase && settings.playerIntelligence !== 'human') {
+      gameState.resultTimer = (gameState.resultTimer || 0) + dt;
+      if (gameState.resultTimer >= 1) {
+        restartGame();
+      }
+    }
 
     requestAnimationFrame(frame);
   }
