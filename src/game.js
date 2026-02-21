@@ -167,6 +167,23 @@ export function clearSpawnZone(asteroids, ships) {
   });
 }
 
+/** Opacity of the dark overlay drawn behind the HUD text. */
+const END_SCREEN_OVERLAY_ALPHA = 0.6;
+
+/**
+ * Draw a semi-transparent black overlay for the end screen.
+ * Fades the background so the HUD text stands out.
+ */
+export function drawEndScreenOverlay(ctx, phase, width, height) {
+  if (phase === 'playing') return;
+
+  ctx.save();
+  ctx.globalAlpha = END_SCREEN_OVERLAY_ALPHA;
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(0, 0, width, height);
+  ctx.restore();
+}
+
 /** Scale for the main HUD text (e.g., "YOU WIN"). */
 const HUD_MAIN_SCALE = 8;
 

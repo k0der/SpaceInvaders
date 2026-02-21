@@ -5,6 +5,7 @@ import {
   clearSpawnZone,
   createExplosion,
   createGameState,
+  drawEndScreenOverlay,
   drawExplosion,
   drawHUD,
   EXPLOSION_DURATION,
@@ -591,6 +592,41 @@ describe('Increment 29: HUD', () => {
       // drawVectorText is called twice (main text + sub text), each saves/restores
       expect(ctx.save.mock.calls.length).toBeGreaterThanOrEqual(1);
       expect(ctx.restore.mock.calls.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('drawEndScreenOverlay', () => {
+    it('does nothing during playing phase', () => {
+      const ctx = mockCtx();
+      ctx.fillRect = vi.fn();
+      drawEndScreenOverlay(ctx, 'playing', 800, 600);
+
+      expect(ctx.save).not.toHaveBeenCalled();
+      expect(ctx.fillRect).not.toHaveBeenCalled();
+    });
+
+    it('draws a semi-transparent black overlay for playerWin', () => {
+      const ctx = mockCtx();
+      ctx.fillRect = vi.fn();
+      ctx.fillStyle = '';
+      drawEndScreenOverlay(ctx, 'playerWin', 800, 600);
+
+      expect(ctx.save).toHaveBeenCalled();
+      expect(ctx.fillRect).toHaveBeenCalledWith(0, 0, 800, 600);
+      expect(ctx.globalAlpha).toBeLessThan(1);
+      expect(ctx.globalAlpha).toBeGreaterThan(0);
+      expect(ctx.fillStyle).toBe('#000000');
+      expect(ctx.restore).toHaveBeenCalled();
+    });
+
+    it('draws a semi-transparent black overlay for playerDead', () => {
+      const ctx = mockCtx();
+      ctx.fillRect = vi.fn();
+      ctx.fillStyle = '';
+      drawEndScreenOverlay(ctx, 'playerDead', 800, 600);
+
+      expect(ctx.fillRect).toHaveBeenCalledWith(0, 0, 800, 600);
+      expect(ctx.globalAlpha).toBeLessThan(1);
     });
   });
 });

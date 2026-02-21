@@ -22,6 +22,7 @@ import {
   clearSpawnZone,
   createExplosion,
   createGameState,
+  drawEndScreenOverlay,
   drawExplosion,
   drawHUD,
   isExplosionDone,
@@ -592,13 +593,15 @@ export function startApp() {
       drawAsteroid(ctx, asteroid);
     }
 
-    drawTrail(ctx, enemyTrail);
-    drawShip(ctx, enemyShip);
-    drawTrail(ctx, playerTrail);
-    drawShip(ctx, playerShip);
+    if (gameState.phase === 'playing') {
+      drawTrail(ctx, enemyTrail);
+      drawShip(ctx, enemyShip);
+      drawTrail(ctx, playerTrail);
+      drawShip(ctx, playerShip);
 
-    for (const bullet of bullets) {
-      drawBullet(ctx, bullet);
+      for (const bullet of bullets) {
+        drawBullet(ctx, bullet);
+      }
     }
 
     for (const explosion of gameState.explosions) {
@@ -607,6 +610,12 @@ export function startApp() {
 
     resetCameraTransform(ctx);
 
+    drawEndScreenOverlay(
+      ctx,
+      gameState.phase,
+      logicalSize.width,
+      logicalSize.height,
+    );
     drawHUD(ctx, gameState.phase, logicalSize.width, logicalSize.height);
 
     requestAnimationFrame(frame);
