@@ -5,6 +5,7 @@ import {
   createExplosion,
   createGameState,
   drawExplosion,
+  drawHUD,
   EXPLOSION_DURATION,
   EXPLOSION_INNER_RATIO,
   EXPLOSION_MAX_RADIUS,
@@ -509,6 +510,65 @@ describe('Increment 28: Ship-Asteroid Collision', () => {
       const enemy = makeShip({ x: 0, y: 0, owner: 'enemy' });
       expect(checkShipAsteroidCollision(player, [asteroid])).toBe(asteroid);
       expect(checkShipAsteroidCollision(enemy, [asteroid])).toBe(asteroid);
+    });
+  });
+});
+
+describe('Increment 29: HUD', () => {
+  function mockCtx() {
+    return {
+      save: vi.fn(),
+      restore: vi.fn(),
+      beginPath: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      stroke: vi.fn(),
+      strokeStyle: '',
+      lineWidth: 0,
+      globalAlpha: 1,
+    };
+  }
+
+  describe('drawHUD', () => {
+    it('does nothing during playing phase', () => {
+      const ctx = mockCtx();
+      drawHUD(ctx, 'playing', 800, 600);
+
+      expect(ctx.save).not.toHaveBeenCalled();
+      expect(ctx.beginPath).not.toHaveBeenCalled();
+    });
+
+    it('renders text for playerWin phase', () => {
+      const ctx = mockCtx();
+      drawHUD(ctx, 'playerWin', 800, 600);
+
+      expect(ctx.save).toHaveBeenCalled();
+      expect(ctx.beginPath).toHaveBeenCalled();
+      expect(ctx.moveTo).toHaveBeenCalled();
+      expect(ctx.lineTo).toHaveBeenCalled();
+      expect(ctx.stroke).toHaveBeenCalled();
+      expect(ctx.restore).toHaveBeenCalled();
+    });
+
+    it('renders text for playerDead phase', () => {
+      const ctx = mockCtx();
+      drawHUD(ctx, 'playerDead', 800, 600);
+
+      expect(ctx.save).toHaveBeenCalled();
+      expect(ctx.beginPath).toHaveBeenCalled();
+      expect(ctx.moveTo).toHaveBeenCalled();
+      expect(ctx.lineTo).toHaveBeenCalled();
+      expect(ctx.stroke).toHaveBeenCalled();
+      expect(ctx.restore).toHaveBeenCalled();
+    });
+
+    it('saves and restores canvas state', () => {
+      const ctx = mockCtx();
+      drawHUD(ctx, 'playerWin', 800, 600);
+
+      // drawVectorText is called twice (main text + sub text), each saves/restores
+      expect(ctx.save.mock.calls.length).toBeGreaterThanOrEqual(1);
+      expect(ctx.restore.mock.calls.length).toBeGreaterThanOrEqual(1);
     });
   });
 });

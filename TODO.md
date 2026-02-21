@@ -778,11 +778,11 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 **Modify**: `src/game.js`, `test/game.test.js`, `src/main.js`
 
 **Acceptance Criteria**:
-- [ ] `checkShipAsteroidCollision(ship, asteroids)` returns first overlapping asteroid (circle-circle using `collisionRadius`)
-- [ ] Ship dies on asteroid contact (same death + explosion as bullet death)
-- [ ] Applies to both player and enemy
-- [ ] Asteroids unaffected (keep drifting)
-- [ ] **Visible**: Flying into an asteroid kills the ship. Asteroids become environmental hazards during the dogfight.
+- [x] `checkShipAsteroidCollision(ship, asteroids)` returns first overlapping asteroid (circle-circle using `collisionRadius`)
+- [x] Ship dies on asteroid contact (same death + explosion as bullet death)
+- [x] Applies to both player and enemy
+- [x] Asteroids unaffected (keep drifting)
+- [x] **Visible**: Flying into an asteroid kills the ship. Asteroids become environmental hazards during the dogfight.
 
 ---
 

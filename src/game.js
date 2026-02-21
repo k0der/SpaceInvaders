@@ -1,3 +1,5 @@
+import { drawVectorText } from './font.js';
+
 /** Duration of the explosion effect in seconds. */
 export const EXPLOSION_DURATION = 1.0;
 
@@ -142,4 +144,36 @@ export function updateGameState(state, playerShip, enemyShip) {
   } else if (!enemyShip.alive) {
     state.phase = 'playerWin';
   }
+}
+
+/** Scale for the main HUD text (e.g., "YOU WIN"). */
+const HUD_MAIN_SCALE = 8;
+
+/** Scale for the sub-text (e.g., "PRESS ENTER TO RESTART"). */
+const HUD_SUB_SCALE = 3;
+
+/** Vertical gap between main text and sub-text (pixels). */
+const HUD_TEXT_GAP = 60;
+
+/**
+ * Draw the HUD overlay for non-playing phases.
+ * Renders "YOU WIN" or "GAME OVER" with a restart prompt below.
+ */
+export function drawHUD(ctx, phase, width, height) {
+  if (phase === 'playing') return;
+
+  const centerX = width / 2;
+  const centerY = height / 2 - 30;
+
+  const mainText = phase === 'playerWin' ? 'YOU WIN' : 'GAME OVER';
+  drawVectorText(ctx, mainText, centerX, centerY, HUD_MAIN_SCALE);
+
+  drawVectorText(
+    ctx,
+    'PRESS ENTER TO RESTART',
+    centerX,
+    centerY + HUD_TEXT_GAP,
+    HUD_SUB_SCALE,
+    { alpha: 0.5 },
+  );
 }

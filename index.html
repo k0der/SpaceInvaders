@@ -1897,7 +1897,559 @@ function computeSpeedBoost(
   return Math.min(Math.sqrt(targetKE / actualKE), 1.5);
 }
 
+// ===== font.js =====
+/** Grid width per glyph (units). */
+const GLYPH_WIDTH = 4;
+
+/** Grid height per glyph (units). */
+const GLYPH_HEIGHT = 6;
+
+/** Spacing between characters (grid units). */
+const GLYPH_SPACING = 1;
+
+/**
+ * Vector glyph data — each character is an array of polylines.
+ * Each polyline is an array of [x, y] points on a 4-wide × 6-tall grid.
+ * Drawn as connected line segments matching the wireframe aesthetic.
+ */
+const GLYPHS = {
+  A: [
+    [
+      [0, 6],
+      [0, 2],
+      [2, 0],
+      [4, 2],
+      [4, 6],
+    ],
+    [
+      [0, 4],
+      [4, 4],
+    ],
+  ],
+  B: [
+    [
+      [0, 6],
+      [0, 0],
+      [3, 0],
+      [4, 1],
+      [3, 3],
+      [0, 3],
+    ],
+    [
+      [3, 3],
+      [4, 4],
+      [4, 5],
+      [3, 6],
+      [0, 6],
+    ],
+  ],
+  C: [
+    [
+      [4, 1],
+      [3, 0],
+      [1, 0],
+      [0, 1],
+      [0, 5],
+      [1, 6],
+      [3, 6],
+      [4, 5],
+    ],
+  ],
+  D: [
+    [
+      [0, 0],
+      [0, 6],
+      [3, 6],
+      [4, 5],
+      [4, 1],
+      [3, 0],
+      [0, 0],
+    ],
+  ],
+  E: [
+    [
+      [4, 0],
+      [0, 0],
+      [0, 6],
+      [4, 6],
+    ],
+    [
+      [0, 3],
+      [3, 3],
+    ],
+  ],
+  F: [
+    [
+      [4, 0],
+      [0, 0],
+      [0, 6],
+    ],
+    [
+      [0, 3],
+      [3, 3],
+    ],
+  ],
+  G: [
+    [
+      [4, 1],
+      [3, 0],
+      [1, 0],
+      [0, 1],
+      [0, 5],
+      [1, 6],
+      [3, 6],
+      [4, 5],
+      [4, 3],
+      [2, 3],
+    ],
+  ],
+  H: [
+    [
+      [0, 0],
+      [0, 6],
+    ],
+    [
+      [4, 0],
+      [4, 6],
+    ],
+    [
+      [0, 3],
+      [4, 3],
+    ],
+  ],
+  I: [
+    [
+      [1, 0],
+      [3, 0],
+    ],
+    [
+      [2, 0],
+      [2, 6],
+    ],
+    [
+      [1, 6],
+      [3, 6],
+    ],
+  ],
+  J: [
+    [
+      [1, 0],
+      [4, 0],
+    ],
+    [
+      [3, 0],
+      [3, 5],
+      [2, 6],
+      [1, 6],
+      [0, 5],
+    ],
+  ],
+  K: [
+    [
+      [0, 0],
+      [0, 6],
+    ],
+    [
+      [4, 0],
+      [0, 3],
+      [4, 6],
+    ],
+  ],
+  L: [
+    [
+      [0, 0],
+      [0, 6],
+      [4, 6],
+    ],
+  ],
+  M: [
+    [
+      [0, 6],
+      [0, 0],
+      [2, 3],
+      [4, 0],
+      [4, 6],
+    ],
+  ],
+  N: [
+    [
+      [0, 6],
+      [0, 0],
+      [4, 6],
+      [4, 0],
+    ],
+  ],
+  O: [
+    [
+      [1, 0],
+      [3, 0],
+      [4, 1],
+      [4, 5],
+      [3, 6],
+      [1, 6],
+      [0, 5],
+      [0, 1],
+      [1, 0],
+    ],
+  ],
+  P: [
+    [
+      [0, 6],
+      [0, 0],
+      [3, 0],
+      [4, 1],
+      [4, 2],
+      [3, 3],
+      [0, 3],
+    ],
+  ],
+  Q: [
+    [
+      [1, 0],
+      [3, 0],
+      [4, 1],
+      [4, 5],
+      [3, 6],
+      [1, 6],
+      [0, 5],
+      [0, 1],
+      [1, 0],
+    ],
+    [
+      [3, 5],
+      [4, 6],
+    ],
+  ],
+  R: [
+    [
+      [0, 6],
+      [0, 0],
+      [3, 0],
+      [4, 1],
+      [4, 2],
+      [3, 3],
+      [0, 3],
+    ],
+    [
+      [2, 3],
+      [4, 6],
+    ],
+  ],
+  S: [
+    [
+      [4, 1],
+      [3, 0],
+      [1, 0],
+      [0, 1],
+      [0, 2],
+      [1, 3],
+      [3, 3],
+      [4, 4],
+      [4, 5],
+      [3, 6],
+      [1, 6],
+      [0, 5],
+    ],
+  ],
+  T: [
+    [
+      [0, 0],
+      [4, 0],
+    ],
+    [
+      [2, 0],
+      [2, 6],
+    ],
+  ],
+  U: [
+    [
+      [0, 0],
+      [0, 5],
+      [1, 6],
+      [3, 6],
+      [4, 5],
+      [4, 0],
+    ],
+  ],
+  V: [
+    [
+      [0, 0],
+      [2, 6],
+      [4, 0],
+    ],
+  ],
+  W: [
+    [
+      [0, 0],
+      [0, 6],
+      [2, 4],
+      [4, 6],
+      [4, 0],
+    ],
+  ],
+  X: [
+    [
+      [0, 0],
+      [4, 6],
+    ],
+    [
+      [4, 0],
+      [0, 6],
+    ],
+  ],
+  Y: [
+    [
+      [0, 0],
+      [2, 3],
+      [4, 0],
+    ],
+    [
+      [2, 3],
+      [2, 6],
+    ],
+  ],
+  Z: [
+    [
+      [0, 0],
+      [4, 0],
+      [0, 6],
+      [4, 6],
+    ],
+  ],
+  0: [
+    [
+      [1, 0],
+      [3, 0],
+      [4, 1],
+      [4, 5],
+      [3, 6],
+      [1, 6],
+      [0, 5],
+      [0, 1],
+      [1, 0],
+    ],
+    [
+      [0, 5],
+      [4, 1],
+    ],
+  ],
+  1: [
+    [
+      [1, 1],
+      [2, 0],
+      [2, 6],
+    ],
+    [
+      [1, 6],
+      [3, 6],
+    ],
+  ],
+  2: [
+    [
+      [0, 1],
+      [1, 0],
+      [3, 0],
+      [4, 1],
+      [4, 2],
+      [0, 6],
+      [4, 6],
+    ],
+  ],
+  3: [
+    [
+      [0, 1],
+      [1, 0],
+      [3, 0],
+      [4, 1],
+      [4, 2],
+      [3, 3],
+      [4, 4],
+      [4, 5],
+      [3, 6],
+      [1, 6],
+      [0, 5],
+    ],
+    [
+      [2, 3],
+      [3, 3],
+    ],
+  ],
+  4: [
+    [
+      [0, 0],
+      [0, 3],
+      [4, 3],
+    ],
+    [
+      [4, 0],
+      [4, 6],
+    ],
+  ],
+  5: [
+    [
+      [4, 0],
+      [0, 0],
+      [0, 3],
+      [3, 3],
+      [4, 4],
+      [4, 5],
+      [3, 6],
+      [1, 6],
+      [0, 5],
+    ],
+  ],
+  6: [
+    [
+      [3, 0],
+      [1, 0],
+      [0, 1],
+      [0, 5],
+      [1, 6],
+      [3, 6],
+      [4, 5],
+      [4, 4],
+      [3, 3],
+      [0, 3],
+    ],
+  ],
+  7: [
+    [
+      [0, 0],
+      [4, 0],
+      [2, 6],
+    ],
+  ],
+  8: [
+    [
+      [1, 0],
+      [3, 0],
+      [4, 1],
+      [4, 2],
+      [3, 3],
+      [1, 3],
+      [0, 2],
+      [0, 1],
+      [1, 0],
+    ],
+    [
+      [1, 3],
+      [0, 4],
+      [0, 5],
+      [1, 6],
+      [3, 6],
+      [4, 5],
+      [4, 4],
+      [3, 3],
+    ],
+  ],
+  9: [
+    [
+      [4, 3],
+      [1, 3],
+      [0, 2],
+      [0, 1],
+      [1, 0],
+      [3, 0],
+      [4, 1],
+      [4, 5],
+      [3, 6],
+      [1, 6],
+    ],
+  ],
+  ' ': [],
+  '.': [
+    [
+      [2, 5],
+      [2, 6],
+    ],
+  ],
+  '!': [
+    [
+      [2, 0],
+      [2, 4],
+    ],
+    [
+      [2, 5.5],
+      [2, 6],
+    ],
+  ],
+  ':': [
+    [
+      [2, 1],
+      [2, 2],
+    ],
+    [
+      [2, 4],
+      [2, 5],
+    ],
+  ],
+};
+
+/**
+ * Draw vector-stroked text centered at (centerX, centerY).
+ *
+ * @param {CanvasRenderingContext2D} ctx
+ * @param {string} text
+ * @param {number} centerX - horizontal center of the text
+ * @param {number} centerY - vertical center of the text
+ * @param {number} scale - pixel size per grid unit
+ * @param {object} [options]
+ * @param {string} [options.color='#FFFFFF']
+ * @param {number} [options.lineWidth=1.5]
+ * @param {number} [options.alpha=1.0]
+ */
+function drawVectorText(
+  ctx,
+  text,
+  centerX,
+  centerY,
+  scale,
+  options = {},
+) {
+  const upper = text.toUpperCase();
+  if (upper.length === 0) return;
+
+  const { color = '#FFFFFF', lineWidth = 1.5, alpha = 1.0 } = options;
+
+  const charWidth = GLYPH_WIDTH * scale;
+  const charHeight = GLYPH_HEIGHT * scale;
+  const gap = GLYPH_SPACING * scale;
+  const totalWidth = upper.length * charWidth + (upper.length - 1) * gap;
+  const startX = centerX - totalWidth / 2;
+  const startY = centerY - charHeight / 2;
+
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = lineWidth;
+  ctx.globalAlpha = alpha;
+
+  for (let i = 0; i < upper.length; i++) {
+    const ch = upper[i];
+    const polylines = GLYPHS[ch];
+    if (!polylines) continue;
+
+    const ox = startX + i * (charWidth + gap);
+
+    for (const polyline of polylines) {
+      ctx.beginPath();
+      for (let p = 0; p < polyline.length; p++) {
+        const px = ox + polyline[p][0] * scale;
+        const py = startY + polyline[p][1] * scale;
+        if (p === 0) {
+          ctx.moveTo(px, py);
+        } else {
+          ctx.lineTo(px, py);
+        }
+      }
+      ctx.stroke();
+    }
+  }
+
+  ctx.restore();
+}
+
 // ===== game.js =====
+
 /** Duration of the explosion effect in seconds. */
 const EXPLOSION_DURATION = 1.0;
 
@@ -2044,6 +2596,38 @@ function updateGameState(state, playerShip, enemyShip) {
   }
 }
 
+/** Scale for the main HUD text (e.g., "YOU WIN"). */
+const HUD_MAIN_SCALE = 8;
+
+/** Scale for the sub-text (e.g., "PRESS ENTER TO RESTART"). */
+const HUD_SUB_SCALE = 3;
+
+/** Vertical gap between main text and sub-text (pixels). */
+const HUD_TEXT_GAP = 60;
+
+/**
+ * Draw the HUD overlay for non-playing phases.
+ * Renders "YOU WIN" or "GAME OVER" with a restart prompt below.
+ */
+function drawHUD(ctx, phase, width, height) {
+  if (phase === 'playing') return;
+
+  const centerX = width / 2;
+  const centerY = height / 2 - 30;
+
+  const mainText = phase === 'playerWin' ? 'YOU WIN' : 'GAME OVER';
+  drawVectorText(ctx, mainText, centerX, centerY, HUD_MAIN_SCALE);
+
+  drawVectorText(
+    ctx,
+    'PRESS ENTER TO RESTART',
+    centerX,
+    centerY + HUD_TEXT_GAP,
+    HUD_SUB_SCALE,
+    { alpha: 0.5 },
+  );
+}
+
 // ===== input.js =====
 /**
  * Create a fresh input state with all flags false.
@@ -2088,6 +2672,14 @@ function handleKeyDown(state, key) {
 function handleKeyUp(state, key) {
   const flag = resolveKey(key);
   if (flag) state[flag] = false;
+}
+
+/**
+ * Returns true if the key is a restart key (Enter or R).
+ */
+function isRestartKey(key) {
+  const lower = key.toLowerCase();
+  return key === 'Enter' || lower === 'r';
 }
 
 /**
@@ -2170,7 +2762,7 @@ function startApp() {
     maxY: logicalSize.height,
   };
   const sim = createSimulation(initialBounds);
-  const playerShip = createShip({
+  let playerShip = createShip({
     x: logicalSize.width / 2,
     y: logicalSize.height / 2,
     heading: -Math.PI / 2,
@@ -2180,19 +2772,19 @@ function startApp() {
     playerShip.y,
     playerShip.heading + Math.PI / 2,
   );
-  const playerTrail = createTrail();
+  let playerTrail = createTrail();
   const enemySpawn = spawnEnemyPosition(playerShip.x, playerShip.y);
   const headingToPlayer = Math.atan2(
     playerShip.y - enemySpawn.y,
     playerShip.x - enemySpawn.x,
   );
-  const enemyShip = createShip({
+  let enemyShip = createShip({
     x: enemySpawn.x,
     y: enemySpawn.y,
     heading: headingToPlayer,
     owner: 'enemy',
   });
-  const enemyTrail = createTrail(ENEMY_TRAIL_COLOR);
+  let enemyTrail = createTrail(ENEMY_TRAIL_COLOR);
   let bullets = [];
   const gameState = createGameState();
   let prevCameraX = camera.x;
@@ -2316,9 +2908,58 @@ function startApp() {
     }
   });
 
-  // Keyboard input for ship controls
-  window.addEventListener('keydown', (e) => handleKeyDown(inputState, e.key));
+  // Keyboard input for ship controls and restart
+  window.addEventListener('keydown', (e) => {
+    if (isRestartKey(e.key) && gameState.phase !== 'playing') {
+      restartGame();
+      return;
+    }
+    handleKeyDown(inputState, e.key);
+  });
   window.addEventListener('keyup', (e) => handleKeyUp(inputState, e.key));
+
+  function restartGame() {
+    playerShip = createShip({
+      x: logicalSize.width / 2,
+      y: logicalSize.height / 2,
+      heading: -Math.PI / 2,
+    });
+    playerShip.thrustPower = settings.thrustPower;
+
+    const spawn = spawnEnemyPosition(playerShip.x, playerShip.y);
+    const heading = Math.atan2(playerShip.y - spawn.y, playerShip.x - spawn.x);
+    enemyShip = createShip({
+      x: spawn.x,
+      y: spawn.y,
+      heading,
+      owner: 'enemy',
+    });
+    enemyShip.thrustPower = settings.thrustPower;
+
+    bullets = [];
+    playerTrail = createTrail();
+    enemyTrail = createTrail(ENEMY_TRAIL_COLOR);
+
+    gameState.phase = 'playing';
+    gameState.explosions = [];
+
+    enemyStrategy = getStrategy(settings.enemyIntelligence);
+    enemyAIState = enemyStrategy.createState();
+    if (settings.playerIntelligence !== 'human') {
+      playerStrategy = getStrategy(settings.playerIntelligence);
+      playerAIState = playerStrategy.createState();
+    } else {
+      playerStrategy = null;
+      playerAIState = null;
+    }
+
+    camera.x = playerShip.x;
+    camera.y = playerShip.y;
+    camera.rotation = playerShip.heading + Math.PI / 2;
+    prevCameraX = camera.x;
+    prevCameraY = camera.y;
+    prevCameraRotation = camera.rotation;
+  }
 
   function frame(timestamp) {
     const dt = loop.tick(timestamp);
@@ -2594,6 +3235,8 @@ function startApp() {
     }
 
     resetCameraTransform(ctx);
+
+    drawHUD(ctx, gameState.phase, logicalSize.width, logicalSize.height);
 
     requestAnimationFrame(frame);
   }

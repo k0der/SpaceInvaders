@@ -22,6 +22,7 @@ import {
   createExplosion,
   createGameState,
   drawExplosion,
+  drawHUD,
   isExplosionDone,
   processBulletShipCollisions,
   updateExplosion,
@@ -32,6 +33,7 @@ import {
   createInputState,
   handleKeyDown,
   handleKeyUp,
+  isRestartKey,
 } from './input.js';
 import { setupHiDPICanvas } from './renderer.js';
 import {
@@ -128,7 +130,7 @@ export function startApp() {
     maxY: logicalSize.height,
   };
   const sim = createSimulation(initialBounds);
-  const playerShip = createShip({
+  let playerShip = createShip({
     x: logicalSize.width / 2,
     y: logicalSize.height / 2,
     heading: -Math.PI / 2,
@@ -138,19 +140,19 @@ export function startApp() {
     playerShip.y,
     playerShip.heading + Math.PI / 2,
   );
-  const playerTrail = createTrail();
+  let playerTrail = createTrail();
   const enemySpawn = spawnEnemyPosition(playerShip.x, playerShip.y);
   const headingToPlayer = Math.atan2(
     playerShip.y - enemySpawn.y,
     playerShip.x - enemySpawn.x,
   );
-  const enemyShip = createShip({
+  let enemyShip = createShip({
     x: enemySpawn.x,
     y: enemySpawn.y,
     heading: headingToPlayer,
     owner: 'enemy',
   });
-  const enemyTrail = createTrail(ENEMY_TRAIL_COLOR);
+  let enemyTrail = createTrail(ENEMY_TRAIL_COLOR);
   let bullets = [];
   const gameState = createGameState();
   let prevCameraX = camera.x;
@@ -274,9 +276,58 @@ export function startApp() {
     }
   });
 
-  // Keyboard input for ship controls
-  window.addEventListener('keydown', (e) => handleKeyDown(inputState, e.key));
+  // Keyboard input for ship controls and restart
+  window.addEventListener('keydown', (e) => {
+    if (isRestartKey(e.key) && gameState.phase !== 'playing') {
+      restartGame();
+      return;
+    }
+    handleKeyDown(inputState, e.key);
+  });
   window.addEventListener('keyup', (e) => handleKeyUp(inputState, e.key));
+
+  function restartGame() {
+    playerShip = createShip({
+      x: logicalSize.width / 2,
+      y: logicalSize.height / 2,
+      heading: -Math.PI / 2,
+    });
+    playerShip.thrustPower = settings.thrustPower;
+
+    const spawn = spawnEnemyPosition(playerShip.x, playerShip.y);
+    const heading = Math.atan2(playerShip.y - spawn.y, playerShip.x - spawn.x);
+    enemyShip = createShip({
+      x: spawn.x,
+      y: spawn.y,
+      heading,
+      owner: 'enemy',
+    });
+    enemyShip.thrustPower = settings.thrustPower;
+
+    bullets = [];
+    playerTrail = createTrail();
+    enemyTrail = createTrail(ENEMY_TRAIL_COLOR);
+
+    gameState.phase = 'playing';
+    gameState.explosions = [];
+
+    enemyStrategy = getStrategy(settings.enemyIntelligence);
+    enemyAIState = enemyStrategy.createState();
+    if (settings.playerIntelligence !== 'human') {
+      playerStrategy = getStrategy(settings.playerIntelligence);
+      playerAIState = playerStrategy.createState();
+    } else {
+      playerStrategy = null;
+      playerAIState = null;
+    }
+
+    camera.x = playerShip.x;
+    camera.y = playerShip.y;
+    camera.rotation = playerShip.heading + Math.PI / 2;
+    prevCameraX = camera.x;
+    prevCameraY = camera.y;
+    prevCameraRotation = camera.rotation;
+  }
 
   function frame(timestamp) {
     const dt = loop.tick(timestamp);
@@ -552,6 +603,8 @@ export function startApp() {
     }
 
     resetCameraTransform(ctx);
+
+    drawHUD(ctx, gameState.phase, logicalSize.width, logicalSize.height);
 
     requestAnimationFrame(frame);
   }

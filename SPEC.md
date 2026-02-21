@@ -890,6 +890,8 @@ the algorithm evolves.
 ### 13.7 HUD
 
 - Screen-space text (drawn after camera reset)
+- Text rendered using a custom vector-stroke font (line segments per character) matching the wireframe aesthetic — not browser `fillText`
+- Each glyph defined as polylines on a 4×6 grid; character set: A–Z, 0–9, space, basic punctuation
 - "YOU WIN" or "GAME OVER" centered on screen
 - "Press ENTER to restart" below the result
 - Enter or R key restarts: ships respawn, bullets cleared, phase resets
@@ -902,8 +904,8 @@ Each ship has its own intelligence dropdown in the settings panel:
 
 | Setting | Options | Default |
 |---------|---------|---------|
-| `playerIntelligence` | `'human'`, `'reactive'`, `'predictive'` | `'human'` |
-| `enemyIntelligence` | `'reactive'`, `'predictive'` | `'predictive'` |
+| `playerIntelligence` | `'human'`, `'reactive'`, `'predictive'`, `'predictive-optimized'` | `'human'` |
+| `enemyIntelligence` | `'reactive'`, `'predictive'`, `'predictive-optimized'` | `'predictive'` |
 
 - When `playerIntelligence = 'human'`: keyboard controls player (current behavior)
 - When `playerIntelligence = 'reactive'` or `'predictive'`: AI controls player ship, keyboard ignored
