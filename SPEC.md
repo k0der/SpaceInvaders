@@ -821,15 +821,19 @@ iterative optimization. A separate development context runs a loop:
 **Decoupling guarantee**: `ai-reactive-optimized.js` duplicates all constants
 from `ai-reactive.js` and has zero imports from it. Changes to the optimized
 variant cannot affect the original reactive, predictive, or any other module.
-The only shared dependency is `THRUST_POWER` from `ship.js` (stable physics
-constant).
+The only shared dependencies are `THRUST_POWER` from `ship.js` and
+`registerStrategy` from `ai-core.js` (both stable infrastructure).
 
 **Module**: `src/ai-reactive-optimized.js` — starts as a verbatim copy of
 `ai-reactive.js` with renamed exports (`reactiveOptimizedStrategy`,
 `createReactiveOptimizedState`, `updateReactiveOptimizedAI`).
 
-**Registration**: `ai.js` registers it as `'reactive-optimized'` in the
-strategy registry. Selectable via Player/Enemy intelligence dropdowns.
+**Registration**: The module self-registers as `'reactive-optimized'` in the
+strategy registry at import time. `ai.js` triggers this via a bare
+side-effect import (`import './ai-reactive-optimized.js'`). In the
+production build, the module is wrapped in an IIFE to prevent name
+collisions with the original reactive constants. Selectable via
+Player/Enemy intelligence dropdowns.
 
 **Tests**: `test/ai-reactive-optimized.test.js` — independent copy of the
 reactive test suite, pointing at the optimized module. Can diverge freely as
