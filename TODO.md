@@ -708,45 +708,45 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 **Acceptance Criteria**:
 
 ### Core Loop
-- [ ] `simulate.js` runs via `node simulate.js` with no browser dependencies
-- [ ] Imports only headless-safe modules (ship, AI, physics, simulation, bullet, asteroid, energy, debug, camera, ai.js)
-- [ ] Simulates the full game loop: AI update → ship physics → bullet update → bullet-asteroid collisions → asteroid simulation (move, collide, recycle, spawn)
-- [ ] Uses fixed `dt` (default `1/60`) for browser-accurate physics
-- [ ] Runs N games of M ticks each (configurable via CLI args)
-- [ ] Both ships use AI strategies selected via `--player-ai` / `--enemy-ai` (default: predictive)
-- [ ] Provides synthetic viewport bounds for asteroid spawning (no real canvas needed)
+- [x] `simulate.js` runs via `node simulate.js` with no browser dependencies
+- [x] Imports only headless-safe modules (ship, AI, physics, simulation, bullet, asteroid, energy, debug, camera, ai.js)
+- [x] Simulates the full game loop: AI update → ship physics → bullet update → bullet-asteroid collisions → asteroid simulation (move, collide, recycle, spawn)
+- [x] Uses fixed `dt` (default `1/60`) for browser-accurate physics
+- [x] Runs N games of M ticks each (configurable via CLI args)
+- [x] Both ships use AI strategies selected via `--player-ai` / `--enemy-ai` (default: predictive)
+- [x] Provides synthetic viewport bounds for asteroid spawning (no real canvas needed)
 
 ### Event Logging
-- [ ] Logs action changes with previous/new action and winner
-- [ ] Logs bullet fires and hits (when bullet-ship collision exists)
-- [ ] Logs ship-asteroid proximity (ship center within `2 × collisionRadius` of asteroid)
-- [ ] Logs AI score breakdowns on action change (all candidate scores)
+- [x] Logs action changes with previous/new action and winner
+- [x] Logs bullet fires and hits (when bullet-ship collision exists)
+- [x] Logs ship-asteroid proximity (ship center within `2 × collisionRadius` of asteroid)
+- [x] Logs AI score breakdowns on action change (all candidate scores)
 
 ### Detectors
-- [ ] **Oscillation detector**: flags when action changes occur faster than `HOLD_TIME`
-- [ ] **Asteroid pass-through detector**: flags when ship overlaps asteroid `collisionRadius` without dying (once ship-asteroid collision is implemented)
-- [ ] **Score collapse detector**: flags when all candidates score below a configurable threshold
+- [x] **Oscillation detector**: flags when action changes occur faster than `HOLD_TIME`
+- [x] **Asteroid pass-through detector**: flags when ship overlaps asteroid `collisionRadius` without dying (once ship-asteroid collision is implemented)
+- [x] **Score collapse detector**: flags when all candidates score below a configurable threshold
 
 ### CLI Interface
-- [ ] `--games N` — number of games to run (default 100)
-- [ ] `--ticks N` — ticks per game (default 3600 = 60s at 60fps)
-- [ ] `--dt N` — simulation timestep in seconds (default 1/60)
-- [ ] `--seed N` — seed for reproducible random (optional, non-seeded by default)
-- [ ] `--verbose` — print per-game event logs (default: summary only)
-- [ ] `--detect list` — comma-separated detector names to enable
-- [ ] `--player-ai name` — player AI strategy (default: predictive, rejects 'human')
-- [ ] `--enemy-ai name` — enemy AI strategy (default: predictive)
-- [ ] `--density N` — asteroid density multiplier (default: 1.0)
-- [ ] `--speed N` — speed multiplier (default: 1.0)
-- [ ] `--thrust N` — thrust power (default: 2000)
+- [x] `--games N` — number of games to run (default 100)
+- [x] `--ticks N` — ticks per game (default 3600 = 60s at 60fps)
+- [x] `--dt N` — simulation timestep in seconds (default 1/60)
+- [x] `--seed N` — seed for reproducible random (optional, non-seeded by default)
+- [x] `--verbose` — print per-game event logs (default: summary only)
+- [x] `--detect list` — comma-separated detector names to enable
+- [x] `--player-ai name` — player AI strategy (default: predictive, rejects 'human')
+- [x] `--enemy-ai name` — enemy AI strategy (default: predictive)
+- [x] `--density N` — asteroid density multiplier (default: 1.0)
+- [x] `--speed N` — speed multiplier (default: 1.0)
+- [x] `--thrust N` — thrust power (default: 2000)
 
 ### Output
-- [ ] Summary table to stdout: games played, events detected per type, win/loss ratio (once kills exist)
-- [ ] Per-game details when `--verbose`
-- [ ] Exit code 0 on success, 1 if any detector fired
+- [x] Summary table to stdout: games played, events detected per type, win/loss ratio (once kills exist)
+- [x] Per-game details when `--verbose`
+- [x] Exit code 0 on success, 1 if any detector fired
 
 ### Visible
-- [ ] **Visible**: `node simulate.js --games 10 --verbose` runs 10 headless games in seconds, printing event logs and a summary table. No browser needed.
+- [x] **Visible**: `node simulate.js --games 10 --verbose` runs 10 headless games in seconds, printing event logs and a summary table. No browser needed.
 
 ---
 
