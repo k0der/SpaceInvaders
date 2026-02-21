@@ -8,6 +8,7 @@ import {
   COLLISION_BREAK_STEPS,
   COLLISION_EARLY_BONUS,
   cloneShipForSim,
+  DANGER_ZONE_FACTOR,
   DISTANCE_WEIGHT,
   defineCandidates,
   ENGAGE_RANGE,
@@ -1309,5 +1310,486 @@ describe('ai-predictive: predictiveStrategy — state management', () => {
     expect(typeof state.prevAction.rotatingLeft).toBe('boolean');
     expect(typeof state.prevAction.rotatingRight).toBe('boolean');
     expect(typeof state.prevAction.braking).toBe('boolean');
+  });
+});
+
+describe('ai-predictive: DANGER_ZONE_FACTOR constant', () => {
+  it('exports DANGER_ZONE_FACTOR as 3', () => {
+    expect(DANGER_ZONE_FACTOR).toBe(3);
+  });
+});
+
+describe('ai-predictive: scoreTrajectory — danger zone', () => {
+  it('near-miss trajectory gets danger penalty (score lower than with no asteroids)', () => {
+    // Ship passes near an asteroid but does NOT collide.
+    // The danger zone should impose a penalty relative to having no asteroids.
+    const collisionRadius = 30;
+    // collisionDist = 30 + 15 (SHIP_SIZE) = 45; danger zone = 3 × 45 = 135
+    // Place ship at 60px from asteroid center — inside danger zone but outside collision
+    const target = { x: 500, y: 0, vx: 0, vy: 0 };
+    const asteroids = [{ x: 60, y: 0, vx: 0, vy: 0, collisionRadius }];
+
+    // Trajectory that passes 60px from asteroid at step 1 (no collision)
+    const positions = [
+      { x: 0, y: 0, heading: 0, vx: 60, vy: 0 },
+      { x: 60, y: 0, heading: 0, vx: 60, vy: 0 },
+      { x: 120, y: 0, heading: 0, vx: 60, vy: 0 },
+    ];
+
+    const scoreWithAsteroid = scoreTrajectory(
+      positions,
+      target,
+      asteroids,
+      0.1,
+    );
+    const scoreWithout = scoreTrajectory(positions, target, [], 0.1);
+
+    // Danger zone should make the near-miss score worse
+    expect(scoreWithAsteroid).toBeLessThan(scoreWithout);
+  });
+
+  it('danger penalty is zero outside the danger zone', () => {
+    const collisionRadius = 30;
+    // dangerZone = 3 × (30 + 15) = 135; ship at 200px is well outside
+    // Place asteroid such that ship is well outside danger zone (200px away)
+    const target = { x: 500, y: 0, vx: 0, vy: 0 };
+    const asteroids = [{ x: 0, y: 200, vx: 0, vy: 0, collisionRadius }];
+
+    const positions = [
+      { x: 0, y: 0, heading: 0, vx: 60, vy: 0 },
+      { x: 60, y: 0, heading: 0, vx: 60, vy: 0 },
+    ];
+
+    const scoreWithAsteroid = scoreTrajectory(
+      positions,
+      target,
+      asteroids,
+      0.1,
+    );
+    const scoreWithout = scoreTrajectory(positions, target, [], 0.1);
+
+    // Outside danger zone: scores should be identical
+    expect(scoreWithAsteroid).toBeCloseTo(scoreWithout, 2);
+  });
+
+  it('danger penalty grows with proximity (closer = worse)', () => {
+    const collisionRadius = 30;
+    // dangerZone = 3 × (30 + 15) = 135
+    const target = { x: 500, y: 0, vx: 0, vy: 0 };
+
+    // Near-miss at 50px from center (just outside collision, deep in danger zone)
+    const asteroidClose = [{ x: 0, y: 50, vx: 0, vy: 0, collisionRadius }];
+    // Near-miss at 100px from center (inside danger zone but farther)
+    const asteroidFar = [{ x: 0, y: 100, vx: 0, vy: 0, collisionRadius }];
+
+    const positions = [
+      { x: 0, y: 0, heading: 0, vx: 60, vy: 0 },
+      { x: 60, y: 0, heading: 0, vx: 60, vy: 0 },
+    ];
+
+    const scoreClose = scoreTrajectory(positions, target, asteroidClose, 0.1);
+    const scoreFar = scoreTrajectory(positions, target, asteroidFar, 0.1);
+
+    // Closer near-miss should score worse (bigger danger penalty)
+    expect(scoreClose).toBeLessThan(scoreFar);
+  });
+
+  it('danger penalty at proximity≈1.0 is close to actual collision penalty', () => {
+    // A trajectory barely outside the collision radius should get almost
+    // the full collision penalty from the danger zone.
+    const collisionRadius = 30;
+    // collisionDist = 30 + 15 (SHIP_SIZE) = 45
+    const target = { x: 500, y: 0, vx: 0, vy: 0 };
+
+    // Barely outside collision (46px from center)
+    const nearMissAsteroids = [{ x: 0, y: 46, vx: 0, vy: 0, collisionRadius }];
+    // Barely inside collision (44px from center)
+    const collisionAsteroids = [{ x: 0, y: 44, vx: 0, vy: 0, collisionRadius }];
+
+    const positions = [
+      { x: 0, y: 0, heading: 0, vx: 60, vy: 0 },
+      { x: 60, y: 0, heading: 0, vx: 60, vy: 0 },
+    ];
+
+    const nearMissScore = scoreTrajectory(
+      positions,
+      target,
+      nearMissAsteroids,
+      0.1,
+    );
+    const collisionScore = scoreTrajectory(
+      positions,
+      target,
+      collisionAsteroids,
+      0.1,
+    );
+    const noAsteroidScore = scoreTrajectory(positions, target, [], 0.1);
+
+    // Near-miss at proximity≈1.0 should be close to collision score
+    // (within 25% of the penalty magnitude)
+    const nearMissPenalty = noAsteroidScore - nearMissScore;
+    const collisionPenalty = noAsteroidScore - collisionScore;
+    expect(nearMissPenalty / collisionPenalty).toBeGreaterThan(0.75);
+  });
+
+  it('danger uses max (not sum) across multiple asteroids', () => {
+    const collisionRadius = 30;
+    const target = { x: 500, y: 0, vx: 0, vy: 0 };
+
+    // Single asteroid at 80px (inside danger zone)
+    const singleAsteroid = [{ x: 0, y: 80, vx: 0, vy: 0, collisionRadius }];
+    // Two asteroids at 80px on opposite sides
+    const twoAsteroids = [
+      { x: 0, y: 80, vx: 0, vy: 0, collisionRadius },
+      { x: 0, y: -80, vx: 0, vy: 0, collisionRadius },
+    ];
+
+    const positions = [
+      { x: 0, y: 0, heading: 0, vx: 60, vy: 0 },
+      { x: 60, y: 0, heading: 0, vx: 60, vy: 0 },
+    ];
+
+    const scoreSingle = scoreTrajectory(positions, target, singleAsteroid, 0.1);
+    const scoreTwo = scoreTrajectory(positions, target, twoAsteroids, 0.1);
+
+    // If danger used sum, two asteroids would double the penalty.
+    // With max, both should have the same danger (same worst proximity).
+    expect(scoreSingle).toBeCloseTo(scoreTwo, 0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Oscillation reproduction tests (from simulate.js seed=42 captures)
+// ---------------------------------------------------------------------------
+// These tests reproduce real oscillation scenarios observed in the headless
+// simulator. Each test sets up the exact ship/asteroid state at consecutive
+// hold-timer boundaries and asserts that selectBestAction produces a stable
+// action when given the previous action as prevAction (hysteresis).
+//
+// Fixed by the danger zone (DANGER_ZONE_FACTOR): smooth scoring eliminates
+// the binary collision cliff that caused 19,000-point score swings.
+// ---------------------------------------------------------------------------
+
+describe('ai-predictive: oscillation reproduction — brake/coast flip (ticks 470→480)', () => {
+  // At tick 470, the AI chose ___B (brake) with score 5338.
+  // At tick 480, the AI switched to ____ (coast) because ___B collapsed to -14076
+  // (a trajectory collision appeared in the braking path). The 250-point
+  // hysteresis bonus is nowhere near enough to bridge a 19,000-point swing.
+  //
+  // The fix should make braking stable in this scenario — either by increasing
+  // hysteresis, improving collision avoidance during braking, or by making the
+  // scoring more temporally consistent.
+
+  function makeShipAtTick470() {
+    const ship = createShip({
+      x: -246.7,
+      y: 179.9,
+      heading: 0.6353,
+      owner: 'enemy',
+    });
+    ship.vx = 195.5;
+    ship.vy = 143.6;
+    ship.thrustIntensity = 0;
+    ship.thrustPower = 2000;
+    return ship;
+  }
+
+  function makeTargetAtTick470() {
+    const target = createShip({
+      x: -82.9,
+      y: 301.7,
+      heading: -2.4375,
+      owner: 'player',
+    });
+    target.vx = -9.8;
+    target.vy = -4.5;
+    return target;
+  }
+
+  function makeShipAtTick480() {
+    const ship = createShip({
+      x: -217.9,
+      y: 201.1,
+      heading: 0.6353,
+      owner: 'enemy',
+    });
+    ship.vx = 156.8;
+    ship.vy = 115.2;
+    ship.thrustIntensity = 0;
+    ship.thrustPower = 2000;
+    return ship;
+  }
+
+  function makeTargetAtTick480() {
+    const target = createShip({
+      x: -83.2,
+      y: 301.6,
+      heading: -2.3708,
+      owner: 'player',
+    });
+    target.vx = 0;
+    target.vy = 0;
+    return target;
+  }
+
+  const asteroids470 = [
+    { x: -357.4, y: 268.4, vx: 102.2, vy: -19.9, collisionRadius: 13.4 },
+    { x: -359.3, y: 82.4, vx: -1.4, vy: 77.8, collisionRadius: 13.9 },
+    { x: -61.4, y: 186.8, vx: 23.5, vy: -9.2, collisionRadius: 51.3 },
+  ];
+
+  const asteroids480 = [
+    { x: -340.4, y: 265.1, vx: 102.2, vy: -19.9, collisionRadius: 13.4 },
+    { x: -359.5, y: 95.4, vx: -1.4, vy: 77.8, collisionRadius: 13.9 },
+    { x: -57.4, y: 185.3, vx: 23.5, vy: -9.2, collisionRadius: 51.3 },
+  ];
+
+  it('AI picks consistent action at tick 470 (no brake-coast cliff)', () => {
+    // With danger zone, brake trajectory scores poorly due to near-miss
+    // penalty (not just actual collision). The AI should NOT pick brake
+    // here because the danger zone makes it unattractive.
+    const ship = makeShipAtTick470();
+    const target = makeTargetAtTick470();
+    const action470 = selectBestAction(ship, target, asteroids470);
+
+    // At tick 480, with prevAction from tick 470, action should stay consistent
+    const ship480 = makeShipAtTick480();
+    const target480 = makeTargetAtTick480();
+    const action480 = selectBestAction(
+      ship480,
+      target480,
+      asteroids480,
+      action470,
+    );
+
+    // Same action at both ticks — no oscillation
+    expect(action480.thrust).toBe(action470.thrust);
+    expect(action480.rotatingLeft).toBe(action470.rotatingLeft);
+    expect(action480.rotatingRight).toBe(action470.rotatingRight);
+    expect(action480.braking).toBe(action470.braking);
+  });
+
+  it('score gap at tick 480 is dramatically reduced from binary cliff', () => {
+    // With danger zone smoothing, the gap between top candidates
+    // should be reasonable (not a 19,000-point cliff).
+    // Before danger zone: gap was ~19,000. After: should be < 3,000.
+    const ship = makeShipAtTick480();
+    const target = makeTargetAtTick480();
+    selectBestAction(ship, target, asteroids480);
+    const info = getLastDebugInfo();
+
+    // Sort candidates by score descending
+    const sorted = [...info.candidates].sort((a, b) => b.score - a.score);
+    const gap = sorted[0].score - sorted[1].score;
+
+    // Gap should be under 3000 (was ~19,000 with binary collision)
+    expect(gap).toBeLessThan(3000);
+  });
+});
+
+describe('ai-predictive: oscillation reproduction — BRK/PUR flip (ticks 260→270)', () => {
+  // At tick 260, BRK (brake-pursuit) wins with score 2770.
+  // At tick 270, PUR (pursuit) wins with score 3243.
+  // The AI was previously holding __RB (coast+right+brake) and switches to
+  // T_R_ (thrust+right) via the PUR candidate. With prevAction=__RB,
+  // neither BRK nor PUR gets hysteresis, so the flip happens easily.
+
+  function makeShipAtTick260() {
+    const ship = createShip({
+      x: 350.0,
+      y: 286.4,
+      heading: 0.9851,
+      owner: 'enemy',
+    });
+    ship.vx = -5.1;
+    ship.vy = 318.8;
+    ship.thrustIntensity = 0;
+    ship.thrustPower = 2000;
+    return ship;
+  }
+
+  function makeTargetAtTick260() {
+    const target = createShip({
+      x: 340.3,
+      y: 463.6,
+      heading: -2.6876,
+      owner: 'player',
+    });
+    target.vx = -156.1;
+    target.vy = 51.4;
+    return target;
+  }
+
+  function makeShipAtTick270() {
+    const ship = createShip({
+      x: 349.3,
+      y: 334.3,
+      heading: 1.6518,
+      owner: 'enemy',
+    });
+    ship.vx = -4.5;
+    ship.vy = 268.0;
+    ship.thrustIntensity = 0.1;
+    ship.thrustPower = 2000;
+    return ship;
+  }
+
+  function makeTargetAtTick270() {
+    const target = createShip({
+      x: 297.9,
+      y: 461.4,
+      heading: -2.1543,
+      owner: 'player',
+    });
+    target.vx = -285.3;
+    target.vy = -47.7;
+    return target;
+  }
+
+  const asteroids260 = [
+    { x: 434.1, y: 352.4, vx: 53.9, vy: -46.2, collisionRadius: 14.7 },
+    { x: 246.0, y: 220.9, vx: 1.7, vy: 146.3, collisionRadius: 14.0 },
+    { x: 274.0, y: 187.5, vx: -35.6, vy: 6.4, collisionRadius: 23.9 },
+    { x: 221.3, y: 349.8, vx: 86.1, vy: -31.9, collisionRadius: 9.3 },
+    { x: 384.2, y: 453.9, vx: -8.4, vy: -67.3, collisionRadius: 13.9 },
+  ];
+
+  const asteroids270 = [
+    { x: 443.0, y: 344.7, vx: 53.9, vy: -46.2, collisionRadius: 14.7 },
+    { x: 382.7, y: 442.7, vx: -8.4, vy: -67.3, collisionRadius: 13.9 },
+    { x: 235.7, y: 344.5, vx: 86.1, vy: -31.9, collisionRadius: 9.3 },
+    { x: 246.3, y: 245.3, vx: 1.7, vy: 146.3, collisionRadius: 14.0 },
+    { x: 268.1, y: 188.6, vx: -35.6, vy: 6.4, collisionRadius: 23.9 },
+  ];
+
+  it('action selected at tick 260 remains stable at tick 270 with hysteresis', () => {
+    // Get what the AI picks at tick 260 (BRK candidate wins, firstAction = __RB)
+    const ship260 = makeShipAtTick260();
+    const target260 = makeTargetAtTick260();
+    const action260 = selectBestAction(ship260, target260, asteroids260);
+
+    // At tick 270 with prevAction from tick 260, action should be stable
+    const ship270 = makeShipAtTick270();
+    const target270 = makeTargetAtTick270();
+    const action270 = selectBestAction(
+      ship270,
+      target270,
+      asteroids270,
+      action260,
+    );
+
+    // The same maneuver class should be maintained (no oscillation)
+    expect(action270.thrust).toBe(action260.thrust);
+    expect(action270.rotatingLeft).toBe(action260.rotatingLeft);
+    expect(action270.rotatingRight).toBe(action260.rotatingRight);
+    expect(action270.braking).toBe(action260.braking);
+  });
+});
+
+describe('ai-predictive: oscillation reproduction — coast/right flip (ticks 468→470)', () => {
+  // At tick 468, __R_ (coast+right) wins with score 1096.
+  // At tick 470, ___B (brake) wins with score 5338.
+  // The AI was coasting and suddenly decides to brake — a significant
+  // behavioral change that indicates score instability.
+
+  const asteroids468 = [
+    { x: -359.2, y: 79.8, vx: -1.4, vy: 77.8, collisionRadius: 13.9 },
+    { x: -360.9, y: 269.1, vx: 102.2, vy: -19.9, collisionRadius: 13.4 },
+    { x: -62.1, y: 187.1, vx: 23.5, vy: -9.2, collisionRadius: 51.3 },
+  ];
+
+  const asteroids470 = [
+    { x: -357.4, y: 268.4, vx: 102.2, vy: -19.9, collisionRadius: 13.4 },
+    { x: -359.3, y: 82.4, vx: -1.4, vy: 77.8, collisionRadius: 13.9 },
+    { x: -61.4, y: 186.8, vx: 23.5, vy: -9.2, collisionRadius: 51.3 },
+  ];
+
+  it('action remains stable between tick 468 and 470 with hysteresis', () => {
+    // At tick 468, pick an action
+    const ship468 = createShip({
+      x: -253.3,
+      y: 175.1,
+      heading: 0.6353,
+      owner: 'enemy',
+    });
+    ship468.vx = 201.5;
+    ship468.vy = 148.0;
+    ship468.thrustIntensity = 0;
+    ship468.thrustPower = 2000;
+    const target468 = createShip({
+      x: -82.5,
+      y: 301.9,
+      heading: -2.5708,
+      owner: 'player',
+    });
+    target468.vx = -10;
+    target468.vy = -4.5;
+
+    const action468 = selectBestAction(ship468, target468, asteroids468);
+
+    // At tick 470, with prevAction from tick 468, action should stay consistent
+    const ship470 = createShip({
+      x: -246.7,
+      y: 179.9,
+      heading: 0.6353,
+      owner: 'enemy',
+    });
+    ship470.vx = 195.5;
+    ship470.vy = 143.6;
+    ship470.thrustIntensity = 0;
+    ship470.thrustPower = 2000;
+    const target470 = createShip({
+      x: -82.9,
+      y: 301.7,
+      heading: -2.4375,
+      owner: 'player',
+    });
+    target470.vx = -9.8;
+    target470.vy = -4.5;
+
+    const action470 = selectBestAction(
+      ship470,
+      target470,
+      asteroids470,
+      action468,
+    );
+
+    // Same action at both ticks — no oscillation
+    expect(action470.thrust).toBe(action468.thrust);
+    expect(action470.rotatingLeft).toBe(action468.rotatingLeft);
+    expect(action470.rotatingRight).toBe(action468.rotatingRight);
+    expect(action470.braking).toBe(action468.braking);
+  });
+
+  it('top two candidates at tick 470 should have manageable score gap', () => {
+    const ship = createShip({
+      x: -246.7,
+      y: 179.9,
+      heading: 0.6353,
+      owner: 'enemy',
+    });
+    ship.vx = 195.5;
+    ship.vy = 143.6;
+    ship.thrustIntensity = 0;
+    ship.thrustPower = 2000;
+    const target = createShip({
+      x: -82.9,
+      y: 301.7,
+      heading: -2.4375,
+      owner: 'player',
+    });
+    target.vx = -9.8;
+    target.vy = -4.5;
+
+    selectBestAction(ship, target, asteroids470);
+    const info = getLastDebugInfo();
+
+    // Sort candidates by score descending
+    const sorted = [...info.candidates].sort((a, b) => b.score - a.score);
+    const gap = sorted[0].score - sorted[1].score;
+
+    // With danger zone smoothing, gap should be under 3000
+    // (was ~1,642 without smoothing — and ~19,000 for brake vs coast)
+    expect(gap).toBeLessThan(3000);
   });
 });

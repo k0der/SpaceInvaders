@@ -72,6 +72,11 @@ export const COLLISION_BREAK_STEPS = 3;
 /** Score bonus for matching the previous frame's action (reduces oscillation). */
 export const HYSTERESIS_BONUS = 250;
 
+/** Danger zone extends to this factor × collision distance. Near-misses within
+ *  this zone receive a graduated penalty (quadratic ramp from 0 at edge to
+ *  full collision penalty at the collision boundary). */
+export const DANGER_ZONE_FACTOR = 3;
+
 /**
  * Clone only the physics-relevant fields of a ship for simulation.
  */
@@ -170,8 +175,10 @@ export function scoreTrajectory(positions, target, asteroids, simDt) {
   let score = 0;
 
   // Check for first collision only (ship dies on first hit, later ones are moot)
+  // Also track worst near-miss within the danger zone for graduated penalty.
   const shipRadius = SHIP_SIZE;
   let collided = false;
+  let worstDanger = 0;
   for (let i = 1; i < positions.length && !collided; i++) {
     const t = i * simDt;
     const pos = positions[i];
@@ -181,13 +188,24 @@ export function scoreTrajectory(positions, target, asteroids, simDt) {
       const dx = pos.x - predicted.x;
       const dy = pos.y - predicted.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
+      const collisionDist = predicted.radius + shipRadius;
 
-      if (dist < predicted.radius + shipRadius) {
+      if (dist < collisionDist) {
         score += COLLISION_BASE_PENALTY + COLLISION_EARLY_BONUS * i;
         collided = true;
         break;
       }
+
+      const dangerZone = DANGER_ZONE_FACTOR * collisionDist;
+      if (dist < dangerZone) {
+        const proximity = (dangerZone - dist) / (dangerZone - collisionDist);
+        worstDanger = Math.max(worstDanger, proximity * proximity);
+      }
     }
+  }
+
+  if (!collided && worstDanger > 0) {
+    score += COLLISION_BASE_PENALTY * worstDanger;
   }
 
   // Compute initial distance to target (used for approach urgency and closing rate)
