@@ -859,7 +859,8 @@ The game logic is already cleanly separated from rendering:
 | Layer | Modules | Browser-free? |
 |-------|---------|---------------|
 | Physics / AI / Collision | `ship.js`, `ai-predictive.js`, `ai-reactive.js`, `ai-core.js`, `physics.js`, `simulation.js`, `energy.js`, `bullet.js`, `asteroid.js`, `debug.js` | Yes |
-| Rendering | `renderer.js`, `camera.js`, `starfield.js`, draw functions | No (canvas) |
+| Camera (math) | `camera.js` (`createCamera`, `getViewportBounds`) | Yes |
+| Rendering | `renderer.js`, `starfield.js`, draw functions, camera transforms | No (canvas) |
 | Orchestration | `main.js` | No (DOM, rAF) |
 
 The simulator replaces `main.js` with a headless loop that imports only the
@@ -927,6 +928,10 @@ node simulate.js --dt 0.05           # simulate 3x speed
 node simulate.js --seed 42           # reproducible
 node simulate.js --verbose           # per-game event log
 node simulate.js --detect oscillation,passthrough  # specific detectors
+node simulate.js --player-ai reactive --enemy-ai predictive  # strategy selection
+node simulate.js --density 2.0       # double asteroid density
+node simulate.js --speed 1.5         # 1.5x speed multiplier
+node simulate.js --thrust 3000       # custom thrust power
 ```
 
 Output: summary table to stdout, detailed logs to file if `--verbose`

@@ -709,11 +709,11 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 
 ### Core Loop
 - [ ] `simulate.js` runs via `node simulate.js` with no browser dependencies
-- [ ] Imports only headless-safe modules (ship, AI, physics, simulation, bullet, asteroid, energy, debug)
+- [ ] Imports only headless-safe modules (ship, AI, physics, simulation, bullet, asteroid, energy, debug, camera, ai.js)
 - [ ] Simulates the full game loop: AI update → ship physics → bullet update → bullet-asteroid collisions → asteroid simulation (move, collide, recycle, spawn)
 - [ ] Uses fixed `dt` (default `1/60`) for browser-accurate physics
 - [ ] Runs N games of M ticks each (configurable via CLI args)
-- [ ] Both ships controlled by AI (ai-vs-ai)
+- [ ] Both ships use AI strategies selected via `--player-ai` / `--enemy-ai` (default: predictive)
 - [ ] Provides synthetic viewport bounds for asteroid spawning (no real canvas needed)
 
 ### Event Logging
@@ -734,6 +734,11 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 - [ ] `--seed N` — seed for reproducible random (optional, non-seeded by default)
 - [ ] `--verbose` — print per-game event logs (default: summary only)
 - [ ] `--detect list` — comma-separated detector names to enable
+- [ ] `--player-ai name` — player AI strategy (default: predictive, rejects 'human')
+- [ ] `--enemy-ai name` — enemy AI strategy (default: predictive)
+- [ ] `--density N` — asteroid density multiplier (default: 1.0)
+- [ ] `--speed N` — speed multiplier (default: 1.0)
+- [ ] `--thrust N` — thrust power (default: 2000)
 
 ### Output
 - [ ] Summary table to stdout: games played, events detected per type, win/loss ratio (once kills exist)
@@ -808,21 +813,21 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 **Acceptance Criteria**:
 
 ### Settings (`src/settings.js`)
-- [ ] `aiStrategy` removed from `SETTINGS_CONFIG`
-- [ ] `playerIntelligence` added: options `['human', 'reactive', 'predictive']`, default `'human'`, label `'Player'`
-- [ ] `enemyIntelligence` added: options `['reactive', 'predictive']`, default `'predictive'`, label `'Enemy AI'`
-- [ ] `createSettings()` defaults: `playerIntelligence='human'`, `enemyIntelligence='predictive'`
-- [ ] `saveSettings` persists both new settings (not `aiStrategy`)
-- [ ] `loadSettings` validates enum values for both new settings
-- [ ] `loadSettings` backward compat: if localStorage has old `aiStrategy` but no `enemyIntelligence`, migrates `aiStrategy` value to `enemyIntelligence`
+- [x] `aiStrategy` removed from `SETTINGS_CONFIG`
+- [x] `playerIntelligence` added: options `['human', 'reactive', 'predictive']`, default `'human'`, label `'Player'`
+- [x] `enemyIntelligence` added: options `['reactive', 'predictive']`, default `'predictive'`, label `'Enemy AI'`
+- [x] `createSettings()` defaults: `playerIntelligence='human'`, `enemyIntelligence='predictive'`
+- [x] `saveSettings` persists both new settings (not `aiStrategy`)
+- [x] `loadSettings` validates enum values for both new settings
+- [x] `loadSettings` backward compat: if localStorage has old `aiStrategy` but no `enemyIntelligence`, migrates `aiStrategy` value to `enemyIntelligence`
 
 ### Main loop (`src/main.js`)
-- [ ] Enemy uses `getStrategy(settings.enemyIntelligence)` (replaces `settings.aiStrategy`)
-- [ ] Player uses keyboard input when `playerIntelligence='human'` (current behavior)
-- [ ] Player uses AI strategy when `playerIntelligence` is `'reactive'` or `'predictive'`
-- [ ] Changing `enemyIntelligence` dropdown swaps enemy strategy and resets AI state
-- [ ] Changing `playerIntelligence` dropdown swaps between keyboard/AI control and resets player AI state
-- [ ] Camera always follows player ship (no change needed)
+- [x] Enemy uses `getStrategy(settings.enemyIntelligence)` (replaces `settings.aiStrategy`)
+- [x] Player uses keyboard input when `playerIntelligence='human'` (current behavior)
+- [x] Player uses AI strategy when `playerIntelligence` is `'reactive'` or `'predictive'`
+- [x] Changing `enemyIntelligence` dropdown swaps enemy strategy and resets AI state
+- [x] Changing `playerIntelligence` dropdown swaps between keyboard/AI control and resets player AI state
+- [x] Camera always follows player ship (no change needed)
 
 ### Visible
-- [ ] **Visible**: Settings panel shows "Player" dropdown (human/reactive/predictive) and "Enemy AI" dropdown (reactive/predictive). Human mode = keyboard control. Switching to reactive/predictive makes the player ship autonomous. Enemy AI dropdown works as before.
+- [x] **Visible**: Settings panel shows "Player" dropdown (human/reactive/predictive) and "Enemy AI" dropdown (reactive/predictive). Human mode = keyboard control. Switching to reactive/predictive makes the player ship autonomous. Enemy AI dropdown works as before.
