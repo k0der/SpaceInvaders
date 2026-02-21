@@ -502,7 +502,7 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 
 ---
 
-## Increment 24: Bullets
+## Increment 24: Bullets ✅
 
 **Goal**: Player can fire bullets.
 
@@ -510,18 +510,18 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 **Modify**: `src/main.js`
 
 **Acceptance Criteria**:
-- [ ] `createBullet(x, y, heading, shipVx, shipVy, owner)` creates a bullet at given position, traveling at `BULLET_SPEED` in heading direction plus ship velocity (bullets inherit momentum)
-- [ ] `updateBullet(bullet, dt)` moves bullet linearly, increments `age`
-- [ ] `isBulletExpired(bullet)` returns true when `age >= BULLET_LIFETIME` (e.g., 2s)
-- [ ] `drawBullet(ctx, bullet)` draws a small bright dot or short line
-- [ ] Space key fires from ship nose position in heading direction
-- [ ] Fire rate limited by `FIRE_COOLDOWN` (~0.2s between shots)
-- [ ] Bullets rendered inside camera transform (world-space)
-- [ ] Expired bullets removed each frame
-- [ ] Bullets are blocked by asteroids: a bullet within an asteroid's `collisionRadius` is removed; the asteroid is unaffected
-- [ ] `checkBulletAsteroidCollisions(bullets, asteroids)` returns the filtered array of surviving bullets
-- [ ] `owner` field on bullet tracks which ship fired it (for later collision filtering)
-- [ ] **Visible**: Pressing Space fires white projectiles that streak forward from the ship and disappear after a distance.
+- [x] `createBullet(x, y, heading, shipVx, shipVy, owner)` creates a bullet at given position, traveling at `BULLET_SPEED` in heading direction plus ship velocity (bullets inherit momentum)
+- [x] `updateBullet(bullet, dt)` moves bullet linearly, increments `age`
+- [x] `isBulletExpired(bullet)` returns true when `age >= BULLET_LIFETIME` (e.g., 2s)
+- [x] `drawBullet(ctx, bullet)` draws a small bright dot or short line
+- [x] Space key fires from ship nose position in heading direction
+- [x] Fire rate limited by `FIRE_COOLDOWN` (~0.2s between shots)
+- [x] Bullets rendered inside camera transform (world-space)
+- [x] Expired bullets removed each frame
+- [x] Bullets are blocked by asteroids: a bullet within an asteroid's `collisionRadius` is removed; the asteroid is unaffected
+- [x] `checkBulletAsteroidCollisions(bullets, asteroids)` returns the filtered array of surviving bullets
+- [x] `owner` field on bullet tracks which ship fired it (for later collision filtering)
+- [x] **Visible**: Pressing Space fires white projectiles that streak forward from the ship and disappear after a distance.
 
 ---
 
@@ -648,7 +648,7 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 
 ---
 
-## Increment 26c: AI Debug Logging
+## Increment 26c: AI Debug Logging ✅
 
 **Goal**: Structured console telemetry for diagnosing AI behavior. Toggled via a settings checkbox (default: off). Zero cost when disabled.
 
@@ -658,43 +658,90 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 **Acceptance Criteria**:
 
 ### Score Capture (`ai-predictive.js`)
-- [ ] `selectBestAction` populates a module-level debug info object with all candidate names, scores, and winner name
-- [ ] `getLastDebugInfo()` exported — returns last captured debug info (or `null`)
+- [x] `selectBestAction` populates a module-level debug info object with all candidate names, scores, and winner name
+- [x] `getLastDebugInfo()` exported — returns last captured debug info (or `null`)
 
 ### Debug Logger (`debug.js`)
-- [ ] `createDebugLogger()` returns a logger instance with `enable()`, `disable()`, `isEnabled()`, `logAIFrame(...)`, `logEvent(...)`
-- [ ] `fmtAction(ship)` exported — converts control flags to compact 4-char string (e.g. `T_R_`)
-- [ ] `logAIFrame(elapsed, enemy, player, debugInfo)` — rate-limited to every 0.5s
-- [ ] Action change detection bypasses rate limit (logs immediately when action differs from previous)
-- [ ] `logEvent(elapsed, type, data)` — logs immediately (fire, collision)
-- [ ] When disabled: all functions are no-ops (zero cost)
+- [x] `createDebugLogger()` returns a logger instance with `enable()`, `disable()`, `isEnabled()`, `logAIFrame(...)`, `logEvent(...)`
+- [x] `fmtAction(ship)` exported — converts control flags to compact 4-char string (e.g. `T_R_`)
+- [x] `logAIFrame(elapsed, enemy, player, debugInfo)` — rate-limited to every 0.5s
+- [x] Action change detection bypasses rate limit (logs immediately when action differs from previous)
+- [x] `logEvent(elapsed, type, data)` — logs immediately (fire, collision)
+- [x] When disabled: all functions are no-ops (zero cost)
 
 ### Settings Integration
-- [ ] `SETTINGS_CONFIG` includes `aiDebugLog` checkbox, default `false`
-- [ ] Setting persisted to `localStorage`
-- [ ] Toggling checkbox enables/disables debug logging in real-time
-- [ ] `createSettingsUI` renders checkboxes for boolean settings
-- [ ] Also accessible via `window.aiDebug.enable()` / `window.aiDebug.disable()`
+- [x] `SETTINGS_CONFIG` includes `aiDebugLog` checkbox, default `false`
+- [x] Setting persisted to `localStorage`
+- [x] Toggling checkbox enables/disables debug logging in real-time
+- [x] `createSettingsUI` renders checkboxes for boolean settings
+- [x] Also accessible via `window.aiDebug.enable()` / `window.aiDebug.disable()`
 
 ### Main Loop Integration (`main.js`)
-- [ ] After AI update: calls `logAIFrame` with ship states + `getLastDebugInfo()`
-- [ ] On bullet creation: calls `logEvent`
+- [x] After AI update: calls `logAIFrame` with ship states + `getLastDebugInfo()`
+- [x] On bullet creation: calls `logEvent`
 
 ### Log Format
-- [ ] Periodic: `[AI 1.20s] dist=342 action=T___ spd=180 hdg=0.50 pos=(100,-200) | T___:3090 TL__:-3299 ...`
-- [ ] Change: `[AI 1.50s] CHANGE T___ → __RB dist=45`
-- [ ] Fire: `[FIRE 1.60s] enemy dist=180 angle=0.08`
+- [x] Periodic: `[AI 1.20s] dist=342 action=T___ spd=180 hdg=0.50 pos=(100,-200) | T___:3090 TL__:-3299 ...`
+- [x] Change: `[AI 1.50s] CHANGE T___ → __RB dist=45`
+- [x] Fire: `[FIRE 1.60s] enemy dist=180 angle=0.08`
 
 ### Tests (`test/debug.test.js`)
-- [ ] enable/disable toggling
-- [ ] rate limiting (0.5s)
-- [ ] action change detection bypasses rate limit
-- [ ] fmtAction format
-- [ ] logEvent logs immediately
-- [ ] getLastDebugInfo from ai-predictive
+- [x] enable/disable toggling
+- [x] rate limiting (0.5s)
+- [x] action change detection bypasses rate limit
+- [x] fmtAction format
+- [x] logEvent logs immediately
+- [x] getLastDebugInfo from ai-predictive
 
 ### Visible
-- [ ] **Visible**: Toggle "AI Debug Log" checkbox in settings. Open browser console. See structured AI telemetry: periodic state dumps, action changes, fire events. Disable checkbox → logs stop.
+- [x] **Visible**: Toggle "AI Debug Log" checkbox in settings. Open browser console. See structured AI telemetry: periodic state dumps, action changes, fire events. Disable checkbox → logs stop.
+
+---
+
+## Increment 26d: Headless Simulator
+
+**Goal**: A CLI-runnable simulation harness that exercises the full game logic (physics, AI, collisions, spawning) without any browser or canvas. Runs at max CPU speed with controlled dt, producing structured logs and stats for detecting AI bugs and balance issues at scale.
+
+**New files**: `simulate.js`
+**Modify**: None (pure addition — consumes existing modules)
+
+**Acceptance Criteria**:
+
+### Core Loop
+- [ ] `simulate.js` runs via `node simulate.js` with no browser dependencies
+- [ ] Imports only headless-safe modules (ship, AI, physics, simulation, bullet, asteroid, energy, debug)
+- [ ] Simulates the full game loop: AI update → ship physics → bullet update → bullet-asteroid collisions → asteroid simulation (move, collide, recycle, spawn)
+- [ ] Uses fixed `dt` (default `1/60`) for browser-accurate physics
+- [ ] Runs N games of M ticks each (configurable via CLI args)
+- [ ] Both ships controlled by AI (ai-vs-ai)
+- [ ] Provides synthetic viewport bounds for asteroid spawning (no real canvas needed)
+
+### Event Logging
+- [ ] Logs action changes with previous/new action and winner
+- [ ] Logs bullet fires and hits (when bullet-ship collision exists)
+- [ ] Logs ship-asteroid proximity (ship center within `2 × collisionRadius` of asteroid)
+- [ ] Logs AI score breakdowns on action change (all candidate scores)
+
+### Detectors
+- [ ] **Oscillation detector**: flags when action changes occur faster than `HOLD_TIME`
+- [ ] **Asteroid pass-through detector**: flags when ship overlaps asteroid `collisionRadius` without dying (once ship-asteroid collision is implemented)
+- [ ] **Score collapse detector**: flags when all candidates score below a configurable threshold
+
+### CLI Interface
+- [ ] `--games N` — number of games to run (default 100)
+- [ ] `--ticks N` — ticks per game (default 3600 = 60s at 60fps)
+- [ ] `--dt N` — simulation timestep in seconds (default 1/60)
+- [ ] `--seed N` — seed for reproducible random (optional, non-seeded by default)
+- [ ] `--verbose` — print per-game event logs (default: summary only)
+- [ ] `--detect list` — comma-separated detector names to enable
+
+### Output
+- [ ] Summary table to stdout: games played, events detected per type, win/loss ratio (once kills exist)
+- [ ] Per-game details when `--verbose`
+- [ ] Exit code 0 on success, 1 if any detector fired
+
+### Visible
+- [ ] **Visible**: `node simulate.js --games 10 --verbose` runs 10 headless games in seconds, printing event logs and a summary table. No browser needed.
 
 ---
 

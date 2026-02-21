@@ -393,6 +393,7 @@ SpaceInvaders/
     ai.js           ← AI facade: registers strategies, re-exports for compat
     debug.js        ← AI debug logging (console telemetry, rate-limited)
     game.js         ← game state: phases, collisions, HUD, restart
+  simulate.js       ← headless simulation harness (CLI, no browser)
   test/             ← Vitest test files (one per module)
   dev.html          ← development entry point (ES module imports)
   index.html        ← production build (single file, all JS inlined)
@@ -834,3 +835,92 @@ Three modes selectable from the settings panel:
 
 - Persisted to `localStorage`
 - Mode switching works live without page reload
+
+---
+
+## 15. Headless Simulator
+
+A CLI-runnable simulation harness that exercises the full game logic (physics, AI,
+collisions, spawning) without any browser, canvas, or rendering dependencies.
+Runs at maximum CPU speed with controlled `dt`, producing structured logs and
+aggregate statistics for detecting AI behavioral bugs, collision edge cases, and
+balance issues at scale.
+
+### 15.1 Architecture
+
+The game logic is already cleanly separated from rendering:
+
+| Layer | Modules | Browser-free? |
+|-------|---------|---------------|
+| Physics / AI / Collision | `ship.js`, `ai-predictive.js`, `ai-reactive.js`, `ai-core.js`, `physics.js`, `simulation.js`, `energy.js`, `bullet.js`, `asteroid.js`, `debug.js` | Yes |
+| Rendering | `renderer.js`, `camera.js`, `starfield.js`, draw functions | No (canvas) |
+| Orchestration | `main.js` | No (DOM, rAF) |
+
+The simulator replaces `main.js` with a headless loop that imports only the
+browser-free modules. No stubs or mocks needed — just don't call `draw*` functions.
+
+### 15.2 Simulation Loop
+
+Each tick mirrors the browser's animation loop (SPEC §7), minus rendering:
+
+1. Create ships, spawn initial asteroids (using `createSimulation`)
+2. Per tick (fixed `dt`, default `1/60`):
+   a. Apply AI for both ships (or input replay for player)
+   b. `updateShip` for each ship
+   c. Update bullets (move, expire, asteroid collisions)
+   d. Check bullet-ship collisions (when implemented)
+   e. Check ship-asteroid collisions (when implemented)
+   f. `updateSimulation` (asteroid move, collide, recycle, spawn)
+   g. Record events and frame state
+3. Repeat for N ticks or until termination condition
+
+### 15.3 Determinism
+
+- **Fixed dt** ensures identical physics to browser at matching framerate
+- All game logic uses `dt` as input, not wall-clock time
+- `Math.random()` is the only source of non-determinism (asteroid shapes,
+  spawn positions). A seeded PRNG can be injected for reproducible runs.
+- Variable-dt robustness testing: sweep dt values (frame drops, 144Hz, 3x speed
+  multiplier) to detect timing-sensitive bugs
+
+### 15.4 Event Logging & Detectors
+
+The simulator captures structured events and runs configurable detectors:
+
+**Events** (per-frame or on occurrence):
+- Action changes (with previous/new action, winner, scores)
+- Bullet fires and hits
+- Ship deaths (cause: bullet, asteroid, or none)
+- Ship-asteroid proximity (near-miss tracking)
+- AI score breakdowns (all candidate scores per evaluation)
+
+**Detectors** (flag anomalies):
+- **Oscillation**: action changes faster than `HOLD_TIME` → flag frame range
+- **Asteroid pass-through**: ship within asteroid `collisionRadius` without death
+- **Stuck states**: same action for >N seconds while target is alive
+- **Orbit lock**: distance to target stable (±10%) for >N seconds
+- **Score collapse**: all candidates score below threshold (no good option)
+
+### 15.5 Aggregate Statistics
+
+Run N games, collect:
+- Win/loss ratio per AI strategy
+- Average game duration
+- Asteroid collision count per game
+- Action distribution (% time in each action)
+- Oscillation events per game
+- Near-miss frequency
+
+### 15.6 CLI Interface
+
+```
+node simulate.js                     # 100 games, default settings, summary only
+node simulate.js --games 1000        # scale up
+node simulate.js --ticks 3600        # 60s per game
+node simulate.js --dt 0.05           # simulate 3x speed
+node simulate.js --seed 42           # reproducible
+node simulate.js --verbose           # per-game event log
+node simulate.js --detect oscillation,passthrough  # specific detectors
+```
+
+Output: summary table to stdout, detailed logs to file if `--verbose`

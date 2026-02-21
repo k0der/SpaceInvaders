@@ -27,7 +27,17 @@
       "Bash(npx biome check:*)",
       "Bash(npm run lint:*)",
       "Bash(git status:*)",
-      "Bash(ls:*)"
+      "Bash(ls:*)",
+      "Bash(wc:*)",
+      "WebFetch(domain:www.moddb.com)",
+      "WebFetch(domain:andrewfray.wordpress.com)",
+      "WebFetch(domain:alastaira.wordpress.com)",
+      "WebFetch(domain:www.red3d.com)",
+      "WebFetch(domain:kidscancode.org)",
+      "WebFetch(domain:en.wikipedia.org)",
+      "WebFetch(domain:natureofcode.com)",
+      "WebFetch(domain:www.rorydriscoll.com)",
+      "Bash(node:*)"
     ]
   }
 }
