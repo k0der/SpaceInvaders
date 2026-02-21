@@ -11,6 +11,7 @@ import {
   EXPLOSION_DURATION,
   EXPLOSION_INNER_RATIO,
   EXPLOSION_MAX_RADIUS,
+  GRACE_PERIOD,
   isExplosionDone,
   processBulletShipCollisions,
   SPAWN_SAFE_RADIUS,
@@ -353,10 +354,11 @@ describe('Increment 27: Bullet-Ship Collision', () => {
   });
 
   describe('createGameState', () => {
-    it('returns state with phase playing and empty explosions', () => {
+    it('returns state with phase playing, empty explosions, and deathTimer 0', () => {
       const state = createGameState();
       expect(state.phase).toBe('playing');
       expect(state.explosions).toEqual([]);
+      expect(state.deathTimer).toBe(0);
     });
   });
 
@@ -365,32 +367,74 @@ describe('Increment 27: Bullet-Ship Collision', () => {
       const state = createGameState();
       const player = makeShip({ alive: true, owner: 'player' });
       const enemy = makeShip({ alive: true, owner: 'enemy' });
-      updateGameState(state, player, enemy);
+      updateGameState(state, player, enemy, 0);
       expect(state.phase).toBe('playing');
     });
 
-    it('transitions to playerWin when enemy dies', () => {
+    it('transitions to ending (not directly to terminal) when enemy dies', () => {
       const state = createGameState();
       const player = makeShip({ alive: true, owner: 'player' });
       const enemy = makeShip({ alive: false, owner: 'enemy' });
-      updateGameState(state, player, enemy);
-      expect(state.phase).toBe('playerWin');
+      updateGameState(state, player, enemy, 0);
+      expect(state.phase).toBe('ending');
+      expect(state.deathTimer).toBe(GRACE_PERIOD);
     });
 
-    it('transitions to playerDead when player dies', () => {
+    it('transitions to ending when player dies', () => {
       const state = createGameState();
       const player = makeShip({ alive: false, owner: 'player' });
       const enemy = makeShip({ alive: true, owner: 'enemy' });
-      updateGameState(state, player, enemy);
-      expect(state.phase).toBe('playerDead');
+      updateGameState(state, player, enemy, 0);
+      expect(state.phase).toBe('ending');
     });
 
-    it('transitions to playerDead when both die (player loss takes priority)', () => {
+    it('transitions to ending when both die simultaneously', () => {
       const state = createGameState();
       const player = makeShip({ alive: false, owner: 'player' });
       const enemy = makeShip({ alive: false, owner: 'enemy' });
-      updateGameState(state, player, enemy);
+      updateGameState(state, player, enemy, 0);
+      expect(state.phase).toBe('ending');
+    });
+
+    it('ticks deathTimer during ending phase', () => {
+      const state = createGameState();
+      state.phase = 'ending';
+      state.deathTimer = GRACE_PERIOD;
+      const player = makeShip({ alive: true, owner: 'player' });
+      const enemy = makeShip({ alive: false, owner: 'enemy' });
+      updateGameState(state, player, enemy, 0.5);
+      expect(state.phase).toBe('ending');
+      expect(state.deathTimer).toBeCloseTo(GRACE_PERIOD - 0.5);
+    });
+
+    it('resolves to playerWin when grace period expires and only enemy is dead', () => {
+      const state = createGameState();
+      state.phase = 'ending';
+      state.deathTimer = 0.01;
+      const player = makeShip({ alive: true, owner: 'player' });
+      const enemy = makeShip({ alive: false, owner: 'enemy' });
+      updateGameState(state, player, enemy, 0.02);
+      expect(state.phase).toBe('playerWin');
+    });
+
+    it('resolves to playerDead when grace period expires and only player is dead', () => {
+      const state = createGameState();
+      state.phase = 'ending';
+      state.deathTimer = 0.01;
+      const player = makeShip({ alive: false, owner: 'player' });
+      const enemy = makeShip({ alive: true, owner: 'enemy' });
+      updateGameState(state, player, enemy, 0.02);
       expect(state.phase).toBe('playerDead');
+    });
+
+    it('resolves to draw when grace period expires and both are dead', () => {
+      const state = createGameState();
+      state.phase = 'ending';
+      state.deathTimer = 0.01;
+      const player = makeShip({ alive: false, owner: 'player' });
+      const enemy = makeShip({ alive: false, owner: 'enemy' });
+      updateGameState(state, player, enemy, 0.02);
+      expect(state.phase).toBe('draw');
     });
 
     it('does not transition back to playing from playerWin', () => {
@@ -398,7 +442,7 @@ describe('Increment 27: Bullet-Ship Collision', () => {
       state.phase = 'playerWin';
       const player = makeShip({ alive: true, owner: 'player' });
       const enemy = makeShip({ alive: true, owner: 'enemy' });
-      updateGameState(state, player, enemy);
+      updateGameState(state, player, enemy, 0);
       expect(state.phase).toBe('playerWin');
     });
 
@@ -407,8 +451,21 @@ describe('Increment 27: Bullet-Ship Collision', () => {
       state.phase = 'playerDead';
       const player = makeShip({ alive: true, owner: 'player' });
       const enemy = makeShip({ alive: true, owner: 'enemy' });
-      updateGameState(state, player, enemy);
+      updateGameState(state, player, enemy, 0);
       expect(state.phase).toBe('playerDead');
+    });
+
+    it('does not transition back from draw', () => {
+      const state = createGameState();
+      state.phase = 'draw';
+      const player = makeShip({ alive: true, owner: 'player' });
+      const enemy = makeShip({ alive: true, owner: 'enemy' });
+      updateGameState(state, player, enemy, 0);
+      expect(state.phase).toBe('draw');
+    });
+
+    it('GRACE_PERIOD is a positive number', () => {
+      expect(GRACE_PERIOD).toBeGreaterThan(0);
     });
   });
 });
@@ -541,6 +598,14 @@ describe('Increment 29: HUD', () => {
       expect(ctx.beginPath).not.toHaveBeenCalled();
     });
 
+    it('does nothing during ending phase', () => {
+      const ctx = mockCtx();
+      drawHUD(ctx, 'ending', 800, 600);
+
+      expect(ctx.save).not.toHaveBeenCalled();
+      expect(ctx.beginPath).not.toHaveBeenCalled();
+    });
+
     it('renders text for playerWin phase', () => {
       const ctx = mockCtx();
       drawHUD(ctx, 'playerWin', 800, 600);
@@ -585,6 +650,15 @@ describe('Increment 29: HUD', () => {
       expect(styles[0]).toBe('#FF321E');
     });
 
+    it('uses white for draw main text', () => {
+      const styles = [];
+      const ctx = mockCtx();
+      ctx.stroke = vi.fn(() => styles.push(ctx.strokeStyle));
+      drawHUD(ctx, 'draw', 800, 600);
+
+      expect(styles[0]).toBe('#FFFFFF');
+    });
+
     it('saves and restores canvas state', () => {
       const ctx = mockCtx();
       drawHUD(ctx, 'playerWin', 800, 600);
@@ -600,6 +674,15 @@ describe('Increment 29: HUD', () => {
       const ctx = mockCtx();
       ctx.fillRect = vi.fn();
       drawEndScreenOverlay(ctx, 'playing', 800, 600);
+
+      expect(ctx.save).not.toHaveBeenCalled();
+      expect(ctx.fillRect).not.toHaveBeenCalled();
+    });
+
+    it('does nothing during ending phase', () => {
+      const ctx = mockCtx();
+      ctx.fillRect = vi.fn();
+      drawEndScreenOverlay(ctx, 'ending', 800, 600);
 
       expect(ctx.save).not.toHaveBeenCalled();
       expect(ctx.fillRect).not.toHaveBeenCalled();

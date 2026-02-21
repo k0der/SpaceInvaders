@@ -122,6 +122,9 @@ export function drawExplosion(ctx, explosion) {
   ctx.restore();
 }
 
+/** Seconds after first death before the final result is shown. */
+export const GRACE_PERIOD = 3;
+
 /**
  * Create the initial game state.
  */
@@ -129,20 +132,37 @@ export function createGameState() {
   return {
     phase: 'playing',
     explosions: [],
+    deathTimer: 0,
   };
 }
 
 /**
  * Transition game phase based on ship alive status.
- * Only transitions from 'playing' — terminal states are sticky.
+ *
+ * 'playing' → first death → 'ending' (grace period, collisions still active)
+ * 'ending'  → timer expires → 'playerWin' / 'playerDead' / 'draw'
+ * Terminal states are sticky.
  */
-export function updateGameState(state, playerShip, enemyShip) {
-  if (state.phase !== 'playing') return;
+export function updateGameState(state, playerShip, enemyShip, dt) {
+  if (state.phase === 'playing') {
+    if (!playerShip.alive || !enemyShip.alive) {
+      state.phase = 'ending';
+      state.deathTimer = GRACE_PERIOD;
+    }
+    return;
+  }
 
-  if (!playerShip.alive) {
-    state.phase = 'playerDead';
-  } else if (!enemyShip.alive) {
-    state.phase = 'playerWin';
+  if (state.phase === 'ending') {
+    state.deathTimer -= dt;
+    if (state.deathTimer <= 0) {
+      if (!playerShip.alive && !enemyShip.alive) {
+        state.phase = 'draw';
+      } else if (!playerShip.alive) {
+        state.phase = 'playerDead';
+      } else {
+        state.phase = 'playerWin';
+      }
+    }
   }
 }
 
@@ -175,7 +195,7 @@ const END_SCREEN_OVERLAY_ALPHA = 0.6;
  * Fades the background so the HUD text stands out.
  */
 export function drawEndScreenOverlay(ctx, phase, width, height) {
-  if (phase === 'playing') return;
+  if (phase === 'playing' || phase === 'ending') return;
 
   ctx.save();
   ctx.globalAlpha = END_SCREEN_OVERLAY_ALPHA;
@@ -199,19 +219,32 @@ const HUD_PLAYER_COLOR = '#508CFF';
 /** Enemy faction color for HUD text (red). */
 const HUD_ENEMY_COLOR = '#FF321E';
 
+/** Draw color for draw outcome (white). */
+const HUD_DRAW_COLOR = '#FFFFFF';
+
 /**
- * Draw the HUD overlay for non-playing phases.
- * Renders "YOU WIN" (blue) or "GAME OVER" (red) with a restart prompt below.
+ * Draw the HUD overlay for terminal phases.
+ * Renders "YOU WIN" (blue), "GAME OVER" (red), or "DRAW" (white)
+ * with a restart prompt below.
  */
 export function drawHUD(ctx, phase, width, height) {
-  if (phase === 'playing') return;
+  if (phase === 'playing' || phase === 'ending') return;
 
   const centerX = width / 2;
   const centerY = height / 2 - 30;
 
-  const isWin = phase === 'playerWin';
-  const mainText = isWin ? 'YOU WIN' : 'GAME OVER';
-  const mainColor = isWin ? HUD_PLAYER_COLOR : HUD_ENEMY_COLOR;
+  let mainText;
+  let mainColor;
+  if (phase === 'playerWin') {
+    mainText = 'YOU WIN';
+    mainColor = HUD_PLAYER_COLOR;
+  } else if (phase === 'draw') {
+    mainText = 'DRAW';
+    mainColor = HUD_DRAW_COLOR;
+  } else {
+    mainText = 'GAME OVER';
+    mainColor = HUD_ENEMY_COLOR;
+  }
   drawVectorText(ctx, mainText, centerX, centerY, HUD_MAIN_SCALE, {
     color: mainColor,
   });

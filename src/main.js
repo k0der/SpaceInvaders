@@ -280,7 +280,11 @@ export function startApp() {
 
   // Keyboard input for ship controls and restart
   window.addEventListener('keydown', (e) => {
-    if (isRestartKey(e.key) && gameState.phase !== 'playing') {
+    const terminal =
+      gameState.phase === 'playerWin' ||
+      gameState.phase === 'playerDead' ||
+      gameState.phase === 'draw';
+    if (isRestartKey(e.key) && terminal) {
       restartGame();
       return;
     }
@@ -530,8 +534,8 @@ export function startApp() {
     bullets = bullets.filter((b) => !isBulletExpired(b));
     bullets = checkBulletAsteroidCollisions(bullets, sim.asteroids);
 
-    // Bullet-ship collisions
-    if (gameState.phase === 'playing') {
+    // Bullet-ship collisions (active during playing and ending grace period)
+    if (gameState.phase === 'playing' || gameState.phase === 'ending') {
       const collisionResult = processBulletShipCollisions(
         bullets,
         playerShip,
@@ -571,7 +575,7 @@ export function startApp() {
         );
       }
 
-      updateGameState(gameState, playerShip, enemyShip);
+      updateGameState(gameState, playerShip, enemyShip, scaledDt);
     }
 
     // Update explosions
@@ -593,7 +597,7 @@ export function startApp() {
       drawAsteroid(ctx, asteroid);
     }
 
-    if (gameState.phase === 'playing') {
+    if (gameState.phase === 'playing' || gameState.phase === 'ending') {
       drawTrail(ctx, enemyTrail);
       drawShip(ctx, enemyShip);
       drawTrail(ctx, playerTrail);
