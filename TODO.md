@@ -758,16 +758,16 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 **Modify**: `src/main.js`
 
 **Acceptance Criteria**:
-- [ ] `checkBulletShipHit(bullet, ship)` returns true when bullet is within ship's `collisionRadius`
-- [ ] Ship `collisionRadius` defined at creation (based on ship size)
-- [ ] Player bullets hit enemy; enemy bullets hit player
-- [ ] Ship's own bullets cannot hit itself (filtered by `owner`)
-- [ ] One hit → `ship.alive = false`
-- [ ] Dead ship stops rendering and updating
-- [ ] Simple explosion effect on death (expanding wireframe circle or particle burst)
-- [ ] `createGameState()` tracks `{ phase }` — `'playing'`, `'playerWin'`, `'playerDead'`
-- [ ] Phase transitions on ship death
-- [ ] **Visible**: Ships can be destroyed by bullets. One shot = one kill. Explosion plays on death.
+- [x] `checkBulletShipHit(bullet, ship)` returns true when bullet is within ship's `collisionRadius`
+- [x] Ship `collisionRadius` defined at creation (based on ship size)
+- [x] Player bullets hit enemy; enemy bullets hit player
+- [x] Ship's own bullets cannot hit itself (filtered by `owner`)
+- [x] One hit → `ship.alive = false`
+- [x] Dead ship stops rendering and updating
+- [x] Simple explosion effect on death (expanding wireframe circle or particle burst)
+- [x] `createGameState()` tracks `{ phase }` — `'playing'`, `'playerWin'`, `'playerDead'`
+- [x] Phase transitions on ship death
+- [x] **Visible**: Ships can be destroyed by bullets. One shot = one kill. Explosion plays on death.
 
 ---
 

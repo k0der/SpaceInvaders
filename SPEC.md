@@ -30,8 +30,8 @@ arena, AI-vs-AI screensaver, or classic asteroid screensaver (ships off).
 - **Black background**, white vector-style line art for asteroids and player ship
 - **No fill** on asteroids — wireframe outlines only (1–2px stroke)
 - Aesthetic: vector graphics with Star Wars-inspired faction colors
-- **Player**: white wireframe, blue exhaust trail (Rebel)
-- **Enemy**: dark red wireframe (`#CC3333`) with dashed lines, red exhaust trail (Empire)
+- **Player**: white wireframe, blue exhaust trail and explosion (Rebel)
+- **Enemy**: dark red wireframe (`#CC3333`) with dashed lines, red exhaust trail and explosion (Empire)
 - No textures, no gradients
 
 ---
@@ -396,7 +396,7 @@ SpaceInvaders/
     ai.js           ← AI facade: registers strategies, re-exports for compat
     ai-neural.js    ← neural AI: ONNX inference, control flag mapping
     debug.js        ← AI debug logging (console telemetry, rate-limited)
-    game.js         ← game state: phases, collisions, HUD, restart
+    game.js         ← game state: phases, bullet-ship collisions, explosions
     observation.js  ← shared observation builder (ego-centric vectors)
     reward.js       ← configurable dense reward function for training
     game-env.js     ← GameEnv class: gym-style reset/step interface
@@ -858,11 +858,34 @@ the algorithm evolves.
 
 ### 13.3 Bullet-Ship Collision
 
-- Bullet within ship's `collisionRadius` = hit
+- `checkBulletShipHit(bullet, ship)`: point-circle test, `distance < ship.collisionRadius`
+- Player bullets hit enemy only; enemy bullets hit player only (filtered by `owner`)
 - One bullet = one kill → `ship.alive = false`
-- Explosion effect on death (expanding wireframe circle or particle burst)
+- Dead ships cannot be hit again
+- `processBulletShipCollisions(bullets, playerShip, enemyShip)` returns `{ bullets, playerHit, enemyHit }` — pure function, caller handles death side effects
 
-### 13.4 HUD
+### 13.4 Explosion Effect
+
+- Dual concentric expanding wireframe circles (outer + inner at 50% radius)
+- Inner ring is slightly brighter than outer for depth
+- Faction-colored: player explosion uses blue trail color `rgb(80, 140, 255)`, enemy uses red `rgb(255, 50, 30)`
+- Duration: 1.0s, max radius: 60px, alpha fades linearly from 1.0 to 0.0
+- Drawn in world-space (inside camera transform)
+
+### 13.5 Death Behavior
+
+- Dead ships stop updating (no AI, no physics, no input)
+- Dead ships stop rendering (`drawShip` early-returns on `!alive`)
+- Exhaust trail drains on death: oldest points removed at `TRAIL_DRAIN_RATE` (400 pts/s), trail shrinks and vanishes over ~0.6s
+- Bullet firing already guarded by `ship.alive` check
+
+### 13.6 Game State Module (`game.js`)
+
+- `createGameState()` → `{ phase: 'playing', explosions: [] }`
+- `updateGameState(state, playerShip, enemyShip)` — transitions from `'playing'` only: player dead → `'playerDead'`, enemy dead → `'playerWin'`; terminal states are sticky
+- Explosion lifecycle: `createExplosion(x, y, color)`, `updateExplosion`, `isExplosionDone`, `drawExplosion`
+
+### 13.7 HUD
 
 - Screen-space text (drawn after camera reset)
 - "YOU WIN" or "GAME OVER" centered on screen
