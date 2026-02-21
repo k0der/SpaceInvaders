@@ -8,12 +8,12 @@ import {
 } from '../src/ai.js';
 import { getStrategy, listStrategies } from '../src/ai-core.js';
 import { predictiveStrategy } from '../src/ai-predictive.js';
+import { predictiveOptimizedStrategy } from '../src/ai-predictive-optimized.js';
 import {
   createReactiveState,
   reactiveStrategy,
   updateReactiveAI,
 } from '../src/ai-reactive.js';
-import { reactiveOptimizedStrategy } from '../src/ai-reactive-optimized.js';
 import { createShip } from '../src/ship.js';
 
 describe('AI Facade — strategy registration', () => {
@@ -27,16 +27,16 @@ describe('AI Facade — strategy registration', () => {
     expect(strategy).toBe(predictiveStrategy);
   });
 
-  it('registers reactive-optimized strategy in the registry', () => {
-    const strategy = getStrategy('reactive-optimized');
-    expect(strategy).toBe(reactiveOptimizedStrategy);
+  it('registers predictive-optimized strategy in the registry', () => {
+    const strategy = getStrategy('predictive-optimized');
+    expect(strategy).toBe(predictiveOptimizedStrategy);
   });
 
-  it('listStrategies includes reactive, reactive-optimized, and predictive', () => {
+  it('listStrategies includes reactive, predictive, and predictive-optimized', () => {
     const names = listStrategies();
     expect(names).toContain('reactive');
-    expect(names).toContain('reactive-optimized');
     expect(names).toContain('predictive');
+    expect(names).toContain('predictive-optimized');
   });
 
   it('getStrategy throws for unknown name', () => {

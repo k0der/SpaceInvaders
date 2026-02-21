@@ -834,44 +834,44 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 
 ---
 
-## Increment 30b: Reactive-Optimized AI Clone
+## Increment 30b: Predictive-Optimized AI Clone
 
-**Goal**: Create a fully decoupled clone of the reactive AI for autonomous iterative optimization. A separate development context can freely modify `ai-reactive-optimized.js` without risk of breaking any existing module. See SPEC §12.7.
+**Goal**: Create a fully decoupled clone of the predictive AI for autonomous iterative optimization. A separate development context can freely modify `ai-predictive-optimized.js` without risk of breaking any existing module. See SPEC §12.7.
 
-**New modules**: `src/ai-reactive-optimized.js`, `test/ai-reactive-optimized.test.js`
+**New modules**: `src/ai-predictive-optimized.js`, `test/ai-predictive-optimized.test.js`
 **Modified**: `src/ai.js`, `src/settings.js`
 
 **Acceptance Criteria**:
 
 ### Clone
-- [x] `src/ai-reactive-optimized.js` exists as a copy of `ai-reactive.js`
-- [x] Exports renamed: `reactiveOptimizedStrategy`, `createReactiveOptimizedState`, `updateReactiveOptimizedAI`
-- [x] All constants duplicated locally (no imports from `ai-reactive.js`)
-- [x] Only external imports: `THRUST_POWER` from `./ship.js` and `registerStrategy` from `./ai-core.js` (for self-registration)
+- [x] `src/ai-predictive-optimized.js` exists as a copy of `ai-predictive.js`
+- [x] Exports renamed: `predictiveOptimizedStrategy`, `createPredictiveOptimizedState`, `updatePredictiveOptimizedAI`
+- [x] All constants duplicated locally (including `FIRE_ANGLE` and `MAX_FIRE_RANGE` — no imports from `ai-reactive.js`)
+- [x] Only external imports: `THRUST_POWER`, `SHIP_SIZE`, `updateShip` from `./ship.js`, `fmtAction` from `./debug.js`, and `registerStrategy` from `./ai-core.js`
 
 ### Registration
-- [x] `ai.js` imports `./ai-reactive-optimized.js` (side-effect import triggers self-registration)
-- [x] Clone self-registers via `registerStrategy('reactive-optimized', reactiveOptimizedStrategy)`
-- [x] `getStrategy('reactive-optimized')` returns the optimized strategy
+- [x] `ai.js` imports `./ai-predictive-optimized.js` (side-effect import triggers self-registration)
+- [x] Clone self-registers via `registerStrategy('predictive-optimized', predictiveOptimizedStrategy)`
+- [x] `getStrategy('predictive-optimized')` returns the optimized strategy
 
 ### Settings
-- [x] `playerIntelligence` options: `['human', 'reactive', 'reactive-optimized', 'predictive']`
-- [x] `enemyIntelligence` options: `['reactive', 'reactive-optimized', 'predictive']`
+- [x] `playerIntelligence` options: `['human', 'reactive', 'predictive', 'predictive-optimized']`
+- [x] `enemyIntelligence` options: `['reactive', 'predictive', 'predictive-optimized']`
 
 ### Tests
-- [x] `test/ai-reactive-optimized.test.js` exists with all tests from `ai-reactive.test.js`
-- [x] All imports point to `../src/ai-reactive-optimized.js` (not ai-reactive)
+- [x] `test/ai-predictive-optimized.test.js` exists with all tests from `ai-predictive.test.js`
+- [x] All imports point to `../src/ai-predictive-optimized.js` (not ai-predictive)
 - [x] All tests pass independently
 
 ### Build
 - [x] `npm run build` includes the new module (auto-discovered by `build.js`)
 
 ### Decoupling Verification
-- [x] Deleting `ai-reactive-optimized.js` breaks nothing except its own tests and the 'reactive-optimized' strategy registration
-- [x] Modifying constants in `ai-reactive-optimized.js` does not change behavior of `ai-reactive.js` or `ai-predictive.js`
+- [x] Deleting `ai-predictive-optimized.js` breaks nothing except its own tests and the 'predictive-optimized' strategy registration
+- [x] Modifying constants in `ai-predictive-optimized.js` does not change behavior of `ai-reactive.js` or `ai-predictive.js`
 
 ### Visible
-- [x] **Visible**: Settings panel shows "reactive-optimized" in both Player and Enemy AI dropdowns. Selecting it runs the cloned reactive AI. `node simulate.js --games 1 --ticks 100 --enemy-ai reactive-optimized` runs without error.
+- [x] **Visible**: Settings panel shows "predictive-optimized" in both Player and Enemy AI dropdowns. Selecting it runs the cloned predictive AI. `node simulate.js --games 1 --ticks 100 --enemy-ai predictive-optimized` runs without error.
 
 ---
 

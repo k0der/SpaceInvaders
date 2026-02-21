@@ -30,12 +30,12 @@ export const SETTINGS_CONFIG = {
     label: 'Direction',
   },
   playerIntelligence: {
-    options: ['human', 'reactive', 'reactive-optimized', 'predictive'],
+    options: ['human', 'reactive', 'predictive', 'predictive-optimized'],
     default: 'human',
     label: 'Player',
   },
   enemyIntelligence: {
-    options: ['reactive', 'reactive-optimized', 'predictive'],
+    options: ['reactive', 'predictive', 'predictive-optimized'],
     default: 'predictive',
     label: 'Enemy AI',
   },

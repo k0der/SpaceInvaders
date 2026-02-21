@@ -988,14 +988,14 @@ describe('Increment 15: Star Field Direction Setting', () => {
   });
 
   describe('SETTINGS_CONFIG — playerIntelligence', () => {
-    it('defines playerIntelligence with options human, reactive, reactive-optimized, predictive', () => {
+    it('defines playerIntelligence with options human, reactive, predictive, predictive-optimized', () => {
       const c = SETTINGS_CONFIG.playerIntelligence;
       expect(c).toBeDefined();
       expect(c.options).toEqual([
         'human',
         'reactive',
-        'reactive-optimized',
         'predictive',
+        'predictive-optimized',
       ]);
     });
 
@@ -1009,13 +1009,13 @@ describe('Increment 15: Star Field Direction Setting', () => {
   });
 
   describe('SETTINGS_CONFIG — enemyIntelligence', () => {
-    it('defines enemyIntelligence with options reactive, reactive-optimized, and predictive', () => {
+    it('defines enemyIntelligence with options reactive, predictive, and predictive-optimized', () => {
       const c = SETTINGS_CONFIG.enemyIntelligence;
       expect(c).toBeDefined();
       expect(c.options).toEqual([
         'reactive',
-        'reactive-optimized',
         'predictive',
+        'predictive-optimized',
       ]);
     });
 
@@ -1234,8 +1234,8 @@ describe('Increment 15: Star Field Direction Setting', () => {
       expect(values).toEqual([
         'human',
         'reactive',
-        'reactive-optimized',
         'predictive',
+        'predictive-optimized',
       ]);
     });
 
@@ -1283,7 +1283,11 @@ describe('Increment 15: Star Field Direction Setting', () => {
       const ui = createSettingsUI(container, settings);
       const options = ui.selects.enemyIntelligence.querySelectorAll('option');
       const values = Array.from(options).map((o) => o.value);
-      expect(values).toEqual(['reactive', 'reactive-optimized', 'predictive']);
+      expect(values).toEqual([
+        'reactive',
+        'predictive',
+        'predictive-optimized',
+      ]);
     });
 
     it('enemyIntelligence selector defaults to "predictive"', () => {

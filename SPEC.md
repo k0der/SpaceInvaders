@@ -392,7 +392,7 @@ SpaceInvaders/
     ai-core.js      ← pluggable AI strategy registry
     ai-predictive.js ← predictive AI: trajectory simulation
     ai-reactive.js  ← reactive AI: pursuit, combat, obstacle avoidance
-    ai-reactive-optimized.js ← reactive AI clone for autonomous optimization
+    ai-predictive-optimized.js ← predictive AI clone for autonomous optimization
     ai.js           ← AI facade: registers strategies, re-exports for compat
     ai-neural.js    ← neural AI: ONNX inference, control flag mapping
     debug.js        ← AI debug logging (console telemetry, rate-limited)
@@ -684,7 +684,7 @@ at runtime via a settings dropdown, and compared side by side.
 | `ai-core.js` | Strategy registry (register, get, list) |
 | `ai-reactive.js` | Reactive AI — the original pursuit/avoidance algorithm (§12.1–12.3) |
 | `ai-predictive.js` | Predictive AI — trajectory simulation (§12.5) |
-| `ai-reactive-optimized.js` | Reactive-Optimized AI — autonomous optimization clone (§12.7) |
+| `ai-predictive-optimized.js` | Predictive-Optimized AI — autonomous optimization clone (§12.7) |
 | `ai.js` | Facade — registers strategies, re-exports for backward compatibility |
 
 The `ai.js` facade imports both strategies, registers them, and re-exports
@@ -807,36 +807,38 @@ Toggled via a settings checkbox (default: off). Zero performance cost when disab
 - After AI update: calls `logAIFrame` with ship states + `getLastDebugInfo()`
 - On bullet creation: calls `logEvent`
 
-### 12.7 Reactive-Optimized AI
+### 12.7 Predictive-Optimized AI
 
-Experimental clone of the reactive AI (§12.1–12.3) designed for autonomous
+Experimental clone of the predictive AI (§12.5) designed for autonomous
 iterative optimization. A separate development context runs a loop:
 
 1. Run headless simulator with verbose logging
 2. Analyze logs — identify behavioral problems and improvement opportunities
 3. Write failing tests (RED) that specify the desired behavior
-4. Modify `ai-reactive-optimized.js` to make tests pass (GREEN)
+4. Modify `ai-predictive-optimized.js` to make tests pass (GREEN)
 5. Repeat
 
-**Decoupling guarantee**: `ai-reactive-optimized.js` duplicates all constants
-from `ai-reactive.js` and has zero imports from it. Changes to the optimized
+**Decoupling guarantee**: `ai-predictive-optimized.js` duplicates all constants
+locally (including `FIRE_ANGLE` and `MAX_FIRE_RANGE` which the original
+predictive AI imports from `ai-reactive.js`). Changes to the optimized
 variant cannot affect the original reactive, predictive, or any other module.
-The only shared dependencies are `THRUST_POWER` from `ship.js` and
-`registerStrategy` from `ai-core.js` (both stable infrastructure).
+The only shared dependencies are `THRUST_POWER`, `SHIP_SIZE`, `updateShip`
+from `ship.js`, `fmtAction` from `debug.js`, and `registerStrategy` from
+`ai-core.js` (all stable infrastructure).
 
-**Module**: `src/ai-reactive-optimized.js` — starts as a verbatim copy of
-`ai-reactive.js` with renamed exports (`reactiveOptimizedStrategy`,
-`createReactiveOptimizedState`, `updateReactiveOptimizedAI`).
+**Module**: `src/ai-predictive-optimized.js` — starts as a verbatim copy of
+`ai-predictive.js` with renamed exports (`predictiveOptimizedStrategy`,
+`createPredictiveOptimizedState`, `updatePredictiveOptimizedAI`).
 
-**Registration**: The module self-registers as `'reactive-optimized'` in the
+**Registration**: The module self-registers as `'predictive-optimized'` in the
 strategy registry at import time. `ai.js` triggers this via a bare
-side-effect import (`import './ai-reactive-optimized.js'`). In the
+side-effect import (`import './ai-predictive-optimized.js'`). In the
 production build, the module is wrapped in an IIFE to prevent name
-collisions with the original reactive constants. Selectable via
+collisions with the original predictive constants. Selectable via
 Player/Enemy intelligence dropdowns.
 
-**Tests**: `test/ai-reactive-optimized.test.js` — independent copy of the
-reactive test suite, pointing at the optimized module. Can diverge freely as
+**Tests**: `test/ai-predictive-optimized.test.js` — independent copy of the
+predictive test suite, pointing at the optimized module. Can diverge freely as
 the algorithm evolves.
 
 ---
