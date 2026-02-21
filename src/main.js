@@ -18,6 +18,15 @@ import {
 } from './camera.js';
 import { createDebugLogger } from './debug.js';
 import {
+  createExplosion,
+  createGameState,
+  drawExplosion,
+  isExplosionDone,
+  processBulletShipCollisions,
+  updateExplosion,
+  updateGameState,
+} from './game.js';
+import {
   applyInput,
   createInputState,
   handleKeyDown,
@@ -140,6 +149,7 @@ export function startApp() {
   });
   const enemyTrail = createTrail(ENEMY_TRAIL_COLOR);
   let bullets = [];
+  const gameState = createGameState();
   let prevCameraX = camera.x;
   let prevCameraY = camera.y;
   let prevCameraRotation = camera.rotation;
@@ -292,28 +302,32 @@ export function startApp() {
     ui.gearButton.textContent = settings.panelOpen ? '\u2715' : '\u2630';
 
     // Player input: keyboard or AI
-    if (playerStrategy) {
-      playerStrategy.update(
-        playerAIState,
-        playerShip,
+    if (playerShip.alive) {
+      if (playerStrategy) {
+        playerStrategy.update(
+          playerAIState,
+          playerShip,
+          enemyShip,
+          sim.asteroids,
+          scaledDt,
+        );
+      } else {
+        applyInput(inputState, playerShip);
+      }
+      updateShip(playerShip, scaledDt);
+    }
+
+    // Enemy always AI
+    if (enemyShip.alive) {
+      enemyStrategy.update(
+        enemyAIState,
         enemyShip,
+        playerShip,
         sim.asteroids,
         scaledDt,
       );
-    } else {
-      applyInput(inputState, playerShip);
+      updateShip(enemyShip, scaledDt);
     }
-    updateShip(playerShip, scaledDt);
-
-    // Enemy always AI
-    enemyStrategy.update(
-      enemyAIState,
-      enemyShip,
-      playerShip,
-      sim.asteroids,
-      scaledDt,
-    );
-    updateShip(enemyShip, scaledDt);
 
     // AI debug logging
     debugLogger.logAIFrame(
@@ -373,20 +387,24 @@ export function startApp() {
       });
     }
 
-    updateTrail(
-      playerTrail,
-      playerShip.x,
-      playerShip.y,
-      playerShip.heading,
-      playerShip.thrustIntensity,
-    );
-    updateTrail(
-      enemyTrail,
-      enemyShip.x,
-      enemyShip.y,
-      enemyShip.heading,
-      enemyShip.thrustIntensity,
-    );
+    if (playerShip.alive) {
+      updateTrail(
+        playerTrail,
+        playerShip.x,
+        playerShip.y,
+        playerShip.heading,
+        playerShip.thrustIntensity,
+      );
+    }
+    if (enemyShip.alive) {
+      updateTrail(
+        enemyTrail,
+        enemyShip.x,
+        enemyShip.y,
+        enemyShip.heading,
+        enemyShip.thrustIntensity,
+      );
+    }
 
     // Camera follows ship (PI/2 offset so ship nose points UP on screen)
     camera.x = playerShip.x;
@@ -450,6 +468,33 @@ export function startApp() {
     bullets = bullets.filter((b) => !isBulletExpired(b));
     bullets = checkBulletAsteroidCollisions(bullets, sim.asteroids);
 
+    // Bullet-ship collisions
+    if (gameState.phase === 'playing') {
+      const collisionResult = processBulletShipCollisions(
+        bullets,
+        playerShip,
+        enemyShip,
+      );
+      bullets = collisionResult.bullets;
+      if (collisionResult.playerHit) {
+        playerShip.alive = false;
+        gameState.explosions.push(createExplosion(playerShip.x, playerShip.y));
+      }
+      if (collisionResult.enemyHit) {
+        enemyShip.alive = false;
+        gameState.explosions.push(createExplosion(enemyShip.x, enemyShip.y));
+      }
+      updateGameState(gameState, playerShip, enemyShip);
+    }
+
+    // Update explosions
+    for (const explosion of gameState.explosions) {
+      updateExplosion(explosion, scaledDt);
+    }
+    gameState.explosions = gameState.explosions.filter(
+      (e) => !isExplosionDone(e),
+    );
+
     ctx.fillStyle = '#000000';
     ctx.fillRect(0, 0, logicalSize.width, logicalSize.height);
 
@@ -468,6 +513,10 @@ export function startApp() {
 
     for (const bullet of bullets) {
       drawBullet(ctx, bullet);
+    }
+
+    for (const explosion of gameState.explosions) {
+      drawExplosion(ctx, explosion);
     }
 
     resetCameraTransform(ctx);

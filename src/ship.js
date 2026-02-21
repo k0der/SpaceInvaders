@@ -73,6 +73,7 @@ export function createShip({ x, y, heading, owner = 'player' }) {
     fire: false,
     thrustIntensity: 0,
     fireCooldown: 0,
+    collisionRadius: SHIP_SIZE,
     owner,
   };
 }

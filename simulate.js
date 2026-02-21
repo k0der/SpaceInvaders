@@ -22,6 +22,14 @@ import {
 } from './src/bullet.js';
 import { createCamera, getViewportBounds } from './src/camera.js';
 import { fmtAction } from './src/debug.js';
+import {
+  createExplosion,
+  createGameState,
+  isExplosionDone,
+  processBulletShipCollisions,
+  updateExplosion,
+  updateGameState,
+} from './src/game.js';
 import { createShip, SHIP_SIZE, updateShip } from './src/ship.js';
 import {
   computeSpawnBounds,
@@ -305,6 +313,7 @@ export function runGame(config) {
   const enemyAIState = enemyStrategy.createState();
 
   let bullets = [];
+  const gameState = createGameState();
   let elapsed = 0;
   const events = [];
   let prevPlayerAction = '';
@@ -313,28 +322,34 @@ export function runGame(config) {
 
   // Per-tick loop
   for (let tick = 0; tick < ticks; tick++) {
+    if (gameState.phase !== 'playing') break;
+
     const scaledDt = dt * speed;
     elapsed += dt;
 
     // 1. Player AI update
-    playerStrategy.update(
-      playerAIState,
-      playerShip,
-      enemyShip,
-      sim.asteroids,
-      scaledDt,
-    );
-    updateShip(playerShip, scaledDt);
+    if (playerShip.alive) {
+      playerStrategy.update(
+        playerAIState,
+        playerShip,
+        enemyShip,
+        sim.asteroids,
+        scaledDt,
+      );
+      updateShip(playerShip, scaledDt);
+    }
 
     // 2. Enemy AI update
-    enemyStrategy.update(
-      enemyAIState,
-      enemyShip,
-      playerShip,
-      sim.asteroids,
-      scaledDt,
-    );
-    updateShip(enemyShip, scaledDt);
+    if (enemyShip.alive) {
+      enemyStrategy.update(
+        enemyAIState,
+        enemyShip,
+        playerShip,
+        sim.asteroids,
+        scaledDt,
+      );
+      updateShip(enemyShip, scaledDt);
+    }
 
     // 3. Track action changes
     const playerAction = fmtAction(playerShip);
@@ -406,7 +421,50 @@ export function runGame(config) {
     bullets = bullets.filter((b) => !isBulletExpired(b));
     bullets = checkBulletAsteroidCollisions(bullets, sim.asteroids);
 
-    // 9. Proximity detection (ship within 2× asteroid collisionRadius)
+    // 9. Bullet-ship collisions
+    if (gameState.phase === 'playing') {
+      const collisionResult = processBulletShipCollisions(
+        bullets,
+        playerShip,
+        enemyShip,
+      );
+      bullets = collisionResult.bullets;
+      if (collisionResult.playerHit) {
+        playerShip.alive = false;
+        gameState.explosions.push(
+          createExplosion(playerShip.x, playerShip.y),
+        );
+        events.push({
+          tick,
+          elapsed,
+          type: 'KILL',
+          data: { victim: 'player', killer: 'enemy', cause: 'bullet' },
+        });
+      }
+      if (collisionResult.enemyHit) {
+        enemyShip.alive = false;
+        gameState.explosions.push(
+          createExplosion(enemyShip.x, enemyShip.y),
+        );
+        events.push({
+          tick,
+          elapsed,
+          type: 'KILL',
+          data: { victim: 'enemy', killer: 'player', cause: 'bullet' },
+        });
+      }
+      updateGameState(gameState, playerShip, enemyShip);
+    }
+
+    // Update explosions
+    for (const explosion of gameState.explosions) {
+      updateExplosion(explosion, scaledDt);
+    }
+    gameState.explosions = gameState.explosions.filter(
+      (e) => !isExplosionDone(e),
+    );
+
+    // 10. Proximity detection (ship within 2× asteroid collisionRadius)
     for (const ast of sim.asteroids) {
       for (const ship of [playerShip, enemyShip]) {
         const dx = ship.x - ast.x;
@@ -433,6 +491,11 @@ export function runGame(config) {
     stats: {
       ticks,
       actionCounts,
+      winner: gameState.phase === 'playerWin'
+        ? 'player'
+        : gameState.phase === 'playerDead'
+          ? 'enemy'
+          : null,
     },
   };
 }
@@ -440,13 +503,18 @@ export function runGame(config) {
 // ── Aggregate Statistics ────────────────────────────────────────────────
 
 function computeAggregateStats(allResults, config) {
-  const totalEvents = { ACTION_CHANGE: 0, FIRE: 0, PROXIMITY: 0 };
+  const totalEvents = { ACTION_CHANGE: 0, FIRE: 0, PROXIMITY: 0, KILL: 0 };
   const allDetections = [];
+  const wins = { player: 0, enemy: 0, draw: 0 };
 
   for (const result of allResults) {
     for (const event of result.events) {
       totalEvents[event.type] = (totalEvents[event.type] || 0) + 1;
     }
+
+    if (result.stats.winner === 'player') wins.player++;
+    else if (result.stats.winner === 'enemy') wins.enemy++;
+    else wins.draw++;
 
     // Run detectors
     for (const detName of config.detectors) {
@@ -466,13 +534,13 @@ function computeAggregateStats(allResults, config) {
     }
   }
 
-  return { totalEvents, allDetections, totalActionCounts };
+  return { totalEvents, allDetections, totalActionCounts, wins };
 }
 
 // ── Output ──────────────────────────────────────────────────────────────
 
 function printSummary(config, stats) {
-  const { totalEvents, allDetections, totalActionCounts } = stats;
+  const { totalEvents, allDetections, totalActionCounts, wins } = stats;
   const n = config.games;
 
   console.log('\n=== Simulation Summary ===');
@@ -482,6 +550,10 @@ function printSummary(config, stats) {
   console.log(`Player AI: ${config.playerAI} | Enemy AI: ${config.enemyAI}`);
   console.log(
     `Density: ${config.density} | Speed: ${config.speed} | Thrust: ${config.thrust}`,
+  );
+
+  console.log(
+    `\nResults: Player wins: ${wins.player} | Enemy wins: ${wins.enemy} | No kill: ${wins.draw}`,
   );
 
   console.log('\nEvents:');
@@ -536,6 +608,10 @@ function printVerboseGame(gameIndex, result) {
     } else if (event.type === 'PROXIMITY') {
       console.log(
         `${prefix} ${event.data.owner} dist=${event.data.dist} radius=${Math.round(event.data.radius)}`,
+      );
+    } else if (event.type === 'KILL') {
+      console.log(
+        `${prefix} ${event.data.victim} killed by ${event.data.killer} (${event.data.cause})`,
       );
     }
   }

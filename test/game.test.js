@@ -1,0 +1,370 @@
+import { describe, expect, it, vi } from 'vitest';
+import {
+  checkBulletShipHit,
+  createExplosion,
+  createGameState,
+  drawExplosion,
+  EXPLOSION_DURATION,
+  EXPLOSION_MAX_RADIUS,
+  isExplosionDone,
+  processBulletShipCollisions,
+  updateExplosion,
+  updateGameState,
+} from '../src/game.js';
+import { SHIP_SIZE } from '../src/ship.js';
+
+function makeShip(overrides = {}) {
+  return {
+    x: 0,
+    y: 0,
+    alive: true,
+    collisionRadius: SHIP_SIZE,
+    owner: 'player',
+    ...overrides,
+  };
+}
+
+function makeBullet(overrides = {}) {
+  return {
+    x: 0,
+    y: 0,
+    owner: 'player',
+    ...overrides,
+  };
+}
+
+describe('Increment 27: Bullet-Ship Collision', () => {
+  describe('checkBulletShipHit', () => {
+    it('returns true when bullet is inside ship collision radius', () => {
+      const bullet = makeBullet({ x: 5, y: 0 });
+      const ship = makeShip({ x: 0, y: 0 });
+      expect(checkBulletShipHit(bullet, ship)).toBe(true);
+    });
+
+    it('returns false when bullet is outside ship collision radius', () => {
+      const bullet = makeBullet({ x: 100, y: 0 });
+      const ship = makeShip({ x: 0, y: 0 });
+      expect(checkBulletShipHit(bullet, ship)).toBe(false);
+    });
+
+    it('returns false when bullet is exactly at collision radius (strict <)', () => {
+      const bullet = makeBullet({ x: SHIP_SIZE, y: 0 });
+      const ship = makeShip({ x: 0, y: 0 });
+      expect(checkBulletShipHit(bullet, ship)).toBe(false);
+    });
+
+    it('returns true when bullet is just inside collision radius', () => {
+      const bullet = makeBullet({ x: SHIP_SIZE - 0.01, y: 0 });
+      const ship = makeShip({ x: 0, y: 0 });
+      expect(checkBulletShipHit(bullet, ship)).toBe(true);
+    });
+
+    it('works with non-zero ship positions', () => {
+      const ship = makeShip({ x: 100, y: 200 });
+      const bullet = makeBullet({ x: 105, y: 200 });
+      expect(checkBulletShipHit(bullet, ship)).toBe(true);
+    });
+
+    it('works with diagonal distance', () => {
+      // Distance = sqrt(10^2 + 10^2) = ~14.14, which is < SHIP_SIZE (15)
+      const bullet = makeBullet({ x: 10, y: 10 });
+      const ship = makeShip({ x: 0, y: 0 });
+      expect(checkBulletShipHit(bullet, ship)).toBe(true);
+    });
+  });
+
+  describe('processBulletShipCollisions', () => {
+    it('removes player bullet that hits enemy and sets enemyHit', () => {
+      const playerShip = makeShip({ x: 0, y: 0, owner: 'player' });
+      const enemyShip = makeShip({ x: 100, y: 0, owner: 'enemy' });
+      const bullet = makeBullet({ x: 102, y: 0, owner: 'player' });
+      const result = processBulletShipCollisions(
+        [bullet],
+        playerShip,
+        enemyShip,
+      );
+      expect(result.bullets).toHaveLength(0);
+      expect(result.enemyHit).toBe(true);
+      expect(result.playerHit).toBe(false);
+    });
+
+    it('removes enemy bullet that hits player and sets playerHit', () => {
+      const playerShip = makeShip({ x: 0, y: 0, owner: 'player' });
+      const enemyShip = makeShip({ x: 100, y: 0, owner: 'enemy' });
+      const bullet = makeBullet({ x: 2, y: 0, owner: 'enemy' });
+      const result = processBulletShipCollisions(
+        [bullet],
+        playerShip,
+        enemyShip,
+      );
+      expect(result.bullets).toHaveLength(0);
+      expect(result.playerHit).toBe(true);
+      expect(result.enemyHit).toBe(false);
+    });
+
+    it('does not let player bullet hit player (owner filtering)', () => {
+      const playerShip = makeShip({ x: 0, y: 0, owner: 'player' });
+      const enemyShip = makeShip({ x: 500, y: 0, owner: 'enemy' });
+      const bullet = makeBullet({ x: 2, y: 0, owner: 'player' });
+      const result = processBulletShipCollisions(
+        [bullet],
+        playerShip,
+        enemyShip,
+      );
+      expect(result.bullets).toHaveLength(1);
+      expect(result.playerHit).toBe(false);
+      expect(result.enemyHit).toBe(false);
+    });
+
+    it('does not let enemy bullet hit enemy (owner filtering)', () => {
+      const playerShip = makeShip({ x: 500, y: 0, owner: 'player' });
+      const enemyShip = makeShip({ x: 0, y: 0, owner: 'enemy' });
+      const bullet = makeBullet({ x: 2, y: 0, owner: 'enemy' });
+      const result = processBulletShipCollisions(
+        [bullet],
+        playerShip,
+        enemyShip,
+      );
+      expect(result.bullets).toHaveLength(1);
+      expect(result.playerHit).toBe(false);
+      expect(result.enemyHit).toBe(false);
+    });
+
+    it('bullet that misses both ships survives', () => {
+      const playerShip = makeShip({ x: 0, y: 0, owner: 'player' });
+      const enemyShip = makeShip({ x: 100, y: 0, owner: 'enemy' });
+      const bullet = makeBullet({ x: 50, y: 200, owner: 'player' });
+      const result = processBulletShipCollisions(
+        [bullet],
+        playerShip,
+        enemyShip,
+      );
+      expect(result.bullets).toHaveLength(1);
+      expect(result.playerHit).toBe(false);
+      expect(result.enemyHit).toBe(false);
+    });
+
+    it('does not hit a dead ship', () => {
+      const playerShip = makeShip({ x: 0, y: 0, owner: 'player' });
+      const enemyShip = makeShip({
+        x: 100,
+        y: 0,
+        owner: 'enemy',
+        alive: false,
+      });
+      const bullet = makeBullet({ x: 102, y: 0, owner: 'player' });
+      const result = processBulletShipCollisions(
+        [bullet],
+        playerShip,
+        enemyShip,
+      );
+      expect(result.bullets).toHaveLength(1);
+      expect(result.enemyHit).toBe(false);
+    });
+
+    it('handles multiple bullets with mixed hits', () => {
+      const playerShip = makeShip({ x: 0, y: 0, owner: 'player' });
+      const enemyShip = makeShip({ x: 100, y: 0, owner: 'enemy' });
+      const hitBullet = makeBullet({ x: 102, y: 0, owner: 'player' });
+      const missBullet = makeBullet({ x: 50, y: 300, owner: 'player' });
+      const result = processBulletShipCollisions(
+        [hitBullet, missBullet],
+        playerShip,
+        enemyShip,
+      );
+      expect(result.bullets).toHaveLength(1);
+      expect(result.enemyHit).toBe(true);
+    });
+
+    it('detects both ships hit in the same frame', () => {
+      const playerShip = makeShip({ x: 0, y: 0, owner: 'player' });
+      const enemyShip = makeShip({ x: 100, y: 0, owner: 'enemy' });
+      const playerBullet = makeBullet({ x: 102, y: 0, owner: 'player' });
+      const enemyBullet = makeBullet({ x: 2, y: 0, owner: 'enemy' });
+      const result = processBulletShipCollisions(
+        [playerBullet, enemyBullet],
+        playerShip,
+        enemyShip,
+      );
+      expect(result.bullets).toHaveLength(0);
+      expect(result.playerHit).toBe(true);
+      expect(result.enemyHit).toBe(true);
+    });
+
+    it('handles empty bullet array', () => {
+      const playerShip = makeShip({ x: 0, y: 0, owner: 'player' });
+      const enemyShip = makeShip({ x: 100, y: 0, owner: 'enemy' });
+      const result = processBulletShipCollisions([], playerShip, enemyShip);
+      expect(result.bullets).toHaveLength(0);
+      expect(result.playerHit).toBe(false);
+      expect(result.enemyHit).toBe(false);
+    });
+  });
+
+  describe('createExplosion', () => {
+    it('returns explosion with given position and age 0', () => {
+      const explosion = createExplosion(100, 200);
+      expect(explosion.x).toBe(100);
+      expect(explosion.y).toBe(200);
+      expect(explosion.age).toBe(0);
+    });
+  });
+
+  describe('updateExplosion', () => {
+    it('increments age by dt', () => {
+      const explosion = createExplosion(0, 0);
+      updateExplosion(explosion, 0.1);
+      expect(explosion.age).toBeCloseTo(0.1);
+    });
+
+    it('accumulates age across multiple updates', () => {
+      const explosion = createExplosion(0, 0);
+      updateExplosion(explosion, 0.1);
+      updateExplosion(explosion, 0.2);
+      expect(explosion.age).toBeCloseTo(0.3);
+    });
+  });
+
+  describe('isExplosionDone', () => {
+    it('returns false when age is less than EXPLOSION_DURATION', () => {
+      const explosion = createExplosion(0, 0);
+      explosion.age = EXPLOSION_DURATION - 0.01;
+      expect(isExplosionDone(explosion)).toBe(false);
+    });
+
+    it('returns true when age equals EXPLOSION_DURATION', () => {
+      const explosion = createExplosion(0, 0);
+      explosion.age = EXPLOSION_DURATION;
+      expect(isExplosionDone(explosion)).toBe(true);
+    });
+
+    it('returns true when age exceeds EXPLOSION_DURATION', () => {
+      const explosion = createExplosion(0, 0);
+      explosion.age = EXPLOSION_DURATION + 1;
+      expect(isExplosionDone(explosion)).toBe(true);
+    });
+  });
+
+  describe('EXPLOSION constants', () => {
+    it('EXPLOSION_DURATION is a positive number', () => {
+      expect(EXPLOSION_DURATION).toBeGreaterThan(0);
+    });
+
+    it('EXPLOSION_MAX_RADIUS is a positive number', () => {
+      expect(EXPLOSION_MAX_RADIUS).toBeGreaterThan(0);
+    });
+  });
+
+  describe('drawExplosion', () => {
+    it('draws an expanding wireframe circle with fading alpha', () => {
+      const ctx = {
+        save: vi.fn(),
+        restore: vi.fn(),
+        beginPath: vi.fn(),
+        arc: vi.fn(),
+        stroke: vi.fn(),
+        strokeStyle: '',
+        lineWidth: 0,
+        globalAlpha: 1,
+      };
+      const explosion = createExplosion(100, 200);
+      explosion.age = EXPLOSION_DURATION * 0.5; // halfway
+
+      drawExplosion(ctx, explosion);
+
+      expect(ctx.save).toHaveBeenCalled();
+      expect(ctx.beginPath).toHaveBeenCalled();
+      expect(ctx.arc).toHaveBeenCalled();
+      expect(ctx.stroke).toHaveBeenCalled();
+      expect(ctx.restore).toHaveBeenCalled();
+
+      // Radius should be ~half of max at midpoint
+      const arcCall = ctx.arc.mock.calls[0];
+      expect(arcCall[0]).toBe(100); // x
+      expect(arcCall[1]).toBe(200); // y
+      expect(arcCall[2]).toBeGreaterThan(0); // radius > 0
+      expect(arcCall[2]).toBeLessThan(EXPLOSION_MAX_RADIUS); // radius < max
+    });
+
+    it('does not draw if age is 0 (just created)', () => {
+      const ctx = {
+        save: vi.fn(),
+        restore: vi.fn(),
+        beginPath: vi.fn(),
+        arc: vi.fn(),
+        stroke: vi.fn(),
+        strokeStyle: '',
+        lineWidth: 0,
+        globalAlpha: 1,
+      };
+      const explosion = createExplosion(0, 0);
+      explosion.age = 0;
+
+      drawExplosion(ctx, explosion);
+
+      // At age 0 the radius is 0 and alpha is 1 — it can draw but radius is 0
+      // Implementation may choose to skip or draw zero-radius circle; both are fine
+      // We just verify it doesn't crash
+    });
+  });
+
+  describe('createGameState', () => {
+    it('returns state with phase playing and empty explosions', () => {
+      const state = createGameState();
+      expect(state.phase).toBe('playing');
+      expect(state.explosions).toEqual([]);
+    });
+  });
+
+  describe('updateGameState', () => {
+    it('stays playing when both ships are alive', () => {
+      const state = createGameState();
+      const player = makeShip({ alive: true, owner: 'player' });
+      const enemy = makeShip({ alive: true, owner: 'enemy' });
+      updateGameState(state, player, enemy);
+      expect(state.phase).toBe('playing');
+    });
+
+    it('transitions to playerWin when enemy dies', () => {
+      const state = createGameState();
+      const player = makeShip({ alive: true, owner: 'player' });
+      const enemy = makeShip({ alive: false, owner: 'enemy' });
+      updateGameState(state, player, enemy);
+      expect(state.phase).toBe('playerWin');
+    });
+
+    it('transitions to playerDead when player dies', () => {
+      const state = createGameState();
+      const player = makeShip({ alive: false, owner: 'player' });
+      const enemy = makeShip({ alive: true, owner: 'enemy' });
+      updateGameState(state, player, enemy);
+      expect(state.phase).toBe('playerDead');
+    });
+
+    it('transitions to playerDead when both die (player loss takes priority)', () => {
+      const state = createGameState();
+      const player = makeShip({ alive: false, owner: 'player' });
+      const enemy = makeShip({ alive: false, owner: 'enemy' });
+      updateGameState(state, player, enemy);
+      expect(state.phase).toBe('playerDead');
+    });
+
+    it('does not transition back to playing from playerWin', () => {
+      const state = createGameState();
+      state.phase = 'playerWin';
+      const player = makeShip({ alive: true, owner: 'player' });
+      const enemy = makeShip({ alive: true, owner: 'enemy' });
+      updateGameState(state, player, enemy);
+      expect(state.phase).toBe('playerWin');
+    });
+
+    it('does not transition back to playing from playerDead', () => {
+      const state = createGameState();
+      state.phase = 'playerDead';
+      const player = makeShip({ alive: true, owner: 'player' });
+      const enemy = makeShip({ alive: true, owner: 'enemy' });
+      updateGameState(state, player, enemy);
+      expect(state.phase).toBe('playerDead');
+    });
+  });
+});

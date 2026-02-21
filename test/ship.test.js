@@ -82,6 +82,7 @@ describe('Increment 17: Static Ship at Screen Center', () => {
         fire: false,
         thrustIntensity: 0,
         fireCooldown: 0,
+        collisionRadius: SHIP_SIZE,
         owner: 'player',
       });
     });
@@ -99,6 +100,11 @@ describe('Increment 17: Static Ship at Screen Center', () => {
     it('accepts owner: "player" explicitly', () => {
       const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'player' });
       expect(ship.owner).toBe('player');
+    });
+
+    it('has collisionRadius equal to SHIP_SIZE', () => {
+      const ship = createShip({ x: 0, y: 0, heading: 0 });
+      expect(ship.collisionRadius).toBe(SHIP_SIZE);
     });
   });
 
