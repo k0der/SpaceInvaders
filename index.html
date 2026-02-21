@@ -135,6 +135,12 @@ const HYSTERESIS_BONUS = 250;
  *  full collision penalty at the collision boundary). */
 const DANGER_ZONE_FACTOR = 3;
 
+/** Within ENGAGE_RANGE, closing speed weight scales up linearly from 1× at the
+ *  boundary to (1 + ENGAGE_CLOSING_SCALE)× at zero distance. Prevents formation
+ *  flight stagnation by making the AI progressively more aggressive about
+ *  closing distance as it enters combat range. */
+const ENGAGE_CLOSING_SCALE = 3;
+
 /**
  * Clone only the physics-relevant fields of a ship for simulation.
  */
@@ -326,7 +332,12 @@ function scoreTrajectory(positions, target, asteroids, simDt) {
 
   const simTime = simDt * lastIdx;
   if (simTime > 0) {
-    score += (CLOSING_SPEED_WEIGHT * (initialDist - finalDist)) / simTime;
+    const closingRate = (initialDist - finalDist) / simTime;
+    const closingScale =
+      initialDist < ENGAGE_RANGE
+        ? 1 + ENGAGE_CLOSING_SCALE * (1 - initialDist / ENGAGE_RANGE)
+        : 1;
+    score += CLOSING_SPEED_WEIGHT * closingScale * closingRate;
   }
 
   // Fire opportunity bonus: count steps with a viable firing solution
