@@ -19,6 +19,7 @@ import {
 import { createDebugLogger } from './debug.js';
 import {
   checkShipAsteroidCollision,
+  clearSpawnZone,
   createExplosion,
   createGameState,
   drawExplosion,
@@ -307,6 +308,8 @@ export function startApp() {
     bullets = [];
     playerTrail = createTrail();
     enemyTrail = createTrail(ENEMY_TRAIL_COLOR);
+
+    sim.asteroids = clearSpawnZone(sim.asteroids, [playerShip, enemyShip]);
 
     gameState.phase = 'playing';
     gameState.explosions = [];

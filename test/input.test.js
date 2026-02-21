@@ -221,24 +221,20 @@ describe('Increment 18: Ship Rotates with Keyboard', () => {
 });
 
 describe('Increment 29: isRestartKey', () => {
-  it('returns true for Enter', () => {
-    expect(isRestartKey('Enter')).toBe(true);
+  it('returns true for space', () => {
+    expect(isRestartKey(' ')).toBe(true);
   });
 
-  it('returns true for lowercase r', () => {
-    expect(isRestartKey('r')).toBe(true);
+  it('returns false for Enter', () => {
+    expect(isRestartKey('Enter')).toBe(false);
   });
 
-  it('returns true for uppercase R', () => {
-    expect(isRestartKey('R')).toBe(true);
+  it('returns false for r', () => {
+    expect(isRestartKey('r')).toBe(false);
   });
 
   it('returns false for w', () => {
     expect(isRestartKey('w')).toBe(false);
-  });
-
-  it('returns false for space', () => {
-    expect(isRestartKey(' ')).toBe(false);
   });
 
   it('returns false for Escape', () => {

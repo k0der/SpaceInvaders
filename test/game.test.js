@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   checkBulletShipHit,
   checkShipAsteroidCollision,
+  clearSpawnZone,
   createExplosion,
   createGameState,
   drawExplosion,
@@ -11,6 +12,7 @@ import {
   EXPLOSION_MAX_RADIUS,
   isExplosionDone,
   processBulletShipCollisions,
+  SPAWN_SAFE_RADIUS,
   updateExplosion,
   updateGameState,
 } from '../src/game.js';
@@ -562,6 +564,26 @@ describe('Increment 29: HUD', () => {
       expect(ctx.restore).toHaveBeenCalled();
     });
 
+    it('uses blue for playerWin main text', () => {
+      const styles = [];
+      const ctx = mockCtx();
+      ctx.stroke = vi.fn(() => styles.push(ctx.strokeStyle));
+      drawHUD(ctx, 'playerWin', 800, 600);
+
+      // First stroke uses the main text color (blue)
+      expect(styles[0]).toBe('#508CFF');
+    });
+
+    it('uses red for playerDead main text', () => {
+      const styles = [];
+      const ctx = mockCtx();
+      ctx.stroke = vi.fn(() => styles.push(ctx.strokeStyle));
+      drawHUD(ctx, 'playerDead', 800, 600);
+
+      // First stroke uses the main text color (red)
+      expect(styles[0]).toBe('#FF321E');
+    });
+
     it('saves and restores canvas state', () => {
       const ctx = mockCtx();
       drawHUD(ctx, 'playerWin', 800, 600);
@@ -570,5 +592,81 @@ describe('Increment 29: HUD', () => {
       expect(ctx.save.mock.calls.length).toBeGreaterThanOrEqual(1);
       expect(ctx.restore.mock.calls.length).toBeGreaterThanOrEqual(1);
     });
+  });
+});
+
+describe('Increment 29: clearSpawnZone', () => {
+  it('removes asteroids overlapping a ship position', () => {
+    const asteroids = [
+      makeAsteroid({ x: 10, y: 0, collisionRadius: 20 }),
+      makeAsteroid({ x: 500, y: 500, collisionRadius: 20 }),
+    ];
+    const ships = [makeShip({ x: 0, y: 0 })];
+    const result = clearSpawnZone(asteroids, ships);
+    expect(result).toHaveLength(1);
+    expect(result[0].x).toBe(500);
+  });
+
+  it('removes asteroids near both player and enemy spawn positions', () => {
+    const asteroids = [
+      makeAsteroid({ x: 5, y: 0, collisionRadius: 20 }), // near player at 0,0
+      makeAsteroid({ x: 205, y: 0, collisionRadius: 20 }), // near enemy at 200,0
+      makeAsteroid({ x: 1000, y: 1000, collisionRadius: 20 }), // far from both
+    ];
+    const ships = [makeShip({ x: 0, y: 0 }), makeShip({ x: 200, y: 0 })];
+    const result = clearSpawnZone(asteroids, ships);
+    expect(result).toHaveLength(1);
+    expect(result[0].x).toBe(1000);
+  });
+
+  it('uses SPAWN_SAFE_RADIUS for clearance distance', () => {
+    // Asteroid just outside safe radius should survive
+    const farAsteroid = makeAsteroid({
+      x: SPAWN_SAFE_RADIUS + 20 + 1,
+      y: 0,
+      collisionRadius: 20,
+    });
+    // Asteroid just inside safe radius should be removed
+    const nearAsteroid = makeAsteroid({
+      x: SPAWN_SAFE_RADIUS + 20 - 1,
+      y: 0,
+      collisionRadius: 20,
+    });
+    const ships = [makeShip({ x: 0, y: 0 })];
+
+    const result = clearSpawnZone([farAsteroid, nearAsteroid], ships);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toBe(farAsteroid);
+  });
+
+  it('returns all asteroids when none overlap spawn zones', () => {
+    const asteroids = [
+      makeAsteroid({ x: 500, y: 500, collisionRadius: 20 }),
+      makeAsteroid({ x: -500, y: -500, collisionRadius: 20 }),
+    ];
+    const ships = [makeShip({ x: 0, y: 0 })];
+    const result = clearSpawnZone(asteroids, ships);
+    expect(result).toHaveLength(2);
+  });
+
+  it('returns empty array when all asteroids are in spawn zone', () => {
+    const asteroids = [
+      makeAsteroid({ x: 5, y: 0, collisionRadius: 20 }),
+      makeAsteroid({ x: -5, y: 0, collisionRadius: 20 }),
+    ];
+    const ships = [makeShip({ x: 0, y: 0 })];
+    const result = clearSpawnZone(asteroids, ships);
+    expect(result).toHaveLength(0);
+  });
+
+  it('does not mutate the original asteroids array', () => {
+    const asteroids = [
+      makeAsteroid({ x: 5, y: 0, collisionRadius: 20 }),
+      makeAsteroid({ x: 500, y: 500, collisionRadius: 20 }),
+    ];
+    const original = [...asteroids];
+    const ships = [makeShip({ x: 0, y: 0 })];
+    clearSpawnZone(asteroids, ships);
+    expect(asteroids).toEqual(original);
   });
 });

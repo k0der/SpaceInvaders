@@ -44,11 +44,10 @@ export function handleKeyUp(state, key) {
 }
 
 /**
- * Returns true if the key is a restart key (Enter or R).
+ * Returns true if the key is the restart key (Space).
  */
 export function isRestartKey(key) {
-  const lower = key.toLowerCase();
-  return key === 'Enter' || lower === 'r';
+  return key === ' ';
 }
 
 /**

@@ -146,6 +146,27 @@ export function updateGameState(state, playerShip, enemyShip) {
   }
 }
 
+/** Safe clearance radius around each ship spawn point. */
+export const SPAWN_SAFE_RADIUS = 100;
+
+/**
+ * Remove asteroids that overlap any ship's spawn zone.
+ * Returns a new array — does not mutate the original.
+ */
+export function clearSpawnZone(asteroids, ships) {
+  return asteroids.filter((asteroid) => {
+    for (const ship of ships) {
+      const dx = asteroid.x - ship.x;
+      const dy = asteroid.y - ship.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < SPAWN_SAFE_RADIUS + asteroid.collisionRadius) {
+        return false;
+      }
+    }
+    return true;
+  });
+}
+
 /** Scale for the main HUD text (e.g., "YOU WIN"). */
 const HUD_MAIN_SCALE = 8;
 
@@ -155,9 +176,15 @@ const HUD_SUB_SCALE = 3;
 /** Vertical gap between main text and sub-text (pixels). */
 const HUD_TEXT_GAP = 60;
 
+/** Player faction color for HUD text (blue). */
+const HUD_PLAYER_COLOR = '#508CFF';
+
+/** Enemy faction color for HUD text (red). */
+const HUD_ENEMY_COLOR = '#FF321E';
+
 /**
  * Draw the HUD overlay for non-playing phases.
- * Renders "YOU WIN" or "GAME OVER" with a restart prompt below.
+ * Renders "YOU WIN" (blue) or "GAME OVER" (red) with a restart prompt below.
  */
 export function drawHUD(ctx, phase, width, height) {
   if (phase === 'playing') return;
@@ -165,12 +192,16 @@ export function drawHUD(ctx, phase, width, height) {
   const centerX = width / 2;
   const centerY = height / 2 - 30;
 
-  const mainText = phase === 'playerWin' ? 'YOU WIN' : 'GAME OVER';
-  drawVectorText(ctx, mainText, centerX, centerY, HUD_MAIN_SCALE);
+  const isWin = phase === 'playerWin';
+  const mainText = isWin ? 'YOU WIN' : 'GAME OVER';
+  const mainColor = isWin ? HUD_PLAYER_COLOR : HUD_ENEMY_COLOR;
+  drawVectorText(ctx, mainText, centerX, centerY, HUD_MAIN_SCALE, {
+    color: mainColor,
+  });
 
   drawVectorText(
     ctx,
-    'PRESS ENTER TO RESTART',
+    'PRESS SPACE TO RESTART',
     centerX,
     centerY + HUD_TEXT_GAP,
     HUD_SUB_SCALE,
