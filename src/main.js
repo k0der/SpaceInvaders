@@ -363,8 +363,9 @@ export function startApp() {
     ui.panel.style.display = settings.panelOpen ? 'block' : 'none';
     ui.gearButton.textContent = settings.panelOpen ? '\u2715' : '\u2630';
 
-    // Player input: keyboard or AI
-    if (playerShip.alive) {
+    // Player input: keyboard or AI (frozen in terminal phases)
+    const active = gameState.phase === 'playing' || gameState.phase === 'ending';
+    if (playerShip.alive && active) {
       if (playerStrategy) {
         playerStrategy.update(
           playerAIState,
@@ -379,8 +380,8 @@ export function startApp() {
       updateShip(playerShip, scaledDt);
     }
 
-    // Enemy always AI
-    if (enemyShip.alive) {
+    // Enemy always AI (frozen in terminal phases)
+    if (enemyShip.alive && active) {
       enemyStrategy.update(
         enemyAIState,
         enemyShip,

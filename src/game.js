@@ -242,7 +242,7 @@ export function drawHUD(ctx, phase, width, height) {
     mainText = 'DRAW';
     mainColor = HUD_DRAW_COLOR;
   } else {
-    mainText = 'GAME OVER';
+    mainText = 'YOU LOST';
     mainColor = HUD_ENEMY_COLOR;
   }
   drawVectorText(ctx, mainText, centerX, centerY, HUD_MAIN_SCALE, {
