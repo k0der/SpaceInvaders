@@ -251,7 +251,7 @@ export function drawHUD(ctx, phase, width, height) {
 
   drawVectorText(
     ctx,
-    'PRESS SPACE TO RESTART',
+    'PRESS SPACE',
     centerX,
     centerY + HUD_TEXT_GAP,
     HUD_SUB_SCALE,
