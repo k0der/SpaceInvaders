@@ -48,9 +48,12 @@ export function processBulletShipCollisions(bullets, playerShip, enemyShip) {
 
 /**
  * Create an explosion effect at the given world position.
+ * @param {number} x
+ * @param {number} y
+ * @param {{ r: number, g: number, b: number }} color - RGB color for the rings
  */
-export function createExplosion(x, y) {
-  return { x, y, age: 0 };
+export function createExplosion(x, y, color = { r: 255, g: 255, b: 255 }) {
+  return { x, y, age: 0, color };
 }
 
 /**
@@ -80,18 +83,19 @@ export function drawExplosion(ctx, explosion) {
   const innerRadius = outerRadius * EXPLOSION_INNER_RATIO;
   const alpha = 1.0 - progress;
 
+  const { r, g, b } = explosion.color;
+
   ctx.save();
-  ctx.strokeStyle = '#FFFFFF';
 
   // Outer circle
-  ctx.globalAlpha = alpha;
+  ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${alpha})`;
   ctx.lineWidth = 1.5;
   ctx.beginPath();
   ctx.arc(explosion.x, explosion.y, outerRadius, 0, Math.PI * 2);
   ctx.stroke();
 
   // Inner circle — slightly brighter
-  ctx.globalAlpha = Math.min(alpha * 1.4, 1.0);
+  ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${Math.min(alpha * 1.4, 1.0)})`;
   ctx.lineWidth = 2;
   ctx.beginPath();
   ctx.arc(explosion.x, explosion.y, innerRadius, 0, Math.PI * 2);

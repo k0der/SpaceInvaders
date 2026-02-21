@@ -209,6 +209,17 @@ describe('Increment 27: Bullet-Ship Collision', () => {
       expect(explosion.y).toBe(200);
       expect(explosion.age).toBe(0);
     });
+
+    it('stores the given color', () => {
+      const color = { r: 80, g: 140, b: 255 };
+      const explosion = createExplosion(0, 0, color);
+      expect(explosion.color).toEqual(color);
+    });
+
+    it('defaults to white when no color provided', () => {
+      const explosion = createExplosion(0, 0);
+      expect(explosion.color).toEqual({ r: 255, g: 255, b: 255 });
+    });
   });
 
   describe('updateExplosion', () => {
@@ -258,18 +269,20 @@ describe('Increment 27: Bullet-Ship Collision', () => {
 
   describe('drawExplosion', () => {
     it('draws two concentric expanding circles with fading alpha', () => {
+      const styles = [];
       const ctx = {
         save: vi.fn(),
         restore: vi.fn(),
         beginPath: vi.fn(),
         arc: vi.fn(),
-        stroke: vi.fn(),
+        stroke: vi.fn(() => styles.push(ctx.strokeStyle)),
         strokeStyle: '',
         lineWidth: 0,
         globalAlpha: 1,
       };
-      const explosion = createExplosion(100, 200);
-      explosion.age = EXPLOSION_DURATION * 0.5; // halfway
+      const color = { r: 80, g: 140, b: 255 };
+      const explosion = createExplosion(100, 200, color);
+      explosion.age = EXPLOSION_DURATION * 0.5;
 
       drawExplosion(ctx, explosion);
 
@@ -280,8 +293,8 @@ describe('Increment 27: Bullet-Ship Collision', () => {
 
       // Outer circle
       const outerArc = ctx.arc.mock.calls[0];
-      expect(outerArc[0]).toBe(100); // x
-      expect(outerArc[1]).toBe(200); // y
+      expect(outerArc[0]).toBe(100);
+      expect(outerArc[1]).toBe(200);
       expect(outerArc[2]).toBeGreaterThan(0);
       expect(outerArc[2]).toBeLessThan(EXPLOSION_MAX_RADIUS);
 
@@ -290,6 +303,32 @@ describe('Increment 27: Bullet-Ship Collision', () => {
       expect(innerArc[0]).toBe(100);
       expect(innerArc[1]).toBe(200);
       expect(innerArc[2]).toBeCloseTo(outerArc[2] * EXPLOSION_INNER_RATIO);
+
+      // Both strokes use the explosion's color
+      for (const style of styles) {
+        expect(style).toMatch(/^rgba\(80, 140, 255,/);
+      }
+    });
+
+    it('uses red for enemy explosions', () => {
+      const styles = [];
+      const ctx = {
+        save: vi.fn(),
+        restore: vi.fn(),
+        beginPath: vi.fn(),
+        arc: vi.fn(),
+        stroke: vi.fn(() => styles.push(ctx.strokeStyle)),
+        strokeStyle: '',
+        lineWidth: 0,
+        globalAlpha: 1,
+      };
+      const explosion = createExplosion(0, 0, { r: 255, g: 50, b: 30 });
+      explosion.age = EXPLOSION_DURATION * 0.5;
+      drawExplosion(ctx, explosion);
+
+      for (const style of styles) {
+        expect(style).toMatch(/^rgba\(255, 50, 30,/);
+      }
     });
 
     it('does not crash at age 0', () => {
@@ -305,7 +344,6 @@ describe('Increment 27: Bullet-Ship Collision', () => {
       };
       const explosion = createExplosion(0, 0);
       drawExplosion(ctx, explosion);
-      // Zero-radius circles — harmless
     });
   });
 

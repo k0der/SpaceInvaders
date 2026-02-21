@@ -47,6 +47,7 @@ import {
   drawShip,
   drawTrail,
   ENEMY_TRAIL_COLOR,
+  PLAYER_TRAIL_COLOR,
   SHIP_SIZE,
   updateShip,
   updateTrail,
@@ -483,11 +484,15 @@ export function startApp() {
       bullets = collisionResult.bullets;
       if (collisionResult.playerHit) {
         playerShip.alive = false;
-        gameState.explosions.push(createExplosion(playerShip.x, playerShip.y));
+        gameState.explosions.push(
+          createExplosion(playerShip.x, playerShip.y, PLAYER_TRAIL_COLOR),
+        );
       }
       if (collisionResult.enemyHit) {
         enemyShip.alive = false;
-        gameState.explosions.push(createExplosion(enemyShip.x, enemyShip.y));
+        gameState.explosions.push(
+          createExplosion(enemyShip.x, enemyShip.y, ENEMY_TRAIL_COLOR),
+        );
       }
       updateGameState(gameState, playerShip, enemyShip);
     }
