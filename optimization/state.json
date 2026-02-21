@@ -1,0 +1,34 @@
+{
+  "cycle": 0,
+  "baseline": {
+    "games": 50,
+    "playerWins": 35,
+    "enemyWins": 15,
+    "draws": 0,
+    "avgTicksPerGame": 3600,
+    "oscillations": 98,
+    "collapses": 124,
+    "passthroughs": 6,
+    "actionChanges": 276,
+    "fires": 118,
+    "proximityEvents": 546,
+    "kills": 52
+  },
+  "current": {
+    "games": 50,
+    "playerWins": 35,
+    "enemyWins": 15,
+    "draws": 0,
+    "avgTicksPerGame": 3600,
+    "oscillations": 98,
+    "collapses": 124,
+    "passthroughs": 6,
+    "actionChanges": 276,
+    "fires": 118,
+    "proximityEvents": 546,
+    "kills": 52
+  },
+  "history": [],
+  "consecutiveRollbacks": 0,
+  "status": "ready"
+}
