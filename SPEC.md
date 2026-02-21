@@ -362,7 +362,7 @@ Each frame (`requestAnimationFrame` callback):
     e. Draw ships + flames
     f. Draw bullets
     g. Reset camera transform
-    h. Draw HUD (win/lose text)
+    h. Draw end screen overlay + HUD (win/lose/draw text)
     i. Draw settings menu icon (if visible)
 ```
 
@@ -520,7 +520,7 @@ the context.
 6. Draw ships (world-space — player maps to screen center)
 7. Draw bullets (world-space)
 8. Reset camera transform
-9. Draw HUD text (screen-space)
+9. Draw end screen overlay + HUD text (screen-space, terminal phases only)
 10. Draw settings menu icon
 
 ### 10.3 Viewport Bounds
@@ -847,9 +847,17 @@ the algorithm evolves.
 
 ### 13.1 Phases
 
-- `'playing'` → `'playerWin'` (enemy dies) / `'playerDead'` (player dies)
+- `'playing'` → `'ending'` (grace period) → `'playerWin'` / `'playerDead'` / `'draw'`
+- First death triggers `'ending'` phase with a 1-second grace period (matches explosion duration)
+- During grace period: collisions remain active (anti-kamikaze — stray bullets or asteroids can still kill the survivor)
+- After grace period resolves to terminal phase based on who is alive:
+  - Only enemy dead → `'playerWin'`
+  - Only player dead → `'playerDead'`
+  - Both dead → `'draw'`
+- Terminal states are sticky (no transition back)
 - On player death: camera freezes at death position
 - On enemy death: camera continues following player
+- Controls are disabled during terminal phases (ship stops responding to input)
 
 ### 13.2 Ship-Asteroid Collision
 
@@ -883,18 +891,33 @@ the algorithm evolves.
 
 ### 13.6 Game State Module (`game.js`)
 
-- `createGameState()` → `{ phase: 'playing', explosions: [] }`
-- `updateGameState(state, playerShip, enemyShip)` — transitions from `'playing'` only: player dead → `'playerDead'`, enemy dead → `'playerWin'`; terminal states are sticky
+- `createGameState()` → `{ phase: 'playing', explosions: [], deathTimer: 0 }`
+- `updateGameState(state, playerShip, enemyShip, dt)` — state machine:
+  - `'playing'`: transitions to `'ending'` on first death, sets `deathTimer = GRACE_PERIOD` (1s)
+  - `'ending'`: decrements `deathTimer` by `dt`; when expired, resolves to `'playerWin'`, `'playerDead'`, or `'draw'`
+  - Terminal states (`'playerWin'`, `'playerDead'`, `'draw'`): no transitions (sticky)
+- `clearSpawnZone(asteroids, ships)` — removes asteroids within `SPAWN_SAFE_RADIUS` (45px, 3× ship size) of any ship's position; returns new array
 - Explosion lifecycle: `createExplosion(x, y, color)`, `updateExplosion`, `isExplosionDone`, `drawExplosion`
 
-### 13.7 HUD
+### 13.7 HUD and End Screen
 
 - Screen-space text (drawn after camera reset)
 - Text rendered using a custom vector-stroke font (line segments per character) matching the wireframe aesthetic — not browser `fillText`
 - Each glyph defined as polylines on a 4×6 grid; character set: A–Z, 0–9, space, basic punctuation
-- "YOU WIN" or "GAME OVER" centered on screen
-- "Press ENTER to restart" below the result
-- Enter or R key restarts: ships respawn, bullets cleared, phase resets
+- Faction-colored result text:
+  - `'playerWin'`: "YOU WIN" in blue (`#508CFF`)
+  - `'playerDead'`: "YOU LOST" in red (`#FF321E`)
+  - `'draw'`: "DRAW" in white (`#FFFFFF`)
+- "PRESS SPACE" shown below the result text (50% alpha)
+- HUD and overlay only appear in terminal phases (not during `'playing'` or `'ending'`)
+- End screen overlay: semi-transparent black (60% opacity) drawn behind HUD text
+- During terminal phases: ships, trails, and bullets are hidden; asteroids remain visible through the overlay
+- Space key restarts: ships respawn, bullets cleared, spawn zones cleared of asteroids, phase resets to `'playing'`
+
+### 13.8 AI-vs-AI Auto-Restart
+
+- When `settings.playerIntelligence !== 'human'`, the game auto-restarts 2 seconds after a terminal phase is reached
+- No user input needed — allows continuous AI-vs-AI observation
 
 ---
 

@@ -788,19 +788,24 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 
 ## Increment 29: Game State, HUD, and Restart
 
-**Goal**: Complete game loop with win/lose/restart.
+**Goal**: Complete game loop with win/lose/draw/restart, grace period, end screen, and AI auto-restart.
 
-**Modify**: `src/game.js`, `test/game.test.js`, `src/main.js`
+**Modify**: `src/font.js` (new), `test/font.test.js` (new), `src/game.js`, `test/game.test.js`, `src/input.js`, `test/input.test.js`, `src/main.js`
 
 **Acceptance Criteria**:
-- [ ] Game phases: `'playing'` → `'playerWin'` (enemy dies) / `'playerDead'` (player dies)
-- [ ] HUD text displayed in screen-space (after camera reset): "YOU WIN" or "GAME OVER", centered on screen
-- [ ] "Press ENTER to restart" shown below the result text
-- [ ] Enter or R key restarts: both ships respawn, bullets cleared, phase resets to `'playing'`
-- [ ] On player death: camera freezes at death position (world stops rotating)
-- [ ] On enemy death: camera continues following player
-- [ ] Respawn positions offset from each other
-- [ ] **Visible**: Complete game loop. Fight the enemy, win or lose, see the result, restart and play again.
+- [x] Game phases: `'playing'` → `'ending'` (grace period) → `'playerWin'` / `'playerDead'` / `'draw'`
+- [x] Grace period (1s): collisions remain active after first death (anti-kamikaze); if both die during grace, resolves to `'draw'`
+- [x] Vector stroke font module (`src/font.js`): polyline glyphs on 4×6 grid, A–Z, 0–9, space, punctuation
+- [x] HUD text in screen-space: "YOU WIN" (blue `#508CFF`), "YOU LOST" (red `#FF321E`), or "DRAW" (white)
+- [x] "PRESS SPACE" shown below result text (50% alpha)
+- [x] End screen overlay: semi-transparent black (60%), hides ships/trails/bullets, asteroids still visible
+- [x] HUD and overlay only appear in terminal phases (not during `'playing'` or `'ending'`)
+- [x] Controls disabled during terminal phases
+- [x] Space key restarts: ships respawn, bullets cleared, spawn zones cleared (45px = 3× ship size), phase resets
+- [x] On player death: camera freezes at death position
+- [x] On enemy death: camera continues following player
+- [x] AI-vs-AI auto-restart: when player is not human, auto-restarts 2s after terminal phase
+- [x] **Visible**: Complete game loop — fight, win/lose/draw, see result, restart and play again
 
 ---
 
