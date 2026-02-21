@@ -392,6 +392,7 @@ SpaceInvaders/
     ai-core.js      ← pluggable AI strategy registry
     ai-predictive.js ← predictive AI: trajectory simulation
     ai-reactive.js  ← reactive AI: pursuit, combat, obstacle avoidance
+    ai-reactive-optimized.js ← reactive AI clone for autonomous optimization
     ai.js           ← AI facade: registers strategies, re-exports for compat
     ai-neural.js    ← neural AI: ONNX inference, control flag mapping
     debug.js        ← AI debug logging (console telemetry, rate-limited)
@@ -683,6 +684,7 @@ at runtime via a settings dropdown, and compared side by side.
 | `ai-core.js` | Strategy registry (register, get, list) |
 | `ai-reactive.js` | Reactive AI — the original pursuit/avoidance algorithm (§12.1–12.3) |
 | `ai-predictive.js` | Predictive AI — trajectory simulation (§12.5) |
+| `ai-reactive-optimized.js` | Reactive-Optimized AI — autonomous optimization clone (§12.7) |
 | `ai.js` | Facade — registers strategies, re-exports for backward compatibility |
 
 The `ai.js` facade imports both strategies, registers them, and re-exports
@@ -804,6 +806,34 @@ Toggled via a settings checkbox (default: off). Zero performance cost when disab
 
 - After AI update: calls `logAIFrame` with ship states + `getLastDebugInfo()`
 - On bullet creation: calls `logEvent`
+
+### 12.7 Reactive-Optimized AI
+
+Experimental clone of the reactive AI (§12.1–12.3) designed for autonomous
+iterative optimization. A separate development context runs a loop:
+
+1. Run headless simulator with verbose logging
+2. Analyze logs — identify behavioral problems and improvement opportunities
+3. Write failing tests (RED) that specify the desired behavior
+4. Modify `ai-reactive-optimized.js` to make tests pass (GREEN)
+5. Repeat
+
+**Decoupling guarantee**: `ai-reactive-optimized.js` duplicates all constants
+from `ai-reactive.js` and has zero imports from it. Changes to the optimized
+variant cannot affect the original reactive, predictive, or any other module.
+The only shared dependency is `THRUST_POWER` from `ship.js` (stable physics
+constant).
+
+**Module**: `src/ai-reactive-optimized.js` — starts as a verbatim copy of
+`ai-reactive.js` with renamed exports (`reactiveOptimizedStrategy`,
+`createReactiveOptimizedState`, `updateReactiveOptimizedAI`).
+
+**Registration**: `ai.js` registers it as `'reactive-optimized'` in the
+strategy registry. Selectable via Player/Enemy intelligence dropdowns.
+
+**Tests**: `test/ai-reactive-optimized.test.js` — independent copy of the
+reactive test suite, pointing at the optimized module. Can diverge freely as
+the algorithm evolves.
 
 ---
 

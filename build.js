@@ -16,8 +16,14 @@ for (const mod of modules) {
   const cleaned = content
     .replace(/^\s*import\s+.*?from\s+['"].*?['"];?\s*$/gm, '')
     .replace(/^\s*import\s+\{[\s\S]*?\}\s+from\s+['"].*?['"];?\s*$/gm, '')
+    .replace(/^\s*import\s+['"].*?['"];?\s*$/gm, '')
     .replace(/^\s*export\s+/gm, '');
-  combinedJs += `// ===== ${mod} =====\n${cleaned}\n`;
+  // Wrap experimental clones in IIFE to avoid name collisions with the original
+  if (mod.includes('-optimized')) {
+    combinedJs += `// ===== ${mod} =====\n;(function() {\n${cleaned}\n})();\n`;
+  } else {
+    combinedJs += `// ===== ${mod} =====\n${cleaned}\n`;
+  }
 }
 
 // Replace the module script block with inlined modules + bootstrap call

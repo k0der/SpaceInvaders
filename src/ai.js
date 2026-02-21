@@ -17,6 +17,7 @@ import {
   reactiveStrategy,
   updateReactiveAI,
 } from './ai-reactive.js';
+import './ai-reactive-optimized.js'; // Self-registers as 'reactive-optimized'
 
 // ── Register strategies ──────────────────────────────────────────────
 registerStrategy('reactive', reactiveStrategy);

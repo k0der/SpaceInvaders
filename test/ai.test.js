@@ -13,6 +13,7 @@ import {
   reactiveStrategy,
   updateReactiveAI,
 } from '../src/ai-reactive.js';
+import { reactiveOptimizedStrategy } from '../src/ai-reactive-optimized.js';
 import { createShip } from '../src/ship.js';
 
 describe('AI Facade — strategy registration', () => {
@@ -26,9 +27,15 @@ describe('AI Facade — strategy registration', () => {
     expect(strategy).toBe(predictiveStrategy);
   });
 
-  it('listStrategies includes reactive and predictive', () => {
+  it('registers reactive-optimized strategy in the registry', () => {
+    const strategy = getStrategy('reactive-optimized');
+    expect(strategy).toBe(reactiveOptimizedStrategy);
+  });
+
+  it('listStrategies includes reactive, reactive-optimized, and predictive', () => {
     const names = listStrategies();
     expect(names).toContain('reactive');
+    expect(names).toContain('reactive-optimized');
     expect(names).toContain('predictive');
   });
 
