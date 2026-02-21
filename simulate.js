@@ -23,6 +23,7 @@ import {
 import { createCamera, getViewportBounds } from './src/camera.js';
 import { fmtAction } from './src/debug.js';
 import {
+  checkShipAsteroidCollision,
   createExplosion,
   createGameState,
   isExplosionDone,
@@ -453,6 +454,33 @@ export function runGame(config) {
           data: { victim: 'enemy', killer: 'player', cause: 'bullet' },
         });
       }
+
+      // Ship-asteroid collisions
+      if (playerShip.alive && checkShipAsteroidCollision(playerShip, sim.asteroids)) {
+        playerShip.alive = false;
+        gameState.explosions.push(
+          createExplosion(playerShip.x, playerShip.y),
+        );
+        events.push({
+          tick,
+          elapsed,
+          type: 'KILL',
+          data: { victim: 'player', killer: 'asteroid', cause: 'asteroid' },
+        });
+      }
+      if (enemyShip.alive && checkShipAsteroidCollision(enemyShip, sim.asteroids)) {
+        enemyShip.alive = false;
+        gameState.explosions.push(
+          createExplosion(enemyShip.x, enemyShip.y),
+        );
+        events.push({
+          tick,
+          elapsed,
+          type: 'KILL',
+          data: { victim: 'enemy', killer: 'asteroid', cause: 'asteroid' },
+        });
+      }
+
       updateGameState(gameState, playerShip, enemyShip);
     }
 

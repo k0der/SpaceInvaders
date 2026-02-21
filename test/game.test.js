@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   checkBulletShipHit,
+  checkShipAsteroidCollision,
   createExplosion,
   createGameState,
   drawExplosion,
@@ -404,6 +405,110 @@ describe('Increment 27: Bullet-Ship Collision', () => {
       const enemy = makeShip({ alive: true, owner: 'enemy' });
       updateGameState(state, player, enemy);
       expect(state.phase).toBe('playerDead');
+    });
+  });
+});
+
+function makeAsteroid(overrides = {}) {
+  return {
+    x: 0,
+    y: 0,
+    collisionRadius: 30,
+    ...overrides,
+  };
+}
+
+describe('Increment 28: Ship-Asteroid Collision', () => {
+  describe('checkShipAsteroidCollision', () => {
+    it('returns the first overlapping asteroid when ship is inside collision range', () => {
+      const ship = makeShip({ x: 0, y: 0 });
+      const asteroid = makeAsteroid({ x: 20, y: 0, collisionRadius: 30 });
+      // distance = 20, sum of radii = 30 + 15 = 45 → 20 < 45 → collision
+      const result = checkShipAsteroidCollision(ship, [asteroid]);
+      expect(result).toBe(asteroid);
+    });
+
+    it('returns null when no asteroids overlap the ship', () => {
+      const ship = makeShip({ x: 0, y: 0 });
+      const asteroid = makeAsteroid({ x: 200, y: 0, collisionRadius: 30 });
+      const result = checkShipAsteroidCollision(ship, [asteroid]);
+      expect(result).toBeNull();
+    });
+
+    it('returns null when distance exactly equals sum of radii (strict <)', () => {
+      const ship = makeShip({ x: 0, y: 0 });
+      // distance = SHIP_SIZE + 30 = 45 → not a collision (strict <)
+      const asteroid = makeAsteroid({
+        x: SHIP_SIZE + 30,
+        y: 0,
+        collisionRadius: 30,
+      });
+      const result = checkShipAsteroidCollision(ship, [asteroid]);
+      expect(result).toBeNull();
+    });
+
+    it('returns the first overlapping asteroid when multiple overlap', () => {
+      const ship = makeShip({ x: 0, y: 0 });
+      const asteroid1 = makeAsteroid({ x: 10, y: 0, collisionRadius: 30 });
+      const asteroid2 = makeAsteroid({ x: 5, y: 0, collisionRadius: 30 });
+      const result = checkShipAsteroidCollision(ship, [asteroid1, asteroid2]);
+      expect(result).toBe(asteroid1);
+    });
+
+    it('returns null for an empty asteroid array', () => {
+      const ship = makeShip({ x: 0, y: 0 });
+      const result = checkShipAsteroidCollision(ship, []);
+      expect(result).toBeNull();
+    });
+
+    it('uses circle-circle detection with collisionRadius', () => {
+      const ship = makeShip({ x: 100, y: 100 });
+      // distance = sqrt(10^2 + 10^2) = ~14.14
+      // sum of radii = SHIP_SIZE(15) + 5 = 20 → 14.14 < 20 → collision
+      const asteroid = makeAsteroid({
+        x: 110,
+        y: 110,
+        collisionRadius: 5,
+      });
+      const result = checkShipAsteroidCollision(ship, [asteroid]);
+      expect(result).toBe(asteroid);
+    });
+
+    it('skips non-overlapping asteroids and finds first overlapping one', () => {
+      const ship = makeShip({ x: 0, y: 0 });
+      const far = makeAsteroid({ x: 500, y: 500, collisionRadius: 10 });
+      const close = makeAsteroid({ x: 10, y: 0, collisionRadius: 20 });
+      const result = checkShipAsteroidCollision(ship, [far, close]);
+      expect(result).toBe(close);
+    });
+
+    it('does not check dead ships (caller responsibility — function checks any ship passed)', () => {
+      // The function itself doesn't filter by alive — it's the caller's job.
+      // But verify it works for any ship object passed to it.
+      const ship = makeShip({ x: 0, y: 0, alive: false });
+      const asteroid = makeAsteroid({ x: 10, y: 0, collisionRadius: 30 });
+      const result = checkShipAsteroidCollision(ship, [asteroid]);
+      expect(result).toBe(asteroid);
+    });
+
+    it('does not mutate asteroids (asteroids unaffected)', () => {
+      const ship = makeShip({ x: 0, y: 0 });
+      const asteroid = makeAsteroid({ x: 10, y: 0, collisionRadius: 30 });
+      const originalX = asteroid.x;
+      const originalY = asteroid.y;
+      const originalRadius = asteroid.collisionRadius;
+      checkShipAsteroidCollision(ship, [asteroid]);
+      expect(asteroid.x).toBe(originalX);
+      expect(asteroid.y).toBe(originalY);
+      expect(asteroid.collisionRadius).toBe(originalRadius);
+    });
+
+    it('works identically for player and enemy ships', () => {
+      const asteroid = makeAsteroid({ x: 10, y: 0, collisionRadius: 30 });
+      const player = makeShip({ x: 0, y: 0, owner: 'player' });
+      const enemy = makeShip({ x: 0, y: 0, owner: 'enemy' });
+      expect(checkShipAsteroidCollision(player, [asteroid])).toBe(asteroid);
+      expect(checkShipAsteroidCollision(enemy, [asteroid])).toBe(asteroid);
     });
   });
 });

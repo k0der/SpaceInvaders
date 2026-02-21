@@ -5,6 +5,22 @@ export const EXPLOSION_DURATION = 1.0;
 export const EXPLOSION_MAX_RADIUS = 60;
 
 /**
+ * Check if a ship overlaps any asteroid (circle-circle using collisionRadius).
+ * Returns the first overlapping asteroid, or null if none overlap.
+ */
+export function checkShipAsteroidCollision(ship, asteroids) {
+  for (const asteroid of asteroids) {
+    const dx = ship.x - asteroid.x;
+    const dy = ship.y - asteroid.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < ship.collisionRadius + asteroid.collisionRadius) {
+      return asteroid;
+    }
+  }
+  return null;
+}
+
+/**
  * Check if a bullet is within a ship's collision radius.
  * Returns true when distance(bullet, ship) < ship.collisionRadius.
  */

@@ -18,6 +18,7 @@ import {
 } from './camera.js';
 import { createDebugLogger } from './debug.js';
 import {
+  checkShipAsteroidCollision,
   createExplosion,
   createGameState,
   drawExplosion,
@@ -494,6 +495,27 @@ export function startApp() {
           createExplosion(enemyShip.x, enemyShip.y, ENEMY_TRAIL_COLOR),
         );
       }
+
+      // Ship-asteroid collisions
+      if (
+        playerShip.alive &&
+        checkShipAsteroidCollision(playerShip, sim.asteroids)
+      ) {
+        playerShip.alive = false;
+        gameState.explosions.push(
+          createExplosion(playerShip.x, playerShip.y, PLAYER_TRAIL_COLOR),
+        );
+      }
+      if (
+        enemyShip.alive &&
+        checkShipAsteroidCollision(enemyShip, sim.asteroids)
+      ) {
+        enemyShip.alive = false;
+        gameState.explosions.push(
+          createExplosion(enemyShip.x, enemyShip.y, ENEMY_TRAIL_COLOR),
+        );
+      }
+
       updateGameState(gameState, playerShip, enemyShip);
     }
 
