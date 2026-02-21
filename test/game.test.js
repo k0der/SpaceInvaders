@@ -714,6 +714,12 @@ describe('Increment 29: HUD', () => {
   });
 });
 
+describe('Increment 29: SPAWN_SAFE_RADIUS', () => {
+  it('equals 3 times SHIP_SIZE', () => {
+    expect(SPAWN_SAFE_RADIUS).toBe(3 * SHIP_SIZE);
+  });
+});
+
 describe('Increment 29: clearSpawnZone', () => {
   it('removes asteroids overlapping a ship position', () => {
     const asteroids = [
