@@ -67,21 +67,36 @@ export function isExplosionDone(explosion) {
   return explosion.age >= EXPLOSION_DURATION;
 }
 
+/** Inner circle radius ratio relative to the outer circle. */
+export const EXPLOSION_INNER_RATIO = 0.5;
+
 /**
- * Draw an expanding wireframe circle that fades out over its lifetime.
+ * Draw two expanding concentric wireframe circles that fade out over lifetime.
+ * The inner circle is smaller and slightly brighter, creating depth.
  */
 export function drawExplosion(ctx, explosion) {
   const progress = explosion.age / EXPLOSION_DURATION;
-  const radius = progress * EXPLOSION_MAX_RADIUS;
+  const outerRadius = progress * EXPLOSION_MAX_RADIUS;
+  const innerRadius = outerRadius * EXPLOSION_INNER_RATIO;
   const alpha = 1.0 - progress;
 
   ctx.save();
-  ctx.globalAlpha = alpha;
   ctx.strokeStyle = '#FFFFFF';
+
+  // Outer circle
+  ctx.globalAlpha = alpha;
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.arc(explosion.x, explosion.y, outerRadius, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Inner circle — slightly brighter
+  ctx.globalAlpha = Math.min(alpha * 1.4, 1.0);
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.arc(explosion.x, explosion.y, radius, 0, Math.PI * 2);
+  ctx.arc(explosion.x, explosion.y, innerRadius, 0, Math.PI * 2);
   ctx.stroke();
+
   ctx.restore();
 }
 

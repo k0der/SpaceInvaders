@@ -192,6 +192,18 @@ export function updateTrail(trail, x, y, heading, thrustIntensity) {
   }
 }
 
+/** Number of trail points to drain per second after ship death. */
+export const TRAIL_DRAIN_RATE = 400;
+
+/**
+ * Gradually drain the trail after the ship dies.
+ * Removes points from the oldest end so the trail shrinks toward the ship.
+ */
+export function drainTrail(trail, dt) {
+  const pointsToDrain = Math.ceil(TRAIL_DRAIN_RATE * dt);
+  trail.points.splice(0, Math.min(pointsToDrain, trail.points.length));
+}
+
 /**
  * Draw the exhaust trail as fading line segments.
  * Width and opacity are interpolated per-segment using the stored

@@ -43,6 +43,7 @@ import {
 import {
   createShip,
   createTrail,
+  drainTrail,
   drawShip,
   drawTrail,
   ENEMY_TRAIL_COLOR,
@@ -395,6 +396,8 @@ export function startApp() {
         playerShip.heading,
         playerShip.thrustIntensity,
       );
+    } else {
+      drainTrail(playerTrail, scaledDt);
     }
     if (enemyShip.alive) {
       updateTrail(
@@ -404,6 +407,8 @@ export function startApp() {
         enemyShip.heading,
         enemyShip.thrustIntensity,
       );
+    } else {
+      drainTrail(enemyTrail, scaledDt);
     }
 
     // Camera follows ship (PI/2 offset so ship nose points UP on screen)

@@ -4,6 +4,7 @@ import {
   createShip,
   createTrail,
   DRAG,
+  drainTrail,
   drawShip,
   drawTrail,
   ENEMY_SHIP_COLOR,
@@ -16,6 +17,7 @@ import {
   THRUST_RAMP_SPEED,
   TRAIL_BASE_OPACITY,
   TRAIL_BASE_WIDTH,
+  TRAIL_DRAIN_RATE,
   TRAIL_MAX_LENGTH,
   TRAIL_THRUST_OPACITY,
   TRAIL_THRUST_WIDTH,
@@ -1041,6 +1043,42 @@ describe('Increment 22b: Ship Exhaust Trail', () => {
       for (const style of styles) {
         expect(style).toMatch(/^rgba\(255, 50, 30,/);
       }
+    });
+  });
+
+  describe('drainTrail', () => {
+    it('removes points from the oldest end', () => {
+      const trail = createTrail();
+      for (let i = 0; i < 100; i++) {
+        updateTrail(trail, i * 10, 0, 0, 0);
+      }
+      expect(trail.points).toHaveLength(100);
+      const lastPoint = trail.points[trail.points.length - 1];
+
+      drainTrail(trail, 0.1);
+      expect(trail.points.length).toBeLessThan(100);
+      // Last (newest) point should be preserved
+      expect(trail.points[trail.points.length - 1]).toBe(lastPoint);
+    });
+
+    it('empties the trail after enough time', () => {
+      const trail = createTrail();
+      for (let i = 0; i < 50; i++) {
+        updateTrail(trail, i, i, 0, 0);
+      }
+      // Drain with a large dt to empty it
+      drainTrail(trail, 10);
+      expect(trail.points).toHaveLength(0);
+    });
+
+    it('does not crash on empty trail', () => {
+      const trail = createTrail();
+      drainTrail(trail, 0.1);
+      expect(trail.points).toHaveLength(0);
+    });
+
+    it('TRAIL_DRAIN_RATE is a positive number', () => {
+      expect(TRAIL_DRAIN_RATE).toBeGreaterThan(0);
     });
   });
 });

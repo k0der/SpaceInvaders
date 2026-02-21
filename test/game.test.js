@@ -5,6 +5,7 @@ import {
   createGameState,
   drawExplosion,
   EXPLOSION_DURATION,
+  EXPLOSION_INNER_RATIO,
   EXPLOSION_MAX_RADIUS,
   isExplosionDone,
   processBulletShipCollisions,
@@ -256,7 +257,7 @@ describe('Increment 27: Bullet-Ship Collision', () => {
   });
 
   describe('drawExplosion', () => {
-    it('draws an expanding wireframe circle with fading alpha', () => {
+    it('draws two concentric expanding circles with fading alpha', () => {
       const ctx = {
         save: vi.fn(),
         restore: vi.fn(),
@@ -273,20 +274,25 @@ describe('Increment 27: Bullet-Ship Collision', () => {
       drawExplosion(ctx, explosion);
 
       expect(ctx.save).toHaveBeenCalled();
-      expect(ctx.beginPath).toHaveBeenCalled();
-      expect(ctx.arc).toHaveBeenCalled();
-      expect(ctx.stroke).toHaveBeenCalled();
+      expect(ctx.arc).toHaveBeenCalledTimes(2);
+      expect(ctx.stroke).toHaveBeenCalledTimes(2);
       expect(ctx.restore).toHaveBeenCalled();
 
-      // Radius should be ~half of max at midpoint
-      const arcCall = ctx.arc.mock.calls[0];
-      expect(arcCall[0]).toBe(100); // x
-      expect(arcCall[1]).toBe(200); // y
-      expect(arcCall[2]).toBeGreaterThan(0); // radius > 0
-      expect(arcCall[2]).toBeLessThan(EXPLOSION_MAX_RADIUS); // radius < max
+      // Outer circle
+      const outerArc = ctx.arc.mock.calls[0];
+      expect(outerArc[0]).toBe(100); // x
+      expect(outerArc[1]).toBe(200); // y
+      expect(outerArc[2]).toBeGreaterThan(0);
+      expect(outerArc[2]).toBeLessThan(EXPLOSION_MAX_RADIUS);
+
+      // Inner circle — smaller than outer
+      const innerArc = ctx.arc.mock.calls[1];
+      expect(innerArc[0]).toBe(100);
+      expect(innerArc[1]).toBe(200);
+      expect(innerArc[2]).toBeCloseTo(outerArc[2] * EXPLOSION_INNER_RATIO);
     });
 
-    it('does not draw if age is 0 (just created)', () => {
+    it('does not crash at age 0', () => {
       const ctx = {
         save: vi.fn(),
         restore: vi.fn(),
@@ -298,13 +304,8 @@ describe('Increment 27: Bullet-Ship Collision', () => {
         globalAlpha: 1,
       };
       const explosion = createExplosion(0, 0);
-      explosion.age = 0;
-
       drawExplosion(ctx, explosion);
-
-      // At age 0 the radius is 0 and alpha is 1 — it can draw but radius is 0
-      // Implementation may choose to skip or draw zero-radius circle; both are fine
-      // We just verify it doesn't crash
+      // Zero-radius circles — harmless
     });
   });
 
