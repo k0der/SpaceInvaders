@@ -831,3 +831,367 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 
 ### Visible
 - [x] **Visible**: Settings panel shows "Player" dropdown (human/reactive/predictive) and "Enemy AI" dropdown (reactive/predictive). Human mode = keyboard control. Switching to reactive/predictive makes the player ship autonomous. Enemy AI dropdown works as before.
+
+---
+
+# Phase 3: Deep Reinforcement Learning
+
+Increments 31–37 add a third intelligence type — a neural network trained via deep reinforcement learning (PPO). The agent is trained offline in Python using the headless simulator, exported to ONNX, and runs inference client-side in the browser. No backend services required. See SPEC §16 for full architecture.
+
+**Prerequisites**: Increments 26d (Headless Simulator), 27 (Bullet-Ship Collision), 28 (Ship-Asteroid Collision), 29 (Game State/HUD/Restart) must be complete — the training environment needs death/win signals and a functional headless simulator.
+
+**Dependency chain**: 31 → 32 → 33 → 34 → 35 → 36 → 37
+
+---
+
+## Increment 31: Observation Builder
+
+**Goal**: Shared module that converts raw game state into ego-centric normalized observation vectors. Used identically by both the training bridge (Node.js) and browser inference (`ai-neural.js`).
+
+**New modules**: `src/observation.js`, `test/observation.test.js`
+
+**Acceptance Criteria**:
+
+### Observation Function
+- [ ] `buildObservation(ship, target, asteroids, k)` returns a flat `Float32Array` of length `OBSERVATION_SIZE`
+- [ ] `OBSERVATION_SIZE` (36) exported as a constant
+- [ ] `MAX_ASTEROID_OBS` (8) exported — the k value for nearest-asteroid slots
+
+### Self State (6 floats)
+- [ ] Index 0: speed normalized by `MAX_SPEED` → [0, 1]
+- [ ] Index 1: velocity angle relative to heading, normalized by π → [-1, 1]
+- [ ] Index 2: `thrustIntensity` → [0, 1] (direct copy)
+- [ ] Index 3: rotation direction → {-1, 0, 1} (from `rotatingLeft`/`rotatingRight` flags)
+- [ ] Index 4: alive → {0, 1}
+- [ ] Index 5: fire cooldown fraction → [0, 1] (`cooldown / FIRE_COOLDOWN`)
+
+### Target State (6 floats)
+- [ ] Index 6: relative distance normalized by 1000px, clamped to [0, 1]
+- [ ] Index 7: relative bearing (angle from heading to target) normalized by π → [-1, 1]
+- [ ] Index 8: relative heading difference normalized by π → [-1, 1]
+- [ ] Index 9: closing speed normalized by `MAX_SPEED` → [-1, 1]
+- [ ] Index 10: lateral speed normalized by `MAX_SPEED` → [-1, 1]
+- [ ] Index 11: target alive → {0, 1}
+
+### Asteroid Observations (24 floats, k=8 × 3)
+- [ ] For each of the k=8 nearest asteroids: relative distance (normalized by 1000px), relative bearing (normalized by π), relative approach speed (normalized by 200)
+- [ ] Asteroids sorted by distance from ship (nearest first)
+- [ ] Zero-padded when fewer than k asteroids are present
+- [ ] Asteroids beyond 1000px distance are excluded before selecting nearest k
+
+### Quality
+- [ ] Pure function — no mutation of inputs, no side effects
+- [ ] All values clamped to their documented ranges (no NaN, no Infinity)
+- [ ] Handles edge cases: zero velocity ship, dead target, empty asteroid array, ship at origin
+
+### Tests
+- [ ] Empty asteroids array → asteroid slots all zero
+- [ ] Single asteroid → first 3 slots filled, rest zero
+- [ ] More than k asteroids → only nearest k selected
+- [ ] Dead target → alive=0, other target fields still computed
+- [ ] Zero velocity ship → speed=0, velocity angle=0
+- [ ] Various headings → bearing computation correct at 0, π/2, π, -π/2
+- [ ] Normalization bounds verified for extreme inputs
+
+### Visible
+- [ ] **Visible**: `import { buildObservation } from './observation.js'` produces a 36-float vector from any game state. Verified via test suite — no browser needed.
+
+---
+
+## Increment 32: Reward Function
+
+**Goal**: Configurable dense reward function for training. Per-step rewards provide gradient signal for learning basic behaviors (aim, pursue, evade) much faster than sparse win/loss alone.
+
+**New modules**: `src/reward.js`, `test/reward.test.js`
+
+**Acceptance Criteria**:
+
+### Reward Function
+- [ ] `computeReward(prevState, currentState, action, config)` returns a single float
+- [ ] `prevState` and `currentState` each contain: `{ ship, target, asteroids, shipHP, targetHP, tick }`
+- [ ] `action` contains: `{ moveAction, fireAction }` (the agent's chosen actions this step)
+- [ ] `config` contains: `{ rewardWeights, maxTicks, shipHP: initialHP }`
+
+### Reward Components (see SPEC §16.7)
+- [ ] **Survival**: `+weights.survival` per step (while agent alive)
+- [ ] **Aim alignment**: `+weights.aim × cos(angle_to_target)` when distance < 600px
+- [ ] **Closing distance**: `+weights.closing × Δdistance / 1000` when closing (positive Δ)
+- [ ] **Hit landed**: `+weights.hit` when `currentState.targetHP < prevState.targetHP`
+- [ ] **Got hit**: `weights.gotHit` (negative) when `currentState.shipHP < prevState.shipHP`
+- [ ] **Near-miss**: `weights.nearMiss × (1 - dist/dangerRadius)²` when within 3× any asteroid's `collisionRadius`
+- [ ] **Fire discipline**: `weights.firePenalty` (negative) when `fireAction === 1`
+
+### Terminal Rewards
+- [ ] **Win**: `+weights.win` when `currentState.targetHP <= 0`
+- [ ] **Loss**: `weights.loss` (negative) when `currentState.shipHP <= 0`
+- [ ] **Timeout**: `weights.timeout` (negative) when `currentState.tick >= config.maxTicks`
+
+### Defaults
+- [ ] `DEFAULT_REWARD_WEIGHTS` exported with values from SPEC §16.7: `{ survival: 0.001, aim: 0.01, closing: 0.01, hit: 1.0, gotHit: -1.0, nearMiss: -0.1, firePenalty: -0.002, win: 5.0, loss: -5.0, timeout: -1.0 }`
+
+### Quality
+- [ ] Pure function — no mutation, no side effects
+- [ ] Returns 0.0 when agent is dead (no posthumous rewards)
+- [ ] Handles missing/undefined fields gracefully (defaults to 0 contribution)
+
+### Tests
+- [ ] Each reward component tested individually (one component active, others zeroed)
+- [ ] Combined reward with all components active
+- [ ] Terminal conditions: win, loss, timeout
+- [ ] Edge cases: zero distance to target, dead ships, no asteroids, max-range asteroid
+- [ ] Custom weights override defaults correctly
+- [ ] Dead agent returns 0.0
+
+### Visible
+- [ ] **Visible**: `import { computeReward } from './reward.js'` computes dense rewards from any pair of game states. Verified via test suite.
+
+---
+
+## Increment 33: Training Environment (GameEnv)
+
+**Goal**: Gym-style `GameEnv` class wrapping the headless game simulation with `reset()` / `step()` interface. Supports training-mode configuration (multi-HP, episode timeout, curriculum knobs).
+
+**New modules**: `src/game-env.js`, `test/game-env.test.js`
+
+**Acceptance Criteria**:
+
+### GameEnv Class
+- [ ] `new GameEnv()` creates an environment instance (no config needed at construction)
+- [ ] `env.reset(config)` initializes a new episode and returns initial observation (`Float32Array`)
+- [ ] `env.step(moveAction, fireAction)` returns `{ observation, reward, done, info }`
+- [ ] `observation` is a `Float32Array` of length `OBSERVATION_SIZE` (from observation builder)
+- [ ] `reward` is a float (from reward function)
+- [ ] `done` is a boolean
+- [ ] `info` is an object: `{ winner, ticksElapsed, hitsLanded, hitsTaken, asteroidsHit }`
+
+### Training-Mode Config (reset parameter)
+- [ ] `shipHP` (default 1): agent and opponent starting HP
+- [ ] `maxTicks` (default 3600): episode timeout
+- [ ] `asteroidDensity` (default 1.0): asteroid density multiplier
+- [ ] `enemyPolicy` (default `'predictive'`): opponent strategy name (`'static'`/`'reactive'`/`'predictive'`)
+- [ ] `enemyShoots` (default true): whether opponent fires bullets
+- [ ] `spawnDistance` (default 500): initial distance between ships
+- [ ] `spawnFacing` (default true): ships face each other at spawn
+- [ ] `rewardWeights` (default `DEFAULT_REWARD_WEIGHTS`): reward function config
+
+### HP System
+- [ ] Ships have `hp` field initialized from `config.shipHP`
+- [ ] Each bullet hit decrements target's HP by 1
+- [ ] Each asteroid collision decrements ship's HP by 1
+- [ ] Ship dies (`alive = false`) when HP reaches 0
+- [ ] HP system is internal to GameEnv — does not modify the core `ship.js` module
+
+### Action Mapping
+- [ ] `moveAction` (0–9) maps to control flags per SPEC §16.3 action table
+- [ ] `fireAction` (0 or 1) maps to `ship.fire` flag
+- [ ] Invalid action indices throw an error
+
+### Episode Termination
+- [ ] Episode ends when agent HP reaches 0 → `info.winner = 'opponent'`
+- [ ] Episode ends when opponent HP reaches 0 → `info.winner = 'agent'`
+- [ ] Episode ends when `ticksElapsed >= maxTicks` → `info.winner = 'timeout'`
+
+### Opponent Behavior
+- [ ] `'static'` policy: opponent does nothing (all control flags false)
+- [ ] `'reactive'` / `'predictive'`: opponent uses corresponding registered strategy
+- [ ] `enemyShoots: false` suppresses opponent's `fire` flag regardless of policy
+
+### Simulation Per Step
+- [ ] One step = one simulation tick (fixed dt = 1/60)
+- [ ] Step applies: agent action → opponent AI → `updateShip` both → bullet update → bullet-ship collisions → ship-asteroid collisions → `updateSimulation` (asteroids)
+- [ ] Camera updated for asteroid spawning zone computation
+
+### Tests
+- [ ] `reset()` returns valid observation of correct length
+- [ ] `step()` returns correct shape `{ observation, reward, done, info }`
+- [ ] Episode terminates on agent death (HP reaches 0)
+- [ ] Episode terminates on opponent death
+- [ ] Episode terminates on timeout
+- [ ] HP decrements on bullet hit
+- [ ] HP decrements on asteroid collision
+- [ ] Action mapping: each of 10 move actions sets correct control flags
+- [ ] Static enemy doesn't move or shoot
+- [ ] `enemyShoots: false` suppresses enemy fire
+- [ ] `spawnFacing: true` spawns ships facing each other
+- [ ] Multiple sequential episodes (reset → play → reset → play) work correctly
+
+### Visible
+- [ ] **Visible**: `const env = new GameEnv(); env.reset({ shipHP: 5 }); env.step(0, 0);` runs a training step. Verified via test suite.
+
+---
+
+## Increment 34: Python Bridge
+
+**Goal**: stdin/stdout JSON-lines protocol so Python training scripts can drive the GameEnv at maximum speed. Node.js process acts as a game server, Python sends commands and receives observations.
+
+**Modify**: `simulate.js` (add `--bridge` mode)
+**New modules**: `test/bridge.test.js`
+
+**Acceptance Criteria**:
+
+### Bridge Mode
+- [ ] `node simulate.js --bridge` enters bridge mode: reads JSON commands from stdin, writes JSON responses to stdout
+- [ ] Bridge mode does not print any other output to stdout (all diagnostics go to stderr)
+- [ ] One JSON object per line (newline-delimited JSON-lines format)
+
+### Commands
+- [ ] `{ "command": "reset", "config": {...} }` → calls `env.reset(config)`, responds with `{ "observation": [0.5, -0.3, ...] }`
+- [ ] `{ "command": "step", "action": N, "fire": 0 }` → calls `env.step(action, fire)`, responds with `{ "observation": [...], "reward": 0.05, "done": false, "info": {...} }`
+- [ ] `{ "command": "close" }` → responds with `{ "status": "closed" }` and exits process cleanly
+- [ ] `step` before `reset` returns `{ "error": "Environment not initialized. Call reset first." }`
+- [ ] Invalid JSON returns `{ "error": "Invalid JSON: <parse error>" }`
+- [ ] Unknown command returns `{ "error": "Unknown command: <name>" }`
+- [ ] Invalid action index returns `{ "error": "Invalid action: <details>" }`
+
+### Performance
+- [ ] No buffering issues with rapid sequential commands (flushes stdout after each response)
+- [ ] Process exits with code 0 on `close` command
+- [ ] Process exits with code 1 on uncaught error (with error message to stderr)
+
+### Backward Compatibility
+- [ ] Existing `simulate.js` CLI modes (`--games`, `--verbose`, etc.) unchanged
+- [ ] `--bridge` and `--games` are mutually exclusive (error if both provided)
+
+### Tests
+- [ ] Command parsing: valid reset, step, close
+- [ ] Error handling: invalid JSON, unknown command, step before reset
+- [ ] Action validation: out-of-range action index
+- [ ] Response format matches documented schema
+- [ ] (Integration test if feasible: spawn Node process, send commands via stdin, verify responses)
+
+### Visible
+- [ ] **Visible**: `echo '{"command":"reset","config":{}}' | node simulate.js --bridge` outputs a JSON observation. Manual pipe testing confirms the protocol works.
+
+---
+
+## Increment 35: Python Training Scaffold
+
+**Goal**: Minimal Python training infrastructure — Gymnasium wrapper that communicates with the Node.js bridge, PPO training script with curriculum support, and ONNX export tool.
+
+**New files**: `training/requirements.txt`, `training/env.py`, `training/train.py`, `training/export_onnx.py`, `training/config.yaml`
+
+**Acceptance Criteria**:
+
+### Gymnasium Wrapper (`training/env.py`)
+- [ ] `SpaceDogfightEnv(gymnasium.Env)` class
+- [ ] `__init__` spawns `node simulate.js --bridge` as a subprocess
+- [ ] `reset()` sends reset command with current stage config, returns observation as `np.ndarray`
+- [ ] `step(action)` sends step command, returns `(observation, reward, terminated, truncated, info)`
+- [ ] `close()` sends close command and terminates subprocess
+- [ ] `observation_space = gymnasium.spaces.Box(low=-1, high=1, shape=(36,), dtype=np.float32)`
+- [ ] `action_space = gymnasium.spaces.MultiDiscrete([10, 2])` (movement + fire)
+- [ ] Handles subprocess crashes gracefully (auto-restart on next reset)
+
+### Training Script (`training/train.py`)
+- [ ] PPO training using Stable Baselines3
+- [ ] `--stage N` argument selects curriculum stage (1–5) from config.yaml
+- [ ] `--episodes N` argument sets training duration
+- [ ] `--checkpoint path` argument resumes from a saved model
+- [ ] `--num-envs N` argument controls parallel environments (default 8)
+- [ ] Saves checkpoints to `training/checkpoints/stage{N}/` directory
+- [ ] Logs training metrics (reward, win rate, episode length) to stdout
+- [ ] Promotes to next stage when win rate exceeds threshold from config
+
+### ONNX Export (`training/export_onnx.py`)
+- [ ] `--checkpoint path` argument specifies the PyTorch model to export
+- [ ] `--output path` argument specifies output ONNX file (default `models/policy.onnx`)
+- [ ] Exports with correct input shape `(1, 36)` and two output heads
+- [ ] Validates exported ONNX model loads correctly
+
+### Config (`training/config.yaml`)
+- [ ] 5 curriculum stages with parameters matching SPEC §16.8
+- [ ] Per-stage: `shipHP`, `maxTicks`, `asteroidDensity`, `enemyPolicy`, `enemyShoots`, `spawnDistance`, `spawnFacing`, `rewardWeights`, `promotionThreshold`
+- [ ] PPO hyperparameters: learning rate, batch size, n_steps, n_epochs, gamma, clip range
+
+### Dependencies (`training/requirements.txt`)
+- [ ] `stable-baselines3`, `gymnasium`, `torch`, `onnx`, `pyyaml`, `numpy`
+
+### Validation
+- [ ] `pip install -r training/requirements.txt` succeeds
+- [ ] `python training/train.py --stage 1 --episodes 100 --num-envs 1` runs without error and produces a checkpoint
+- [ ] `python training/export_onnx.py --checkpoint <path>` produces a valid `.onnx` file
+
+### Visible
+- [ ] **Visible**: Running `python training/train.py --stage 1 --episodes 100` trains an agent on stage 1 (stationary target), printing reward progress. Export produces a `policy.onnx` file.
+
+---
+
+## Increment 36: Neural Strategy (Browser Inference)
+
+**Goal**: `ai-neural.js` pluggable strategy that loads an ONNX model and runs inference client-side in the browser at 60fps.
+
+**New modules**: `src/ai-neural.js`, `test/ai-neural.test.js`
+
+**Acceptance Criteria**:
+
+### Strategy Interface
+- [ ] `neuralStrategy = { createState, update }` exported — follows the pluggable strategy interface
+- [ ] Registered as `'neural'` in the strategy registry (via `ai.js`)
+
+### createState
+- [ ] Returns `{ session, inputBuffer, ready, fallbackStrategy }` object
+- [ ] Loads ONNX Runtime Web from CDN (`<script>` tag) if not already loaded
+- [ ] Creates `ort.InferenceSession` from `models/policy.onnx`
+- [ ] Allocates reusable `Float32Array` input buffer (size `OBSERVATION_SIZE`)
+- [ ] Sets `ready = true` once model is loaded; `ready = false` while loading
+- [ ] On load failure: sets `fallbackStrategy` to predictive strategy, logs warning
+
+### update
+- [ ] When `ready`: builds observation via `buildObservation()` → runs ONNX inference → reads outputs
+- [ ] Movement output: argmax of 10-way softmax → maps to control flags per SPEC §16.3
+- [ ] Fire output: sigmoid > 0.5 → `ship.fire = true`
+- [ ] When not `ready` (model still loading or failed): delegates to `fallbackStrategy.update()`
+- [ ] Inference time < 1ms per call (MLP forward pass on 36 floats)
+
+### Action Mapping
+- [ ] Action index 0–9 maps to the same control flag combinations as GameEnv (SPEC §16.3)
+- [ ] `ACTION_MAP` array exported for shared use with GameEnv
+
+### Shared Code
+- [ ] Uses `buildObservation()` from `src/observation.js` — identical normalization as training
+- [ ] Uses `ACTION_MAP` from a shared location (avoid duplication with `game-env.js`)
+
+### Tests
+- [ ] Mock ONNX session: verify observation is built correctly and passed to session
+- [ ] Verify action mapping: each index 0–9 produces correct control flag combination
+- [ ] Verify fire decision: sigmoid > 0.5 → fire, ≤ 0.5 → no fire
+- [ ] Verify fallback: when `ready = false`, predictive strategy is called instead
+- [ ] Verify graceful handling when ONNX Runtime is not available (CDN blocked)
+
+### Visible
+- [ ] **Visible**: With a trained `policy.onnx` file in `models/`, selecting "neural" from the intelligence dropdown makes the ship fly using the trained neural network. Without a model file, it silently falls back to predictive AI.
+
+---
+
+## Increment 37: Settings Integration + Model Loading
+
+**Goal**: Add `'neural'` option to intelligence dropdowns and handle model loading gracefully.
+
+**Modify**: `src/settings.js`, `src/ai.js`, `src/main.js`, `build.js`
+
+**Acceptance Criteria**:
+
+### Settings Dropdowns
+- [ ] `playerIntelligence` options: `['human', 'reactive', 'predictive', 'neural']`
+- [ ] `enemyIntelligence` options: `['reactive', 'predictive', 'neural']`
+- [ ] `'neural'` option persisted to `localStorage`
+- [ ] Loading `'neural'` from `localStorage` when no model exists falls back gracefully (no crash)
+
+### Strategy Registration (`ai.js`)
+- [ ] Imports `neuralStrategy` from `ai-neural.js`
+- [ ] Registers as `registerStrategy('neural', neuralStrategy)`
+
+### Main Loop (`main.js`)
+- [ ] Selecting `'neural'` from either dropdown works identically to selecting other strategies
+- [ ] `getStrategy('neural')` returns the neural strategy
+- [ ] Strategy `createState()` initiates async model loading
+- [ ] While model loads, ship uses predictive fallback (no frozen frames)
+
+### Build (`build.js`)
+- [ ] Adds CDN `<script>` tag for ONNX Runtime Web in the production build
+- [ ] CDN script is `defer` / `async` — does not block page load
+- [ ] If `models/policy.onnx` exists at build time, includes a reference to it
+- [ ] Build still succeeds when no model file exists
+
+### Visible
+- [ ] **Visible**: Settings panel shows "neural" option in both Player and Enemy AI dropdowns. Selecting it loads the neural model (if available) or silently falls back to predictive. No errors in console when model is missing.

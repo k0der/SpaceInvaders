@@ -393,9 +393,20 @@ SpaceInvaders/
     ai-predictive.js ← predictive AI: trajectory simulation
     ai-reactive.js  ← reactive AI: pursuit, combat, obstacle avoidance
     ai.js           ← AI facade: registers strategies, re-exports for compat
+    ai-neural.js    ← neural AI: ONNX inference, control flag mapping
     debug.js        ← AI debug logging (console telemetry, rate-limited)
     game.js         ← game state: phases, collisions, HUD, restart
+    observation.js  ← shared observation builder (ego-centric vectors)
+    reward.js       ← configurable dense reward function for training
+    game-env.js     ← GameEnv class: gym-style reset/step interface
   simulate.js       ← headless simulation harness (CLI, no browser)
+  models/
+    policy.onnx     ← trained neural model weights (not in git)
+  training/
+    env.py          ← Gymnasium wrapper (spawns Node.js bridge)
+    train.py        ← PPO training script with curriculum stages
+    export_onnx.py  ← export PyTorch model to ONNX format
+    config.yaml     ← curriculum stage definitions and hyperparameters
   test/             ← Vitest test files (one per module)
   dev.html          ← development entry point (ES module imports)
   index.html        ← production build (single file, all JS inlined)
@@ -935,3 +946,265 @@ node simulate.js --thrust 3000       # custom thrust power
 ```
 
 Output: summary table to stdout, detailed logs to file if `--verbose`
+
+---
+
+## 16. Deep Reinforcement Learning
+
+### 16.1 Overview
+
+Third intelligence type alongside reactive and predictive. A neural network trained
+via deep reinforcement learning (PPO) controls ships using the same pluggable strategy
+interface (`{ createState, update }`) as the existing AI strategies.
+
+**Architecture**:
+
+```
+Train (offline, Python)              Deploy (browser, JS)
+───────────────────────              ────────────────────
+Headless simulator (GameEnv)         ONNX Runtime Web (CDN)
+        ↓                                   ↓
+PPO (Stable Baselines3)             ai-neural.js
+        ↓                           reads state → inference → 5 control flags
+PyTorch model
+        ↓ export
+   policy.onnx (~1MB)    ────→    served as static asset alongside index.html
+```
+
+- **Training**: Python drives the headless simulator via a stdin/stdout JSON bridge.
+  The simulator runs at max CPU speed with fixed dt — thousands of games per second.
+- **Inference**: ONNX Runtime Web runs a single MLP forward pass (<1ms) each frame
+  in the browser. Fully client-side, no backend services required.
+- **Pluggable**: Registered as `'neural'` in the strategy registry. Selectable via
+  the Player/Enemy intelligence dropdowns alongside `'reactive'` and `'predictive'`.
+
+### 16.2 Observation Space
+
+Ego-centric vector representation (~36 floats). Everything is relative to the
+controlled ship's position and heading, providing translation and rotation invariance:
+
+**Self state** (6 floats):
+
+| Index | Feature | Range | Notes |
+|-------|---------|-------|-------|
+| 0 | Speed (normalized) | [0, 1] | `speed / MAX_SPEED` |
+| 1 | Velocity angle relative to heading | [-1, 1] | `angleDiff / π` |
+| 2 | Thrust intensity | [0, 1] | Ship's `thrustIntensity` ramp value |
+| 3 | Rotation direction | {-1, 0, 1} | -1 left, 0 none, +1 right |
+| 4 | Alive | {0, 1} | 1 if alive |
+| 5 | Fire cooldown fraction | [0, 1] | `cooldown / FIRE_COOLDOWN` |
+
+**Target state** (6 floats):
+
+| Index | Feature | Range | Notes |
+|-------|---------|-------|-------|
+| 6 | Relative distance | [0, 1] | `dist / 1000`, clamped |
+| 7 | Relative bearing | [-1, 1] | `bearing / π` (angle from heading to target) |
+| 8 | Relative heading diff | [-1, 1] | `headingDiff / π` (target facing vs self) |
+| 9 | Closing speed | [-1, 1] | `closingSpeed / MAX_SPEED` |
+| 10 | Lateral speed | [-1, 1] | `lateralSpeed / MAX_SPEED` |
+| 11 | Target alive | {0, 1} | 1 if alive |
+
+**K nearest asteroids** (k=8, 3 floats each = 24 floats):
+
+| Offset | Feature | Range | Notes |
+|--------|---------|-------|-------|
+| +0 | Relative distance | [0, 1] | `dist / 1000`, clamped |
+| +1 | Relative bearing | [-1, 1] | `bearing / π` |
+| +2 | Relative approach speed | [-1, 1] | `approachSpeed / 200` |
+
+- Sorted by distance (nearest first)
+- Zero-padded when fewer than k asteroids are within range
+- Total observation size: 6 + 6 + 24 = **36 floats**
+
+The observation builder is a shared pure-function module (`src/observation.js`)
+used identically by both the training bridge and `ai-neural.js` in the browser.
+
+### 16.3 Action Space
+
+10 composite discrete movement actions mapped to the 5 control flags, plus a
+separate binary fire decision:
+
+**Movement actions** (mutually exclusive, index 0–9):
+
+| Index | Action | thrust | rotateLeft | rotateRight | brake |
+|-------|--------|--------|------------|-------------|-------|
+| 0 | thrust-straight | ✓ | | | |
+| 1 | thrust-left | ✓ | ✓ | | |
+| 2 | thrust-right | ✓ | | ✓ | |
+| 3 | coast-straight | | | | |
+| 4 | coast-left | | ✓ | | |
+| 5 | coast-right | | | ✓ | |
+| 6 | brake-straight | | | | ✓ |
+| 7 | brake-left | | ✓ | | ✓ |
+| 8 | brake-right | | | ✓ | ✓ |
+| 9 | no-op | | | | |
+
+**Fire**: separate binary output (0 or 1), independent of movement. The network
+has two output heads: a 10-way softmax for movement and a sigmoid for fire.
+
+This two-headed structure matches the game's mechanics — movement and firing are
+independent decisions made each frame.
+
+### 16.4 Neural Strategy Module
+
+`src/ai-neural.js` — pluggable strategy following the `{ createState, update }`
+interface:
+
+- **`createState()`**: Initializes an ONNX Runtime Web inference session, loads
+  the model from `models/policy.onnx`, allocates input/output buffers. Returns
+  `{ session, inputBuffer, ready }`.
+- **`update(state, ship, target, asteroids, dt)`**: Builds observation vector
+  via the shared `buildObservation()` → runs ONNX inference → reads movement
+  action index (argmax of 10-way output) and fire probability (sigmoid output)
+  → maps to the 5 control flags on the ship.
+- **Network architecture**: 3 hidden layers × 256 units, ReLU activations.
+  Two output heads: movement (10-way softmax) and fire (sigmoid). ~200K parameters.
+- **ONNX Runtime Web**: Loaded via CDN `<script>` tag. This preserves the project's
+  zero-bundled-dependency philosophy — the CDN dependency is optional and only
+  needed when the `'neural'` intelligence option is selected.
+- **Graceful fallback**: If no model file is available or ONNX Runtime fails to
+  load, the strategy logs a console warning and delegates to the predictive strategy.
+
+### 16.5 Training Environment (GameEnv)
+
+A gym-style wrapper around the headless game simulation, exposing `reset()` and
+`step()` methods for reinforcement learning:
+
+- **`reset(config)`**: Initializes a new episode — spawns ships at configured
+  distance and facing, populates asteroids, returns the initial observation
+  (Float32Array from the observation builder).
+- **`step(moveAction, fireAction)`**: Applies the agent's action (maps action
+  index to control flags), ticks the simulation one step (fixed dt), updates
+  the opponent via its configured policy, computes reward, checks termination
+  conditions, returns `{ observation, reward, done, info }`.
+- **Single-agent interface**: Only the controlled ship's actions are input.
+  The opponent is part of the environment, controlled by a configurable policy
+  (any registered strategy name, or `'self-play'` for a frozen policy copy).
+- **HP system**: Ships track hit points (configurable, default 1 for the real game).
+  Each bullet or asteroid hit decrements HP by 1. Ship dies when HP reaches 0.
+  Higher HP during training provides more gradient signal per episode.
+- **Episode termination**: Agent death, opponent death, or `maxTicks` reached.
+- **Info dict**: `{ winner, ticksElapsed, hitsLanded, hitsTaken, asteroidsHit }`
+
+### 16.6 Training-Mode Configuration
+
+Episode parameters tunable per curriculum stage. These exist **only in the training
+environment**, not in the shipped game:
+
+| Parameter | Game value | Training default | Purpose |
+|-----------|-----------|-----------------|---------|
+| `shipHP` | 1 | 5 | More reward signal per episode — agent learns "getting hit is bad" gradually rather than instant death |
+| `maxTicks` | Unlimited | 3600 (60s) | Prevents stalemate episodes from wasting compute |
+| `asteroidDensity` | 1.0 | 0.0 (curriculum) | Start without obstacles, add later |
+| `enemyPolicy` | N/A | `'static'` (curriculum) | `'static'` / `'reactive'` / `'predictive'` / `'self-play'` |
+| `enemyShoots` | true | false (curriculum) | Disable enemy fire for early training stages |
+| `spawnDistance` | 400–600 | 500 (fixed) | Consistent episode starts for stable learning |
+| `spawnFacing` | Random | true | Both ships face each other — faster engagement, less wasted exploration |
+| `rewardWeights` | N/A | See §16.7 | Per-component reward scaling |
+
+### 16.7 Reward Shaping
+
+Dense per-step rewards accelerate learning. Sparse win/loss alone would require
+orders of magnitude more episodes to learn basic behaviors.
+
+**Per-step rewards**:
+
+| Component | Value | Condition |
+|-----------|-------|-----------|
+| Survival | +0.001 | Always (while alive) |
+| Aim alignment | +0.01 × cos(angle_to_target) | When distance < 600px |
+| Closing distance | +0.01 × Δdistance / max_distance | When closing (positive Δ) |
+| Hit landed | +1.0 | Bullet hits opponent |
+| Got hit | -1.0 | Bullet or asteroid hits agent |
+| Near-miss penalty | -0.1 × (1 - dist/danger_radius)² | When within 3× asteroid collisionRadius |
+| Fire discipline | -0.002 | When fire action is true |
+
+**Terminal rewards**:
+
+| Component | Value | Condition |
+|-----------|-------|-----------|
+| Episode win | +5.0 | Opponent HP reaches 0 |
+| Episode loss | -5.0 | Agent HP reaches 0 |
+| Episode timeout | -1.0 | maxTicks reached |
+
+All reward component weights are configurable via `rewardWeights` in the training
+config. The training script tunes them per curriculum stage.
+
+### 16.8 Curriculum Design
+
+Train in progressive stages, each building on the last. Promote to the next stage
+when a performance threshold is met (e.g., >80% win rate over 1000 episodes).
+Each stage loads the previous stage's trained weights as initialization.
+
+| Stage | Asteroids | Enemy behavior | Enemy shoots | Ship HP | Goal |
+|-------|-----------|----------------|-------------|---------|------|
+| 1 | None | Static (doesn't move) | No | 10 | Learn thrust, aim, fire |
+| 2 | None | Moves (reactive AI) | No | 10 | Learn lead targeting, pursuit |
+| 3 | None | Moves (reactive AI) | Yes | 5 | Learn evasion + offense |
+| 4 | Sparse (0.3×) | Moves (predictive AI) | Yes | 3 | Learn navigation while fighting |
+| 5 | Normal (1.0×) | Self-play | Yes | 1 | Learn the actual game |
+
+**Why curriculum matters**: Throwing the agent into the full game from scratch
+requires it to simultaneously learn movement, aiming, evasion, and navigation.
+Curriculum decomposition lets each skill build on the previous one, dramatically
+reducing total training time.
+
+### 16.9 Self-Play
+
+Stage 5 uses self-play to prevent the agent from overfitting to a fixed opponent's
+weaknesses:
+
+- Maintain a **policy pool** of historical snapshots (frozen model weights)
+- Every N training episodes, snapshot the current policy and add it to the pool
+- Each episode's opponent is **sampled from the pool**, weighted toward recent
+  snapshots (so the agent primarily trains against near-current skill levels)
+- Prevents **strategy collapse** — the agent must generalize across opponent
+  behaviors, not memorize exploits against one fixed policy
+- Pool size capped at ~20 snapshots; oldest evicted when full
+
+### 16.10 Python Training Bridge
+
+Communication protocol between the Python training script and the Node.js GameEnv:
+
+**Transport**: stdin/stdout JSON-lines protocol (one JSON object per line, newline-
+delimited).
+
+**Commands (Python → Node)**:
+
+```json
+{ "command": "reset", "config": { "shipHP": 5, "maxTicks": 3600, ... } }
+{ "command": "step", "action": 3, "fire": 1 }
+{ "command": "close" }
+```
+
+**Responses (Node → Python)**:
+
+```json
+{ "observation": [0.5, -0.3, ...], "reward": 0.0, "done": false, "info": {} }
+{ "error": "Invalid action index" }
+```
+
+- Node process enters bridge mode via `node simulate.js --bridge`
+- Multiple parallel Node processes for vectorized environments (one process per env,
+  managed by the Python `SubprocVecEnv` wrapper)
+- The Python side wraps this in a Gymnasium-compatible `SpaceDogfightEnv` class
+
+### 16.11 File Structure Additions
+
+```
+SpaceInvaders/
+  src/
+    ai-neural.js       ← neural strategy: ONNX inference, control flag mapping
+    observation.js      ← shared observation builder (ego-centric vectors)
+    reward.js           ← configurable dense reward function
+    game-env.js         ← GameEnv class: gym-style reset/step interface
+  models/
+    policy.onnx         ← trained model weights (not in git — generated by training)
+  training/
+    requirements.txt    ← Python dependencies (stable-baselines3, gymnasium, onnx)
+    env.py              ← Gymnasium wrapper (spawns Node.js bridge subprocess)
+    train.py            ← PPO training script with curriculum stages
+    export_onnx.py      ← Export trained PyTorch model to ONNX format
+    config.yaml         ← Curriculum stage definitions and hyperparameters
+```
