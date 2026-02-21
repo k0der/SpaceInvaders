@@ -122,8 +122,8 @@ export function drawExplosion(ctx, explosion) {
   ctx.restore();
 }
 
-/** Seconds after first death before the final result is shown (explosion 1s + 1s pause). */
-export const GRACE_PERIOD = 2;
+/** Seconds after first death before the final result is shown (matches explosion duration). */
+export const GRACE_PERIOD = 1;
 
 /**
  * Create the initial game state.
