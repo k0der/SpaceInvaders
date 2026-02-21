@@ -217,8 +217,8 @@ rather than a fixed direction:
   Near stars rotate more than far stars: `rotAngle = -deltaRotation * depth`.
 - **Wrapping**: Stars wrap at viewport edges using modulo arithmetic.
 - **Directional modes preserved**: The existing direction modes
-  (`left`/`right`/`up`/`down`/`radial`) remain available for `shipMode='off'`
-  (Increment 30).
+  (`left`/`right`/`up`/`down`/`radial`) remain available for a future
+  ships-off screensaver mode.
 
 ### 3.2 Twinkling
 
@@ -293,7 +293,8 @@ rather than a fixed direction:
 | Star Parallax Layers | Slider   | 3 – 6                         | 3       | 1    |
 | Thrust Power         | Slider   | 1000 – 5000                       | 2000    | 50   |
 | Star Field Direction | Select   | left / right / up / down / radial | left    | —    |
-| AI Strategy          | Select   | reactive / predictive             | predictive | —  |
+| Player Intelligence  | Select   | human / reactive / predictive     | human      | —  |
+| Enemy Intelligence   | Select   | reactive / predictive             | predictive | —  |
 | AI Debug Log         | Checkbox | on / off                          | off        | —  |
 
 - Each slider shows its **current value** as a label
@@ -334,8 +335,8 @@ Each frame (`requestAnimationFrame` callback):
 ```
 1. Calculate deltaTime
 2. Update input state
-3. Apply input to player ship (or AI input in ai-vs-ai mode)
-4. Update AI for enemy ship (and player ship in ai-vs-ai mode)
+3. Apply input to player ship (keyboard when playerIntelligence='human', AI otherwise)
+4. Update AI for enemy ship (and player ship when playerIntelligence is non-human)
 5. Update ships (physics: thrust, drag, brake, rotation, position)
 6. Update camera (follow player ship)
 7. Update stars:
@@ -365,8 +366,9 @@ Each frame (`requestAnimationFrame` callback):
     i. Draw settings menu icon (if visible)
 ```
 
-When `shipMode = 'off'`, steps 2–6, 10–14 are skipped and the camera stays at origin
-with no rotation. The starfield uses directional scroll mode instead of camera-relative.
+*(When a future `'off'` mode is added, steps 2–6, 10–14 would be skipped and the
+camera would stay at origin with no rotation. The starfield would use directional
+scroll mode instead of camera-relative.)*
 
 ---
 
@@ -676,9 +678,10 @@ The `ai.js` facade imports both strategies, registers them, and re-exports
 `spawnEnemyPosition`, `getStrategy`, `listStrategies`, and the reactive AI
 functions for backward compatibility with existing code.
 
-**Settings**: `aiStrategy` dropdown with options `['reactive', 'predictive']`,
-default `'predictive'`. Changing the strategy resets the AI state for the
-active ship. Persisted to `localStorage`.
+**Settings**: Per-ship intelligence dropdowns (see §14). `enemyIntelligence`
+controls the enemy AI strategy; `playerIntelligence` controls whether the
+player ship uses keyboard input or an AI strategy. Changing either dropdown
+resets that ship's AI state. Persisted to `localStorage`.
 
 ### 12.5 Predictive AI (Trajectory Simulation)
 
@@ -823,18 +826,21 @@ Toggled via a settings checkbox (default: off). Zero performance cost when disab
 
 ---
 
-## 14. Ship Mode Setting
+## 14. Per-Ship Intelligence Settings
 
-Three modes selectable from the settings panel:
+Each ship has its own intelligence dropdown in the settings panel:
 
-| Mode | Description |
-|------|-------------|
-| `'player-vs-ai'` (default) | Player controls one ship, AI controls enemy |
-| `'ai-vs-ai'` | Both ships AI-controlled. Camera follows one ship. Auto-respawn after 3s on death (infinite dogfight screensaver) |
-| `'off'` | No ships, no bullets. Camera static at origin. Starfield reverts to directional scroll. Pure asteroid screensaver (original behavior) |
+| Setting | Options | Default |
+|---------|---------|---------|
+| `playerIntelligence` | `'human'`, `'reactive'`, `'predictive'` | `'human'` |
+| `enemyIntelligence` | `'reactive'`, `'predictive'` | `'predictive'` |
 
-- Persisted to `localStorage`
-- Mode switching works live without page reload
+- When `playerIntelligence = 'human'`: keyboard controls player (current behavior)
+- When `playerIntelligence = 'reactive'` or `'predictive'`: AI controls player ship, keyboard ignored
+- Camera always follows the player ship (even when AI-controlled)
+- Both settings persisted to `localStorage`
+- Changing either dropdown takes effect immediately (no page reload)
+- The headless simulator (§15) will set non-human values for both ships
 
 ---
 

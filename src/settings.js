@@ -29,10 +29,15 @@ export const SETTINGS_CONFIG = {
     default: 'left',
     label: 'Direction',
   },
-  aiStrategy: {
+  playerIntelligence: {
+    options: ['human', 'reactive', 'predictive'],
+    default: 'human',
+    label: 'Player',
+  },
+  enemyIntelligence: {
     options: ['reactive', 'predictive'],
     default: 'predictive',
-    label: 'AI Strategy',
+    label: 'Enemy AI',
   },
   aiDebugLog: {
     type: 'boolean',
@@ -56,7 +61,11 @@ export function createSettings(overrides = {}) {
     thrustPower: overrides.thrustPower ?? SETTINGS_CONFIG.thrustPower.default,
     starDirection:
       overrides.starDirection ?? SETTINGS_CONFIG.starDirection.default,
-    aiStrategy: overrides.aiStrategy ?? SETTINGS_CONFIG.aiStrategy.default,
+    playerIntelligence:
+      overrides.playerIntelligence ??
+      SETTINGS_CONFIG.playerIntelligence.default,
+    enemyIntelligence:
+      overrides.enemyIntelligence ?? SETTINGS_CONFIG.enemyIntelligence.default,
     aiDebugLog: overrides.aiDebugLog ?? SETTINGS_CONFIG.aiDebugLog.default,
     panelOpen: false,
     gearVisible: true,
@@ -76,7 +85,8 @@ export function saveSettings(settings) {
     starLayers: settings.starLayers,
     thrustPower: settings.thrustPower,
     starDirection: settings.starDirection,
-    aiStrategy: settings.aiStrategy,
+    playerIntelligence: settings.playerIntelligence,
+    enemyIntelligence: settings.enemyIntelligence,
     aiDebugLog: settings.aiDebugLog,
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -93,7 +103,8 @@ export function loadSettings() {
     starLayers: SETTINGS_CONFIG.starLayers.default,
     thrustPower: SETTINGS_CONFIG.thrustPower.default,
     starDirection: SETTINGS_CONFIG.starDirection.default,
-    aiStrategy: SETTINGS_CONFIG.aiStrategy.default,
+    playerIntelligence: SETTINGS_CONFIG.playerIntelligence.default,
+    enemyIntelligence: SETTINGS_CONFIG.enemyIntelligence.default,
     aiDebugLog: SETTINGS_CONFIG.aiDebugLog.default,
   };
 
@@ -108,6 +119,11 @@ export function loadSettings() {
       Array.isArray(parsed)
     ) {
       return defaults;
+    }
+
+    // Backward compat: migrate old aiStrategy → enemyIntelligence
+    if (parsed.aiStrategy && parsed.enemyIntelligence === undefined) {
+      parsed.enemyIntelligence = parsed.aiStrategy;
     }
 
     const result = {};

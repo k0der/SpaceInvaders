@@ -146,8 +146,13 @@ export function startApp() {
   const inputState = createInputState();
   const loaded = loadSettings();
   const settings = createSettings(loaded);
-  let aiStrategy = getStrategy(settings.aiStrategy);
-  let aiState = aiStrategy.createState();
+  let enemyStrategy = getStrategy(settings.enemyIntelligence);
+  let enemyAIState = enemyStrategy.createState();
+  let playerStrategy =
+    settings.playerIntelligence !== 'human'
+      ? getStrategy(settings.playerIntelligence)
+      : null;
+  let playerAIState = playerStrategy?.createState() ?? null;
   let elapsedTime = 0;
   const debugLogger = createDebugLogger();
   if (settings.aiDebugLog) debugLogger.enable();
@@ -208,9 +213,18 @@ export function startApp() {
         value,
       );
     }
-    if (name === 'aiStrategy') {
-      aiStrategy = getStrategy(value);
-      aiState = aiStrategy.createState();
+    if (name === 'enemyIntelligence') {
+      enemyStrategy = getStrategy(value);
+      enemyAIState = enemyStrategy.createState();
+    }
+    if (name === 'playerIntelligence') {
+      if (value === 'human') {
+        playerStrategy = null;
+        playerAIState = null;
+      } else {
+        playerStrategy = getStrategy(value);
+        playerAIState = playerStrategy.createState();
+      }
     }
     if (name === 'aiDebugLog') {
       if (value) {
@@ -277,12 +291,28 @@ export function startApp() {
     ui.panel.style.display = settings.panelOpen ? 'block' : 'none';
     ui.gearButton.textContent = settings.panelOpen ? '\u2715' : '\u2630';
 
-    // Ship input + update
-    applyInput(inputState, playerShip);
+    // Player input: keyboard or AI
+    if (playerStrategy) {
+      playerStrategy.update(
+        playerAIState,
+        playerShip,
+        enemyShip,
+        sim.asteroids,
+        scaledDt,
+      );
+    } else {
+      applyInput(inputState, playerShip);
+    }
     updateShip(playerShip, scaledDt);
 
-    // AI update + enemy ship physics
-    aiStrategy.update(aiState, enemyShip, playerShip, sim.asteroids, scaledDt);
+    // Enemy always AI
+    enemyStrategy.update(
+      enemyAIState,
+      enemyShip,
+      playerShip,
+      sim.asteroids,
+      scaledDt,
+    );
     updateShip(enemyShip, scaledDt);
 
     // AI debug logging

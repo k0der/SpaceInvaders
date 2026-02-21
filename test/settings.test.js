@@ -974,43 +974,189 @@ describe('Increment 15: Star Field Direction Setting', () => {
     });
   });
 
-  describe('SETTINGS_CONFIG — aiStrategy', () => {
-    it('defines aiStrategy with options array containing reactive and predictive', () => {
-      const c = SETTINGS_CONFIG.aiStrategy;
+  describe('SETTINGS_CONFIG — aiStrategy removed', () => {
+    it('aiStrategy is no longer in SETTINGS_CONFIG', () => {
+      expect(SETTINGS_CONFIG.aiStrategy).toBeUndefined();
+    });
+
+    it('saveSettings does not persist aiStrategy', () => {
+      const s = createSettings();
+      saveSettings(s);
+      const stored = JSON.parse(localStorage.getItem('asteroidSettings'));
+      expect(stored.aiStrategy).toBeUndefined();
+    });
+  });
+
+  describe('SETTINGS_CONFIG — playerIntelligence', () => {
+    it('defines playerIntelligence with options human, reactive, predictive', () => {
+      const c = SETTINGS_CONFIG.playerIntelligence;
+      expect(c).toBeDefined();
+      expect(c.options).toEqual(['human', 'reactive', 'predictive']);
+    });
+
+    it('playerIntelligence default is "human"', () => {
+      expect(SETTINGS_CONFIG.playerIntelligence.default).toBe('human');
+    });
+
+    it('playerIntelligence has a label', () => {
+      expect(typeof SETTINGS_CONFIG.playerIntelligence.label).toBe('string');
+    });
+  });
+
+  describe('SETTINGS_CONFIG — enemyIntelligence', () => {
+    it('defines enemyIntelligence with options reactive and predictive', () => {
+      const c = SETTINGS_CONFIG.enemyIntelligence;
       expect(c).toBeDefined();
       expect(c.options).toEqual(['reactive', 'predictive']);
     });
 
-    it('aiStrategy default is "predictive"', () => {
-      expect(SETTINGS_CONFIG.aiStrategy.default).toBe('predictive');
+    it('enemyIntelligence default is "predictive"', () => {
+      expect(SETTINGS_CONFIG.enemyIntelligence.default).toBe('predictive');
     });
 
-    it('aiStrategy has a label', () => {
-      expect(typeof SETTINGS_CONFIG.aiStrategy.label).toBe('string');
+    it('enemyIntelligence has a label', () => {
+      expect(typeof SETTINGS_CONFIG.enemyIntelligence.label).toBe('string');
     });
   });
 
-  describe('createSettings — aiStrategy', () => {
-    it('defaults aiStrategy to "predictive"', () => {
+  describe('createSettings — playerIntelligence + enemyIntelligence', () => {
+    it('defaults playerIntelligence to "human"', () => {
       const s = createSettings();
-      expect(s.aiStrategy).toBe('predictive');
+      expect(s.playerIntelligence).toBe('human');
     });
 
-    it('accepts aiStrategy override', () => {
-      const s = createSettings({ aiStrategy: 'reactive' });
-      expect(s.aiStrategy).toBe('reactive');
+    it('defaults enemyIntelligence to "predictive"', () => {
+      const s = createSettings();
+      expect(s.enemyIntelligence).toBe('predictive');
+    });
+
+    it('accepts playerIntelligence override', () => {
+      const s = createSettings({ playerIntelligence: 'reactive' });
+      expect(s.playerIntelligence).toBe('reactive');
+    });
+
+    it('accepts enemyIntelligence override', () => {
+      const s = createSettings({ enemyIntelligence: 'reactive' });
+      expect(s.enemyIntelligence).toBe('reactive');
     });
   });
 
-  describe('persistence — aiStrategy', () => {
-    it('saveSettings persists aiStrategy', () => {
-      const s = createSettings({ aiStrategy: 'reactive' });
+  describe('persistence — playerIntelligence', () => {
+    it('saveSettings persists playerIntelligence', () => {
+      const s = createSettings({ playerIntelligence: 'predictive' });
       saveSettings(s);
       const stored = JSON.parse(localStorage.getItem('asteroidSettings'));
-      expect(stored.aiStrategy).toBe('reactive');
+      expect(stored.playerIntelligence).toBe('predictive');
     });
 
-    it('loadSettings restores aiStrategy', () => {
+    it('loadSettings restores playerIntelligence', () => {
+      localStorage.setItem(
+        'asteroidSettings',
+        JSON.stringify({
+          asteroidDensity: 1.0,
+          speedMultiplier: 1.0,
+          starLayers: 3,
+          starDirection: 'left',
+          playerIntelligence: 'reactive',
+          enemyIntelligence: 'predictive',
+        }),
+      );
+      const loaded = loadSettings();
+      expect(loaded.playerIntelligence).toBe('reactive');
+    });
+
+    it('loadSettings defaults playerIntelligence when missing from storage', () => {
+      localStorage.setItem(
+        'asteroidSettings',
+        JSON.stringify({
+          asteroidDensity: 1.0,
+          speedMultiplier: 1.0,
+          starLayers: 3,
+          starDirection: 'left',
+        }),
+      );
+      const loaded = loadSettings();
+      expect(loaded.playerIntelligence).toBe('human');
+    });
+
+    it('loadSettings defaults playerIntelligence when stored value is invalid', () => {
+      localStorage.setItem(
+        'asteroidSettings',
+        JSON.stringify({
+          playerIntelligence: 'nonexistent',
+        }),
+      );
+      const loaded = loadSettings();
+      expect(loaded.playerIntelligence).toBe('human');
+    });
+
+    it('round-trip: save then load preserves playerIntelligence', () => {
+      const s = createSettings({ playerIntelligence: 'predictive' });
+      saveSettings(s);
+      const loaded = loadSettings();
+      expect(loaded.playerIntelligence).toBe('predictive');
+    });
+  });
+
+  describe('persistence — enemyIntelligence', () => {
+    it('saveSettings persists enemyIntelligence', () => {
+      const s = createSettings({ enemyIntelligence: 'reactive' });
+      saveSettings(s);
+      const stored = JSON.parse(localStorage.getItem('asteroidSettings'));
+      expect(stored.enemyIntelligence).toBe('reactive');
+    });
+
+    it('loadSettings restores enemyIntelligence', () => {
+      localStorage.setItem(
+        'asteroidSettings',
+        JSON.stringify({
+          asteroidDensity: 1.0,
+          speedMultiplier: 1.0,
+          starLayers: 3,
+          starDirection: 'left',
+          playerIntelligence: 'human',
+          enemyIntelligence: 'reactive',
+        }),
+      );
+      const loaded = loadSettings();
+      expect(loaded.enemyIntelligence).toBe('reactive');
+    });
+
+    it('loadSettings defaults enemyIntelligence when missing from storage', () => {
+      localStorage.setItem(
+        'asteroidSettings',
+        JSON.stringify({
+          asteroidDensity: 1.0,
+          speedMultiplier: 1.0,
+          starLayers: 3,
+          starDirection: 'left',
+        }),
+      );
+      const loaded = loadSettings();
+      expect(loaded.enemyIntelligence).toBe('predictive');
+    });
+
+    it('loadSettings defaults enemyIntelligence when stored value is invalid', () => {
+      localStorage.setItem(
+        'asteroidSettings',
+        JSON.stringify({
+          enemyIntelligence: 'nonexistent',
+        }),
+      );
+      const loaded = loadSettings();
+      expect(loaded.enemyIntelligence).toBe('predictive');
+    });
+
+    it('round-trip: save then load preserves enemyIntelligence', () => {
+      const s = createSettings({ enemyIntelligence: 'reactive' });
+      saveSettings(s);
+      const loaded = loadSettings();
+      expect(loaded.enemyIntelligence).toBe('reactive');
+    });
+  });
+
+  describe('persistence — backward compat migration from aiStrategy', () => {
+    it('migrates old aiStrategy to enemyIntelligence when enemyIntelligence is absent', () => {
       localStorage.setItem(
         'asteroidSettings',
         JSON.stringify({
@@ -1022,10 +1168,10 @@ describe('Increment 15: Star Field Direction Setting', () => {
         }),
       );
       const loaded = loadSettings();
-      expect(loaded.aiStrategy).toBe('reactive');
+      expect(loaded.enemyIntelligence).toBe('reactive');
     });
 
-    it('loadSettings defaults aiStrategy when missing from storage', () => {
+    it('does not migrate aiStrategy when enemyIntelligence is already present', () => {
       localStorage.setItem(
         'asteroidSettings',
         JSON.stringify({
@@ -1033,13 +1179,15 @@ describe('Increment 15: Star Field Direction Setting', () => {
           speedMultiplier: 1.0,
           starLayers: 3,
           starDirection: 'left',
+          aiStrategy: 'reactive',
+          enemyIntelligence: 'predictive',
         }),
       );
       const loaded = loadSettings();
-      expect(loaded.aiStrategy).toBe('predictive');
+      expect(loaded.enemyIntelligence).toBe('predictive');
     });
 
-    it('loadSettings defaults aiStrategy when stored value is invalid', () => {
+    it('ignores invalid aiStrategy during migration', () => {
       localStorage.setItem(
         'asteroidSettings',
         JSON.stringify({
@@ -1051,18 +1199,11 @@ describe('Increment 15: Star Field Direction Setting', () => {
         }),
       );
       const loaded = loadSettings();
-      expect(loaded.aiStrategy).toBe('predictive');
-    });
-
-    it('round-trip: save then load preserves aiStrategy', () => {
-      const s = createSettings({ aiStrategy: 'reactive' });
-      saveSettings(s);
-      const loaded = loadSettings();
-      expect(loaded.aiStrategy).toBe('reactive');
+      expect(loaded.enemyIntelligence).toBe('predictive');
     });
   });
 
-  describe('createSettingsUI — AI strategy selector', () => {
+  describe('createSettingsUI — playerIntelligence selector', () => {
     let container;
     let settings;
 
@@ -1072,39 +1213,86 @@ describe('Increment 15: Star Field Direction Setting', () => {
       settings = createSettings();
     });
 
-    it('creates an AI strategy selector in selects map', () => {
+    it('creates a playerIntelligence selector in selects map', () => {
       const ui = createSettingsUI(container, settings);
-      expect(ui.selects.aiStrategy).toBeDefined();
+      expect(ui.selects.playerIntelligence).toBeDefined();
     });
 
-    it('AI strategy selector has 2 options', () => {
+    it('playerIntelligence selector has 3 options', () => {
       const ui = createSettingsUI(container, settings);
-      const options = ui.selects.aiStrategy.querySelectorAll('option');
+      const options = ui.selects.playerIntelligence.querySelectorAll('option');
       const values = Array.from(options).map((o) => o.value);
-      expect(values).toEqual(['reactive', 'predictive']);
+      expect(values).toEqual(['human', 'reactive', 'predictive']);
     });
 
-    it('AI strategy selector defaults to "predictive"', () => {
+    it('playerIntelligence selector defaults to "human"', () => {
       const ui = createSettingsUI(container, settings);
-      expect(ui.selects.aiStrategy.value).toBe('predictive');
+      expect(ui.selects.playerIntelligence.value).toBe('human');
     });
 
-    it('AI strategy selector reflects non-default settings on creation', () => {
-      const s = createSettings({ aiStrategy: 'reactive' });
+    it('playerIntelligence selector reflects non-default settings on creation', () => {
+      const s = createSettings({ playerIntelligence: 'reactive' });
       const ui = createSettingsUI(container, s);
-      expect(ui.selects.aiStrategy.value).toBe('reactive');
+      expect(ui.selects.playerIntelligence.value).toBe('reactive');
     });
 
-    it('changing AI strategy fires onChange with name and value', () => {
+    it('changing playerIntelligence fires onChange with name and value', () => {
       const ui = createSettingsUI(container, settings);
       const changes = [];
       ui.onChange = (name, value) => changes.push({ name, value });
 
-      ui.selects.aiStrategy.value = 'reactive';
-      ui.selects.aiStrategy.dispatchEvent(new Event('change'));
+      ui.selects.playerIntelligence.value = 'predictive';
+      ui.selects.playerIntelligence.dispatchEvent(new Event('change'));
 
       expect(changes.length).toBe(1);
-      expect(changes[0].name).toBe('aiStrategy');
+      expect(changes[0].name).toBe('playerIntelligence');
+      expect(changes[0].value).toBe('predictive');
+    });
+  });
+
+  describe('createSettingsUI — enemyIntelligence selector', () => {
+    let container;
+    let settings;
+
+    beforeEach(() => {
+      container = document.createElement('div');
+      document.body.appendChild(container);
+      settings = createSettings();
+    });
+
+    it('creates an enemyIntelligence selector in selects map', () => {
+      const ui = createSettingsUI(container, settings);
+      expect(ui.selects.enemyIntelligence).toBeDefined();
+    });
+
+    it('enemyIntelligence selector has 2 options', () => {
+      const ui = createSettingsUI(container, settings);
+      const options = ui.selects.enemyIntelligence.querySelectorAll('option');
+      const values = Array.from(options).map((o) => o.value);
+      expect(values).toEqual(['reactive', 'predictive']);
+    });
+
+    it('enemyIntelligence selector defaults to "predictive"', () => {
+      const ui = createSettingsUI(container, settings);
+      expect(ui.selects.enemyIntelligence.value).toBe('predictive');
+    });
+
+    it('enemyIntelligence selector reflects non-default settings on creation', () => {
+      const s = createSettings({ enemyIntelligence: 'reactive' });
+      const ui = createSettingsUI(container, s);
+      expect(ui.selects.enemyIntelligence.value).toBe('reactive');
+    });
+
+    it('changing enemyIntelligence fires onChange with name and value', () => {
+      const ui = createSettingsUI(container, settings);
+      const changes = [];
+      ui.onChange = (name, value) => changes.push({ name, value });
+
+      ui.selects.enemyIntelligence.value = 'reactive';
+      ui.selects.enemyIntelligence.dispatchEvent(new Event('change'));
+
+      expect(changes.length).toBe(1);
+      expect(changes[0].name).toBe('enemyIntelligence');
       expect(changes[0].value).toBe('reactive');
     });
   });
@@ -1151,7 +1339,8 @@ describe('Increment 15: Star Field Direction Setting', () => {
           starLayers: 3,
           thrustPower: 2000,
           starDirection: 'left',
-          aiStrategy: 'predictive',
+          playerIntelligence: 'human',
+          enemyIntelligence: 'predictive',
           aiDebugLog: true,
         }),
       );
@@ -1168,7 +1357,8 @@ describe('Increment 15: Star Field Direction Setting', () => {
           starLayers: 3,
           thrustPower: 2000,
           starDirection: 'left',
-          aiStrategy: 'predictive',
+          playerIntelligence: 'human',
+          enemyIntelligence: 'predictive',
         }),
       );
       const loaded = loadSettings();
@@ -1184,7 +1374,8 @@ describe('Increment 15: Star Field Direction Setting', () => {
           starLayers: 3,
           thrustPower: 2000,
           starDirection: 'left',
-          aiStrategy: 'predictive',
+          playerIntelligence: 'human',
+          enemyIntelligence: 'predictive',
           aiDebugLog: 'yes',
         }),
       );

@@ -1428,8 +1428,13 @@ function startApp() {
   const inputState = createInputState();
   const loaded = loadSettings();
   const settings = createSettings(loaded);
-  let aiStrategy = getStrategy(settings.aiStrategy);
-  let aiState = aiStrategy.createState();
+  let enemyStrategy = getStrategy(settings.enemyIntelligence);
+  let enemyAIState = enemyStrategy.createState();
+  let playerStrategy =
+    settings.playerIntelligence !== 'human'
+      ? getStrategy(settings.playerIntelligence)
+      : null;
+  let playerAIState = playerStrategy?.createState() ?? null;
   let elapsedTime = 0;
   const debugLogger = createDebugLogger();
   if (settings.aiDebugLog) debugLogger.enable();
@@ -1490,9 +1495,18 @@ function startApp() {
         value,
       );
     }
-    if (name === 'aiStrategy') {
-      aiStrategy = getStrategy(value);
-      aiState = aiStrategy.createState();
+    if (name === 'enemyIntelligence') {
+      enemyStrategy = getStrategy(value);
+      enemyAIState = enemyStrategy.createState();
+    }
+    if (name === 'playerIntelligence') {
+      if (value === 'human') {
+        playerStrategy = null;
+        playerAIState = null;
+      } else {
+        playerStrategy = getStrategy(value);
+        playerAIState = playerStrategy.createState();
+      }
     }
     if (name === 'aiDebugLog') {
       if (value) {
@@ -1559,12 +1573,28 @@ function startApp() {
     ui.panel.style.display = settings.panelOpen ? 'block' : 'none';
     ui.gearButton.textContent = settings.panelOpen ? '\u2715' : '\u2630';
 
-    // Ship input + update
-    applyInput(inputState, playerShip);
+    // Player input: keyboard or AI
+    if (playerStrategy) {
+      playerStrategy.update(
+        playerAIState,
+        playerShip,
+        enemyShip,
+        sim.asteroids,
+        scaledDt,
+      );
+    } else {
+      applyInput(inputState, playerShip);
+    }
     updateShip(playerShip, scaledDt);
 
-    // AI update + enemy ship physics
-    aiStrategy.update(aiState, enemyShip, playerShip, sim.asteroids, scaledDt);
+    // Enemy always AI
+    enemyStrategy.update(
+      enemyAIState,
+      enemyShip,
+      playerShip,
+      sim.asteroids,
+      scaledDt,
+    );
     updateShip(enemyShip, scaledDt);
 
     // AI debug logging
@@ -1885,10 +1915,15 @@ const SETTINGS_CONFIG = {
     default: 'left',
     label: 'Direction',
   },
-  aiStrategy: {
+  playerIntelligence: {
+    options: ['human', 'reactive', 'predictive'],
+    default: 'human',
+    label: 'Player',
+  },
+  enemyIntelligence: {
     options: ['reactive', 'predictive'],
     default: 'predictive',
-    label: 'AI Strategy',
+    label: 'Enemy AI',
   },
   aiDebugLog: {
     type: 'boolean',
@@ -1912,7 +1947,11 @@ function createSettings(overrides = {}) {
     thrustPower: overrides.thrustPower ?? SETTINGS_CONFIG.thrustPower.default,
     starDirection:
       overrides.starDirection ?? SETTINGS_CONFIG.starDirection.default,
-    aiStrategy: overrides.aiStrategy ?? SETTINGS_CONFIG.aiStrategy.default,
+    playerIntelligence:
+      overrides.playerIntelligence ??
+      SETTINGS_CONFIG.playerIntelligence.default,
+    enemyIntelligence:
+      overrides.enemyIntelligence ?? SETTINGS_CONFIG.enemyIntelligence.default,
     aiDebugLog: overrides.aiDebugLog ?? SETTINGS_CONFIG.aiDebugLog.default,
     panelOpen: false,
     gearVisible: true,
@@ -1932,7 +1971,8 @@ function saveSettings(settings) {
     starLayers: settings.starLayers,
     thrustPower: settings.thrustPower,
     starDirection: settings.starDirection,
-    aiStrategy: settings.aiStrategy,
+    playerIntelligence: settings.playerIntelligence,
+    enemyIntelligence: settings.enemyIntelligence,
     aiDebugLog: settings.aiDebugLog,
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -1949,7 +1989,8 @@ function loadSettings() {
     starLayers: SETTINGS_CONFIG.starLayers.default,
     thrustPower: SETTINGS_CONFIG.thrustPower.default,
     starDirection: SETTINGS_CONFIG.starDirection.default,
-    aiStrategy: SETTINGS_CONFIG.aiStrategy.default,
+    playerIntelligence: SETTINGS_CONFIG.playerIntelligence.default,
+    enemyIntelligence: SETTINGS_CONFIG.enemyIntelligence.default,
     aiDebugLog: SETTINGS_CONFIG.aiDebugLog.default,
   };
 
@@ -1964,6 +2005,11 @@ function loadSettings() {
       Array.isArray(parsed)
     ) {
       return defaults;
+    }
+
+    // Backward compat: migrate old aiStrategy → enemyIntelligence
+    if (parsed.aiStrategy && parsed.enemyIntelligence === undefined) {
+      parsed.enemyIntelligence = parsed.aiStrategy;
     }
 
     const result = {};

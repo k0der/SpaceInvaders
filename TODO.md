@@ -799,18 +799,30 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 
 ---
 
-## Increment 30: AI-vs-AI Mode + Ship Mode Setting
+## Increment 30: Per-Ship Intelligence Settings
 
-**Goal**: Three modes: play, watch, or classic screensaver.
+**Goal**: Each ship gets its own intelligence dropdown — enabling human-vs-AI, AI-vs-AI, or any combination. Replaces the single `aiStrategy` setting with `playerIntelligence` and `enemyIntelligence`.
 
-**Modify**: `src/settings.js`, `test/settings.test.js`, `src/main.js`, `src/ai.js`
+**Modify**: `src/settings.js`, `test/settings.test.js`, `src/main.js`, `test/main.test.js`
 
 **Acceptance Criteria**:
-- [ ] `SETTINGS_CONFIG` gets `shipMode` with options: `'player-vs-ai'` (default), `'ai-vs-ai'`, `'off'`
-- [ ] Setting persisted to localStorage
-- [ ] `'player-vs-ai'`: Player controls one ship, AI controls enemy (current default)
-- [ ] `'ai-vs-ai'`: Both ships AI-controlled. Camera follows one ship. Auto-respawn after 3s when a ship dies (infinite dogfight loop for screensaver)
-- [ ] `'off'`: No ships, no bullets. Camera static at origin with no rotation. Starfield reverts to directional scroll mode. Pure asteroid screensaver (original behavior)
-- [ ] Mode switching works live in settings panel without page reload
-- [ ] Dropdown appears in the existing settings panel
-- [ ] **Visible**: Three modes — play the dogfight, watch an AI-vs-AI battle as a screensaver, or enjoy the classic asteroid screensaver.
+
+### Settings (`src/settings.js`)
+- [ ] `aiStrategy` removed from `SETTINGS_CONFIG`
+- [ ] `playerIntelligence` added: options `['human', 'reactive', 'predictive']`, default `'human'`, label `'Player'`
+- [ ] `enemyIntelligence` added: options `['reactive', 'predictive']`, default `'predictive'`, label `'Enemy AI'`
+- [ ] `createSettings()` defaults: `playerIntelligence='human'`, `enemyIntelligence='predictive'`
+- [ ] `saveSettings` persists both new settings (not `aiStrategy`)
+- [ ] `loadSettings` validates enum values for both new settings
+- [ ] `loadSettings` backward compat: if localStorage has old `aiStrategy` but no `enemyIntelligence`, migrates `aiStrategy` value to `enemyIntelligence`
+
+### Main loop (`src/main.js`)
+- [ ] Enemy uses `getStrategy(settings.enemyIntelligence)` (replaces `settings.aiStrategy`)
+- [ ] Player uses keyboard input when `playerIntelligence='human'` (current behavior)
+- [ ] Player uses AI strategy when `playerIntelligence` is `'reactive'` or `'predictive'`
+- [ ] Changing `enemyIntelligence` dropdown swaps enemy strategy and resets AI state
+- [ ] Changing `playerIntelligence` dropdown swaps between keyboard/AI control and resets player AI state
+- [ ] Camera always follows player ship (no change needed)
+
+### Visible
+- [ ] **Visible**: Settings panel shows "Player" dropdown (human/reactive/predictive) and "Enemy AI" dropdown (reactive/predictive). Human mode = keyboard control. Switching to reactive/predictive makes the player ship autonomous. Enemy AI dropdown works as before.
