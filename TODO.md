@@ -844,34 +844,34 @@ Increments 17–30 transform the asteroid screensaver into a Star Wars-style dog
 **Acceptance Criteria**:
 
 ### Clone
-- [ ] `src/ai-reactive-optimized.js` exists as a copy of `ai-reactive.js`
-- [ ] Exports renamed: `reactiveOptimizedStrategy`, `createReactiveOptimizedState`, `updateReactiveOptimizedAI`
-- [ ] All constants duplicated locally (no imports from `ai-reactive.js`)
-- [ ] Only external imports: `THRUST_POWER` from `./ship.js` and `registerStrategy` from `./ai-core.js` (for self-registration)
+- [x] `src/ai-reactive-optimized.js` exists as a copy of `ai-reactive.js`
+- [x] Exports renamed: `reactiveOptimizedStrategy`, `createReactiveOptimizedState`, `updateReactiveOptimizedAI`
+- [x] All constants duplicated locally (no imports from `ai-reactive.js`)
+- [x] Only external imports: `THRUST_POWER` from `./ship.js` and `registerStrategy` from `./ai-core.js` (for self-registration)
 
 ### Registration
-- [ ] `ai.js` imports `reactiveOptimizedStrategy` from `./ai-reactive-optimized.js`
-- [ ] `ai.js` calls `registerStrategy('reactive-optimized', reactiveOptimizedStrategy)`
-- [ ] `getStrategy('reactive-optimized')` returns the optimized strategy
+- [x] `ai.js` imports `./ai-reactive-optimized.js` (side-effect import triggers self-registration)
+- [x] Clone self-registers via `registerStrategy('reactive-optimized', reactiveOptimizedStrategy)`
+- [x] `getStrategy('reactive-optimized')` returns the optimized strategy
 
 ### Settings
-- [ ] `playerIntelligence` options: `['human', 'reactive', 'reactive-optimized', 'predictive']`
-- [ ] `enemyIntelligence` options: `['reactive', 'reactive-optimized', 'predictive']`
+- [x] `playerIntelligence` options: `['human', 'reactive', 'reactive-optimized', 'predictive']`
+- [x] `enemyIntelligence` options: `['reactive', 'reactive-optimized', 'predictive']`
 
 ### Tests
-- [ ] `test/ai-reactive-optimized.test.js` exists with all tests from `ai-reactive.test.js`
-- [ ] All imports point to `../src/ai-reactive-optimized.js` (not ai-reactive)
-- [ ] All tests pass independently
+- [x] `test/ai-reactive-optimized.test.js` exists with all tests from `ai-reactive.test.js`
+- [x] All imports point to `../src/ai-reactive-optimized.js` (not ai-reactive)
+- [x] All tests pass independently
 
 ### Build
-- [ ] `npm run build` includes the new module (auto-discovered by `build.js`)
+- [x] `npm run build` includes the new module (auto-discovered by `build.js`)
 
 ### Decoupling Verification
-- [ ] Deleting `ai-reactive-optimized.js` breaks nothing except its own tests and the 'reactive-optimized' strategy registration
-- [ ] Modifying constants in `ai-reactive-optimized.js` does not change behavior of `ai-reactive.js` or `ai-predictive.js`
+- [x] Deleting `ai-reactive-optimized.js` breaks nothing except its own tests and the 'reactive-optimized' strategy registration
+- [x] Modifying constants in `ai-reactive-optimized.js` does not change behavior of `ai-reactive.js` or `ai-predictive.js`
 
 ### Visible
-- [ ] **Visible**: Settings panel shows "reactive-optimized" in both Player and Enemy AI dropdowns. Selecting it runs the cloned reactive AI. `node simulate.js --games 1 --ticks 100 --enemy-ai reactive-optimized` runs without error.
+- [x] **Visible**: Settings panel shows "reactive-optimized" in both Player and Enemy AI dropdowns. Selecting it runs the cloned reactive AI. `node simulate.js --games 1 --ticks 100 --enemy-ai reactive-optimized` runs without error.
 
 ---
 
