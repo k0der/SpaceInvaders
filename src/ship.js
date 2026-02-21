@@ -14,7 +14,7 @@ export const THRUST_POWER = 2000;
 export const DRAG = 0.5;
 
 /** Braking deceleration in pixels/s². */
-export const BRAKE_POWER = 200;
+export const BRAKE_POWER = 800;
 
 /** Maximum ship speed in pixels/s. */
 export const MAX_SPEED = 400;
