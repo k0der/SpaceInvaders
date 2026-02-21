@@ -2450,7 +2450,6 @@ function drawVectorText(
 
 // ===== game.js =====
 
-
 /** Duration of the explosion effect in seconds. */
 const EXPLOSION_DURATION = 1.0;
 
@@ -2617,8 +2616,8 @@ function updateGameState(state, playerShip, enemyShip, dt) {
   }
 }
 
-/** Safe clearance radius around each ship spawn point (3× ship size). */
-const SPAWN_SAFE_RADIUS = 3 * SHIP_SIZE;
+/** Safe clearance radius around each ship spawn point (3× ship size = 45). */
+const SPAWN_SAFE_RADIUS = 45;
 
 /**
  * Remove asteroids that overlap any ship's spawn zone.
@@ -3337,14 +3336,14 @@ function startApp() {
     );
     drawHUD(ctx, gameState.phase, logicalSize.width, logicalSize.height);
 
-    // Auto-restart in AI-vs-AI mode after showing result for 1 second
+    // Auto-restart in AI-vs-AI mode after showing result for 2 seconds
     const terminalPhase =
       gameState.phase === 'playerWin' ||
       gameState.phase === 'playerDead' ||
       gameState.phase === 'draw';
     if (terminalPhase && settings.playerIntelligence !== 'human') {
       gameState.resultTimer = (gameState.resultTimer || 0) + dt;
-      if (gameState.resultTimer >= 1) {
+      if (gameState.resultTimer >= 2) {
         restartGame();
       }
     }
