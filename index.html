@@ -2450,6 +2450,7 @@ function drawVectorText(
 
 // ===== game.js =====
 
+
 /** Duration of the explosion effect in seconds. */
 const EXPLOSION_DURATION = 1.0;
 
@@ -2616,8 +2617,8 @@ function updateGameState(state, playerShip, enemyShip, dt) {
   }
 }
 
-/** Safe clearance radius around each ship spawn point. */
-const SPAWN_SAFE_RADIUS = 100;
+/** Safe clearance radius around each ship spawn point (3× ship size). */
+const SPAWN_SAFE_RADIUS = 3 * SHIP_SIZE;
 
 /**
  * Remove asteroids that overlap any ship's spawn zone.
