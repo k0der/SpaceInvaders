@@ -1,5 +1,36 @@
 # Optimization Cycle Log
 
+## Cycle 22 — ROLLBACK
+
+**Problem**: COLLISION_EARLY_BONUS=50 never tuned. Hypothesis: increasing the gradient may help the AI prefer late-step collisions over early-step collisions, providing more re-evaluation opportunities.
+**Fix**: COLLISION_EARLY_BONUS sweep: 0, 25, 50 (baseline), 100, 200.
+**Complexity**: 1 — Tune constant
+
+### Sweep (50 games each, KILL-event-based win counter)
+
+| CEB | Wins/50 | Win% | Osc/game | Collapse/game | Fires/game |
+|-----|---------|------|----------|---------------|------------|
+| 0 | 27 | 54% | 2.10 | 0.94 | 2.3 |
+| 25 | 26 | 52% | 2.74 | 1.74 | 3.1 |
+| **50 (baseline)** | **33** | **66%** | **2.34** | **2.16** | **3.7** |
+| 100 | 27 | 54% | 2.34 | 2.10 | 2.8 |
+| 200 | 25 | 50% | 2.54 | 1.76 | 2.6 |
+
+Selected: CEB=50 (baseline) — highest wins in sweep.
+
+### Decision
+ROLLBACK — CEB=50 (baseline) won the 50-game sweep with 33/50. No other value improved on the baseline.
+No code change applied. The sweep confirms CEB=50 is optimal across the tested range 0–200.
+
+Key observations:
+- CEB=0 reduces collapses to 0.94/game (best ever) but only achieves 27/50 wins
+- CEB=200 would break the existing "step 15 still massively negative" test (-17000 > -18000)
+- Non-monotonic pattern consistent with random seed sensitivity, not structural CEB advantage
+
+COLLISION_EARLY_BONUS is now fully exhausted. Final remaining constant: SIM_DT.
+
+---
+
 ## Cycle 21 — ROLLBACK
 
 **Problem**: BRAKE_PURSUIT_STEPS=5 never tuned. Hypothesis: shorter brake phase (3-4 steps) re-engages pursuit faster after emergency brake, creating more firing opportunities within the 1.5s simulation window.

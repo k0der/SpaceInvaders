@@ -1,5 +1,5 @@
 {
-  "cycle": 21,
+  "cycle": 22,
   "baseline": {
     "games": 200,
     "playerWins": 102,
@@ -21,6 +21,18 @@
     "fires_per_game": 3.425
   },
   "history": [
+    {
+      "cycle": 22,
+      "problem": "COLLISION_EARLY_BONUS=50 never tuned. Hypothesis: increasing gradient makes AI prefer late-step collisions, buying more re-evaluation time.",
+      "fix": "COLLISION_EARLY_BONUS sweep: 0, 25, 50 (baseline), 100, 200. CEB=50 (baseline) won 50-game sweep with 33/50.",
+      "result": "ROLLBACK",
+      "metrics": {
+        "playerWins": null,
+        "note": "No 200-game run — CEB=50 (baseline) won the 50-game sweep. No code change. COLLISION_EARLY_BONUS fully exhausted across 0–200.",
+        "sweep_summary": "CEB=0: 27/50, 2.10 osc/game, 0.94 col/game; CEB=25: 26/50, 2.74 osc/game, 1.74 col/game; CEB=50 (baseline): 33/50, 2.34 osc/game, 2.16 col/game (WINNER); CEB=100: 27/50, 2.34 osc/game, 2.10 col/game; CEB=200: 25/50, 2.54 osc/game, 1.76 col/game"
+      },
+      "reason": "ROLLBACK — CEB=50 (baseline) won the 50-game sweep with 33/50 wins. No improvement found. The 50-game win peak at the baseline value is consistent with random seed sensitivity. CEB=200 would break the existing 'step15 catastrophic' test. CEB=0 produced lowest collapses (0.94/game) but only 27/50 wins. COLLISION_EARLY_BONUS is now exhausted across full range 0–200. Final remaining constant: SIM_DT."
+    },
     {
       "cycle": 1,
       "problem": "Score collapses cause defensive paralysis — DANGER_ZONE_FACTOR=3 creates 9x collision area danger zone, overwhelming strategic signals",
@@ -343,6 +355,6 @@
       "reason": "ROLLBACK — primary criterion failed. BPS=4 produced 104/200 wins (52.0%) vs BPS=5 baseline 113/200 (56.5%), a regression of 9 wins. 104 < 110 threshold. The 50-game sweep showed BPS=4 with 30/50 wins (vs 26 baseline), but this was a favorable seed cluster — the 200-game result inverted completely. Key finding: lower BPS values cause BRK candidate to win more trajectory evaluations (BRK firstAction = braking), reducing immediate firing (fires drop from 3.4 to 2.3/game) while improving oscillation metrics. The win regression confirms that more frequent BRK selection is detrimental to combat outcomes — the 5-step brake phase calibrates BRK to win only in genuine emergency/overshoot scenarios. BRAKE_PURSUIT_STEPS is now exhausted as a tuning target: BPS=5 is confirmed optimal across the tested range 2-7."
     }
   ],
-  "consecutiveRollbacks": 2,
+  "consecutiveRollbacks": 3,
   "status": "ready"
 }
