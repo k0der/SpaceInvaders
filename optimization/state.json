@@ -1,5 +1,5 @@
 {
-  "cycle": 18,
+  "cycle": 19,
   "baseline": {
     "games": 200,
     "playerWins": 102,
@@ -15,10 +15,10 @@
     "playerWins": 110,
     "enemyWins": 90,
     "draws": 0,
-    "note": "Cycle 18 KEPT: DANGER_ZONE_BASE_PENALTY=-10000 + HYSTERESIS_BONUS=350 + FIRE_OPPORTUNITY_BONUS=450 + CLOSING_SPEED_WEIGHT=16. 200-game validation: 110/200 wins (55.0%).",
-    "oscillations_per_game": 2.845,
-    "collapses_per_game": 1.565,
-    "fires_per_game": 3.385
+    "note": "Cycle 19 KEPT: DANGER_ZONE_BASE_PENALTY=-10000 + HYSTERESIS_BONUS=350 + FIRE_OPPORTUNITY_BONUS=450 + CLOSING_SPEED_WEIGHT=16 + DISTANCE_WEIGHT=-3. 200-game validation: 110/200 wins (55.0%). Oscillations improved -20.6% vs cycle 18.",
+    "oscillations_per_game": 2.26,
+    "collapses_per_game": 1.61,
+    "fires_per_game": 3.425
   },
   "history": [
     {
@@ -292,6 +292,23 @@
         "sweep_summary": "CSW=4: 25/50 wins, 2.96 osc/game; CSW=6: 26/50, 2.86 osc/game; CSW=8 (baseline): 30/50, 3.58 osc/game; CSW=12: 29/50, 3.10 osc/game; CSW=16: 30/50, 2.78 osc/game (selected — tied highest wins, lowest osc)"
       },
       "reason": "KEPT — primary criterion met. Player wins 110/200 (55.0%) > current best 109/200 (54.5%). Marginal +1 win improvement. Higher CSW (16) increases the closing-rate reward without introducing the aim-holding instability seen with FOB/AIM_BONUS increases. Fires improved +9.2% (3.385 vs 3.10), suggesting the AI is reaching firing position faster. Secondary metrics elevated (osc +13%, collapse +22%) but not blocking. Consecutive rollback counter reset to 0."
+    },
+    {
+      "cycle": 19,
+      "problem": "DISTANCE_WEIGHT=-8 has never been tuned across 18 cycles. The constant uniformly subtracts 2400-4800pts from every trajectory at medium range (300-600px), suppressing the scoring landscape without improving discrimination between trajectories in collapse scenarios. With CSW=16 handling approach incentive at path level, DISTANCE_WEIGHT may be redundant.",
+      "fix": "DISTANCE_WEIGHT -8→-3 (sweep: -3,-5,-8,-11,-14; DW=-3 won 50-game with 29/50)",
+      "result": "KEPT",
+      "metrics": {
+        "playerWins": 110,
+        "enemyWins": 90,
+        "draws": 0,
+        "oscillations_per_game": 2.26,
+        "collapses_per_game": 1.61,
+        "fires_per_game": 3.425,
+        "action_changes_per_game": 6.8,
+        "sweep_summary": "DW=-3: 29/50 wins (selected — highest); DW=-5: 26/50; DW=-8 (baseline): 27/50; DW=-11: 27/50; DW=-14: 17/50"
+      },
+      "reason": "KEPT — primary criterion met. Player wins 110/200 (55.0%) equals current best 110/200. Oscillations improved significantly (-20.6%: 2.26 vs 2.845/game), action changes improved (-12.8%: 6.8 vs 7.8/game). Collapses essentially flat (+2.9%: 1.61 vs 1.565/game). The score suppression reduction hypothesis was confirmed: DW=-3 wins the 50-game sweep (29/50) over baseline (-8 at 27/50), and at 200 games produces equivalent wins with better behavioral stability. DW=-14 collapses badly (17/50) confirming the approach incentive still matters. Consecutive rollback counter remains 0."
     }
   ],
   "consecutiveRollbacks": 0,

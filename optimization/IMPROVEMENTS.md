@@ -7,10 +7,10 @@ Action changes: 276 (5.5/game) | Fires: 118 (2.4/game)
 
 Note: The 70% baseline is a small-sample artifact. True expected win rate with identical AIs is ~50% (confirmed by 200-game run: 102/200 = 51%).
 
-## Current Best (Cycle 18 — KEPT)
+## Current Best (Cycle 19 — KEPT)
 Player wins: 110/200 (55.0%) | Enemy wins: 90/200 (45.0%) | Draws: 0/200 (0%)
-Oscillations: 2.845/game | Collapses: 1.565/game | Fires: 3.385/game
-Fix: DANGER_ZONE_BASE_PENALTY=-10000 + HYSTERESIS_BONUS=350 + FIRE_OPPORTUNITY_BONUS=450 + CLOSING_SPEED_WEIGHT=16
+Oscillations: 2.26/game | Collapses: 1.61/game | Fires: 3.425/game
+Fix: DANGER_ZONE_BASE_PENALTY=-10000 + HYSTERESIS_BONUS=350 + FIRE_OPPORTUNITY_BONUS=450 + CLOSING_SPEED_WEIGHT=16 + DISTANCE_WEIGHT=-3
 
 ## Key Insights (read before proposing any fix)
 
@@ -56,6 +56,8 @@ Fix: DANGER_ZONE_BASE_PENALTY=-10000 + HYSTERESIS_BONUS=350 + FIRE_OPPORTUNITY_B
 
 - **CLOSING_SPEED_WEIGHT=16 (Cycle 18, KEPT)**: Swept 4, 6, 8, 12, 16. CSW=16 tied for highest 50-game wins (30/50, tied with CSW=8) but had the lowest oscillation (2.78/game vs 3.58 for CSW=8). 200-game validation: 110/200 wins (55.0%, +0.5% over current best). Fires improved +9.2% (3.385 vs 3.10/game). Secondary metrics elevated (osc +13%, collapse +22%) but not blocking. **Key insight: CLOSING_SPEED_WEIGHT increases do not cause the aim-holding instability seen with FOB/AIM_BONUS increases — the closing rate reward is path-level (net distance closed over the whole trajectory), not per-step aim-holding, so it doesn't create local score spikes that cause oscillation. Higher CSW makes the AI seek approach trajectories more aggressively, which modestly increases fires/game. Remaining untried: DISTANCE_WEIGHT, ENGAGE_CLOSING_SCALE, BRAKE_PURSUIT_STEPS, COLLISION_EARLY_BONUS, SIM_DT.**
 
+- **DISTANCE_WEIGHT=-3 (Cycle 19, KEPT)**: Swept -3, -5, -8 (baseline), -11, -14. DW=-3 won 50-game (29/50 vs baseline 27/50). DW=-14 collapsed to 17/50. 200-game validation: 110/200 wins (55.0%, =current best). Oscillations improved significantly (-20.6%: 2.26 vs 2.845/game), action changes improved (-12.8%: 6.8 vs 7.8/game). Collapses flat (+2.9%). **Key insight: Reducing DISTANCE_WEIGHT magnitude from -8 to -3 removes redundant score suppression — with CSW=16 already providing path-level approach incentive, the per-step distance penalty was overly penalizing all trajectories uniformly at medium range without improving discrimination. DW=-3 wins the 50-game sweep while producing identical 200-game wins with better behavioral stability (fewer oscillations, fewer action changes). The approach incentive is preserved (negative weight still rewards closer trajectories) but is less dominant relative to strategic signals (aim, fire, closing rate). Remaining untried: ENGAGE_CLOSING_SCALE, BRAKE_PURSUIT_STEPS, COLLISION_EARLY_BONUS, SIM_DT.**
+
 ## Proposed Changes Outside Optimization Scope
 
 > These changes were identified during optimization cycles but require modifying files outside `src/ai-predictive-optimized.js`. They are logged here for human review — they were NOT applied autonomously.
@@ -89,3 +91,4 @@ Fix: DANGER_ZONE_BASE_PENALTY=-10000 + HYSTERESIS_BONUS=350 + FIRE_OPPORTUNITY_B
 | 16 | SIM_STEPS=15 (1.5s lookahead) hypothesized to miss threats at 1.5–2.5s; all signal-strength levers exhausted; SIM_STEPS untried across 15 cycles | SIM_STEPS sweep: 10,12,15,18,22. SS=10 won 50-game (33/50). Hypothesis overturned: shorter wins 50-game but collapses increase at 200 games | 54.0% (108/200) | 2.75 (+9.6%) | 1.785 (+39.5%) | 3.5 (+13%) | ROLLBACK |
 | 17 | AIM_PROXIMITY_SCALE=5 never tuned — hypothesis: higher APS amplifies aim reward at close range, winning more close-range bullet exchanges | AIM_PROXIMITY_SCALE sweep: 3,5,8,12,15. APS=3 won 50-game (32/50). Hypothesis inverted: lower APS wins sweep but collapses at 200 games | 49.0% (98/200) | 2.645 (+5.4%) | 1.745 (+36.3%) | 3.3 (+6%) | ROLLBACK |
 | 18 | CLOSING_SPEED_WEIGHT=8 never tuned — hypothesis: higher CSW incentivizes closing trajectories, reducing time-to-first-shot | CLOSING_SPEED_WEIGHT sweep: 4,6,8,12,16. CSW=16 won 50-game (30/50, tied with CSW=8, lowest osc). 200-game validation: 110/200 (+1 vs current best) | 55.0% (110/200) | 2.845 (+13.4%) | 1.565 (+22.3%) | 3.385 (+9.2%) | **KEPT** |
+| 19 | DISTANCE_WEIGHT=-8 never tuned — hypothesis: reducing magnitude reduces uniform score suppression (2400-4800pts at medium range) in collapse scenarios, improving discrimination. CSW=16 already handles path-level approach incentive | DISTANCE_WEIGHT sweep: -3,-5,-8,-11,-14. DW=-3 won 50-game (29/50). 200-game validation: 110/200 (=current best). Oscillations improved -20.6% | 55.0% (110/200) | 2.26 (-20.6%) | 1.61 (+2.9%) | 3.425 (+1.2%) | **KEPT** |

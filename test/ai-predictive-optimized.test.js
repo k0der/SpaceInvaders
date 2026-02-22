@@ -63,8 +63,8 @@ describe('ai-predictive-optimized: Constants', () => {
     expect(HYSTERESIS_BONUS).toBe(350);
   });
 
-  it('exports DISTANCE_WEIGHT as -8', () => {
-    expect(DISTANCE_WEIGHT).toBe(-8);
+  it('exports DISTANCE_WEIGHT as -3', () => {
+    expect(DISTANCE_WEIGHT).toBe(-3);
   });
 
   it('exports AIM_BONUS as 400', () => {
@@ -390,11 +390,11 @@ describe('ai-predictive-optimized: scoreTrajectory — distance-scaled approach 
     const sEngage = scoreTrajectory(atEngage, target, [], 0.1);
     const sDouble = scoreTrajectory(atDouble, target, [], 0.1);
 
-    // At ENGAGE_RANGE: scale=1.0, dist component = -8 * 350 = -2800
-    // At 2*ENGAGE_RANGE: scale=2.0, dist component = -8 * 2 * 700 = -11200
-    // Without scaling: diff = 8*(700-350) = 2800
-    // With scaling: diff = 11200-2800 = 8400 (3x the unscaled diff)
-    const unscaledDiff = Math.abs(DISTANCE_WEIGHT) * ENGAGE_RANGE; // 2800
+    // At ENGAGE_RANGE: scale=1.0, dist component = -3 * 350 = -1050
+    // At 2*ENGAGE_RANGE: scale=2.0, dist component = -3 * 2 * 700 = -4200
+    // Without scaling: diff = 3*(700-350) = 1050
+    // With scaling: diff = 4200-1050 = 3150 (3x the unscaled diff)
+    const unscaledDiff = Math.abs(DISTANCE_WEIGHT) * ENGAGE_RANGE; // 1050
     const actualDiff = sEngage - sDouble;
     expect(actualDiff).toBeGreaterThan(unscaledDiff * 2);
   });
@@ -1510,6 +1510,59 @@ describe('ai-predictive-optimized: scoreTrajectory — danger zone', () => {
     // If danger used sum, two asteroids would double the penalty.
     // With max, both should have the same danger (same worst proximity).
     expect(scoreSingle).toBeCloseTo(scoreTwo, 0);
+  });
+});
+
+describe('ai-predictive-optimized: Cycle 19 — DISTANCE_WEIGHT score suppression reduction', () => {
+  it('exports DISTANCE_WEIGHT as -3 (reduced from -8 to reduce uniform score suppression)', () => {
+    // DISTANCE_WEIGHT=-8 uniformly subtracts 2400-4800pts from every trajectory
+    // at medium range (300-600px), amplifying the all-negative collapse landscape
+    // without improving discrimination between trajectories.
+    // Reducing to -3 preserves the approach incentive (still negative = closer is better)
+    // while reducing score suppression by 62.5%, giving strategic signals more relative weight.
+    expect(DISTANCE_WEIGHT).toBe(-3);
+  });
+
+  it('at 400px from target, DISTANCE_WEIGHT component is less negative than at DW=-8', () => {
+    // Formula: score += DISTANCE_WEIGHT * distanceScale * minDist
+    // At initialDist=400, distanceScale = 1 + (400-350)/350 = 1.143
+    // With DW=-8: contribution = -8 * 1.143 * 400 = -3657
+    // With DW=-3: contribution = -3 * 1.143 * 400 = -1371 (62.5% less suppressive)
+    //
+    // We verify this by using a 2-position trajectory where both positions are
+    // 400px from target (perpendicular heading — no aim/fire/closing components),
+    // and checking the score is consistent with DW=-3, not DW=-8.
+    const target = { x: 0, y: 0, vx: 0, vy: 0 };
+
+    // Both positions 400px from target (beyond ENGAGE_RANGE=350 → distanceScale > 1)
+    // Perpendicular heading (heading=PI/2) neutralizes aim and fire bonus
+    // Stationary (vx=vy=0) means no closing rate component
+    const positions = [
+      { x: 400, y: 0, heading: Math.PI / 2, vx: 0, vy: 0 },
+      { x: 400, y: 0, heading: Math.PI / 2, vx: 0, vy: 0 },
+    ];
+
+    const score = scoreTrajectory(positions, target, [], 0.1);
+
+    // At DW=-3, distanceScale = 1 + (400-350)/350 ≈ 1.143
+    // DISTANCE_WEIGHT component: -3 * 1.143 * 400 ≈ -1371
+    // AIM component: AIM_BONUS=400 * avg_cos * aimProximityFactor
+    //   angle to target from (400,0) heading=PI/2: atan2(0-0, 0-400)=PI, diff=PI-PI/2=PI/2
+    //   cos(PI/2) = 0 → aimSum=0 → aim component = 0
+    // CLOSING component: initialDist=finalDist=400 → closingRate=0 → 0
+    // FOB: dist=400 < MAX_FIRE_RANGE=500, fireAngle = atan2(0,−400)=PI, heading=PI/2
+    //   diff = PI - PI/2 = PI/2 > FIRE_ANGLE → no fire bonus
+    // Total expected score at DW=-3: ≈ -1371
+    // At DW=-8: total ≈ -3657
+    // Threshold: score must be greater than -2000 (well above DW=-8 value)
+    expect(score).toBeGreaterThan(-2000);
+    // Also verify closer is still better (score at 300px should beat 400px)
+    const positions300 = [
+      { x: 300, y: 0, heading: Math.PI / 2, vx: 0, vy: 0 },
+      { x: 300, y: 0, heading: Math.PI / 2, vx: 0, vy: 0 },
+    ];
+    const score300 = scoreTrajectory(positions300, target, [], 0.1);
+    expect(score300).toBeGreaterThan(score);
   });
 });
 

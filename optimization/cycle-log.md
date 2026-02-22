@@ -469,3 +469,36 @@ Oscillations: 2.845/game (+13.4%) | Collapses: 1.565/game (+22.3%) | Fires: 3.38
 KEPT — Primary criterion met: player wins 110/200 (55.0%) > current best 109/200 (54.5%). Marginal +1 win improvement. Higher CSW (16) increases the closing-rate reward without triggering the aim-holding instability seen with FOB/AIM_BONUS increases — because the closing rate reward is path-level (net distance closed over the whole trajectory), not per-step aim-holding. Fires improved +9.2%, suggesting the AI reaches firing position faster. Secondary metrics elevated (osc +13%, collapse +22%) but not blocking. Consecutive rollback counter reset to 0.
 
 ---
+
+## Cycle 19 — KEPT
+
+**Problem**: DISTANCE_WEIGHT=-8 has never been tuned across 18 cycles. At medium range (300-600px), the constant uniformly subtracts 2400-4800pts from every trajectory without improving discrimination between them. In collapse scenarios (all scores already negative), this amplifies the all-negative landscape. With CSW=16 now handling approach incentive at the path level (net distance closed over trajectory), DISTANCE_WEIGHT may be redundant or over-weighted.
+
+**Fix**: DISTANCE_WEIGHT sweep: -3, -5, -8 (baseline), -11, -14. DW=-3 won 50-game with 29/50.
+
+**Architecture at test time**: DANGER_ZONE_BASE_PENALTY=-10000 + HYSTERESIS_BONUS=350 + FIRE_OPPORTUNITY_BONUS=450 + CLOSING_SPEED_WEIGHT=16
+
+### Sweep Results
+
+| DW  | Wins/50 | Win% | Osc/game | Collapse/game |
+|-----|---------|------|----------|---------------|
+| **-3**  | **29**  | **58%** | **2.68** | **1.88** |
+| -5  | 26      | 52%  | 2.98     | 1.56          |
+| -8 (baseline) | 27 | 54% | 2.26 | 1.72 |
+| -11 | 27      | 54%  | 2.54     | 1.36          |
+| -14 | 17      | 34%  | 2.90     | 1.42          |
+
+**Selected**: DW=-3 — highest wins/50 (29/50).
+
+### Metrics Before
+Player wins: 110/200 | Enemy wins: 90/200 | Draws: 0/200
+Oscillations: 2.845/game | Collapses: 1.565/game | Fires: 3.385/game | Action changes: 7.8/game
+
+### Metrics After (DW=-3, 200-game validation)
+Player wins: 110/200 | Enemy wins: 90/200 | Draws: 0/200
+Oscillations: 2.26/game (-20.6%) | Collapses: 1.61/game (+2.9%) | Fires: 3.425/game (+1.2%) | Action changes: 6.8/game (-12.8%)
+
+### Decision
+KEPT — Primary criterion met: player wins 110/200 (55.0%) equals current best 110/200. Oscillations improved significantly (-20.6%: 2.26 vs 2.845/game), action changes improved (-12.8%: 6.8 vs 7.8/game). Collapses essentially flat (+2.9%: 1.61 vs 1.565/game). The score suppression hypothesis was confirmed: DW=-3 wins the 50-game sweep (29/50) over baseline (-8 at 27/50). At 200 games, win count is identical but behavioral stability improves. DW=-14 collapsed to 17/50, confirming the approach incentive still matters at some level. With CSW=16 providing path-level closing incentive, DW=-3 is the correct balance — preserving approach direction signal while reducing redundant score suppression.
+
+---

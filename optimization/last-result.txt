@@ -1,1 +1,1 @@
-KEPT: closing speed reward — CSW 8→16 — win rate 54.5%→55.0% (109→110/200)
+KEPT: score suppression — DISTANCE_WEIGHT -8→-3 — win rate 55%→55% (110→110/200), oscillations -20.6% (2.845→2.26/game)

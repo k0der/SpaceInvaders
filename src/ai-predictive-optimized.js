@@ -57,7 +57,7 @@ const PURSUIT_THRUST_ANGLE = Math.PI / 3;
 const PURSUIT_BRAKE_SPEED = 50;
 
 /** Weight applied to distance-to-target (negative = closer is better). */
-export const DISTANCE_WEIGHT = -8;
+export const DISTANCE_WEIGHT = -3;
 
 /** Bonus for aiming toward target at closest approach. */
 export const AIM_BONUS = 400;
