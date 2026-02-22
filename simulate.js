@@ -284,14 +284,14 @@ export function runGame(config) {
   playerShip.thrustPower = thrust;
 
   const enemySpawn = spawnEnemyPosition(playerShip.x, playerShip.y);
-  const headingToPlayer = Math.atan2(
-    playerShip.y - enemySpawn.y,
-    playerShip.x - enemySpawn.x,
+  const headingAwayFromPlayer = Math.atan2(
+    enemySpawn.y - playerShip.y,
+    enemySpawn.x - playerShip.x,
   );
   const enemyShip = createShip({
     x: enemySpawn.x,
     y: enemySpawn.y,
-    heading: headingToPlayer,
+    heading: headingAwayFromPlayer,
     owner: 'enemy',
   });
   enemyShip.thrustPower = thrust;

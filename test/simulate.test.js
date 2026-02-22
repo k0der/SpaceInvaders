@@ -395,7 +395,7 @@ describe('Increment 26d: Headless Simulator', () => {
     it('reports a winner when a KILL event occurs', () => {
       restore = installSeededRandom(2);
       const result = runGame({
-        ticks: 300,
+        ticks: 3600,
         dt: 1 / 60,
         playerAI: 'predictive',
         enemyAI: 'predictive',
