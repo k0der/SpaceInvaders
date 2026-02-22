@@ -890,7 +890,7 @@ Increments 31–37 add a third intelligence type — a neural network trained vi
 
 ---
 
-## Increment 31: Observation Builder
+## Increment 31: Observation Builder ✅
 
 **Goal**: Shared module that converts raw game state into ego-centric normalized observation vectors. Used identically by both the training bridge (Node.js) and browser inference (`ai-neural.js`).
 
@@ -899,48 +899,48 @@ Increments 31–37 add a third intelligence type — a neural network trained vi
 **Acceptance Criteria**:
 
 ### Observation Function
-- [ ] `buildObservation(ship, target, asteroids, k)` returns a flat `Float32Array` of length `OBSERVATION_SIZE`
-- [ ] `OBSERVATION_SIZE` (36) exported as a constant
-- [ ] `MAX_ASTEROID_OBS` (8) exported — the k value for nearest-asteroid slots
+- [x] `buildObservation(ship, target, asteroids, k)` returns a flat `Float32Array` of length `OBSERVATION_SIZE`
+- [x] `OBSERVATION_SIZE` (36) exported as a constant
+- [x] `MAX_ASTEROID_OBS` (8) exported — the k value for nearest-asteroid slots
 
 ### Self State (6 floats)
-- [ ] Index 0: speed normalized by `MAX_SPEED` → [0, 1]
-- [ ] Index 1: velocity angle relative to heading, normalized by π → [-1, 1]
-- [ ] Index 2: `thrustIntensity` → [0, 1] (direct copy)
-- [ ] Index 3: rotation direction → {-1, 0, 1} (from `rotatingLeft`/`rotatingRight` flags)
-- [ ] Index 4: alive → {0, 1}
-- [ ] Index 5: fire cooldown fraction → [0, 1] (`cooldown / FIRE_COOLDOWN`)
+- [x] Index 0: speed normalized by `MAX_SPEED` → [0, 1]
+- [x] Index 1: velocity angle relative to heading, normalized by π → [-1, 1]
+- [x] Index 2: `thrustIntensity` → [0, 1] (direct copy)
+- [x] Index 3: rotation direction → {-1, 0, 1} (from `rotatingLeft`/`rotatingRight` flags)
+- [x] Index 4: alive → {0, 1}
+- [x] Index 5: fire cooldown fraction → [0, 1] (`cooldown / FIRE_COOLDOWN`)
 
 ### Target State (6 floats)
-- [ ] Index 6: relative distance normalized by 1000px, clamped to [0, 1]
-- [ ] Index 7: relative bearing (angle from heading to target) normalized by π → [-1, 1]
-- [ ] Index 8: relative heading difference normalized by π → [-1, 1]
-- [ ] Index 9: closing speed normalized by `MAX_SPEED` → [-1, 1]
-- [ ] Index 10: lateral speed normalized by `MAX_SPEED` → [-1, 1]
-- [ ] Index 11: target alive → {0, 1}
+- [x] Index 6: relative distance normalized by 1000px, clamped to [0, 1]
+- [x] Index 7: relative bearing (angle from heading to target) normalized by π → [-1, 1]
+- [x] Index 8: relative heading difference normalized by π → [-1, 1]
+- [x] Index 9: closing speed normalized by `MAX_SPEED` → [-1, 1]
+- [x] Index 10: lateral speed normalized by `MAX_SPEED` → [-1, 1]
+- [x] Index 11: target alive → {0, 1}
 
 ### Asteroid Observations (24 floats, k=8 × 3)
-- [ ] For each of the k=8 nearest asteroids: relative distance (normalized by 1000px), relative bearing (normalized by π), relative approach speed (normalized by 200)
-- [ ] Asteroids sorted by distance from ship (nearest first)
-- [ ] Zero-padded when fewer than k asteroids are present
-- [ ] Asteroids beyond 1000px distance are excluded before selecting nearest k
+- [x] For each of the k=8 nearest asteroids: relative distance (normalized by 1000px), relative bearing (normalized by π), relative approach speed (normalized by 200)
+- [x] Asteroids sorted by distance from ship (nearest first)
+- [x] Zero-padded when fewer than k asteroids are present
+- [x] Asteroids beyond 1000px distance are excluded before selecting nearest k
 
 ### Quality
-- [ ] Pure function — no mutation of inputs, no side effects
-- [ ] All values clamped to their documented ranges (no NaN, no Infinity)
-- [ ] Handles edge cases: zero velocity ship, dead target, empty asteroid array, ship at origin
+- [x] Pure function — no mutation of inputs, no side effects
+- [x] All values clamped to their documented ranges (no NaN, no Infinity)
+- [x] Handles edge cases: zero velocity ship, dead target, empty asteroid array, ship at origin
 
 ### Tests
-- [ ] Empty asteroids array → asteroid slots all zero
-- [ ] Single asteroid → first 3 slots filled, rest zero
-- [ ] More than k asteroids → only nearest k selected
-- [ ] Dead target → alive=0, other target fields still computed
-- [ ] Zero velocity ship → speed=0, velocity angle=0
-- [ ] Various headings → bearing computation correct at 0, π/2, π, -π/2
-- [ ] Normalization bounds verified for extreme inputs
+- [x] Empty asteroids array → asteroid slots all zero
+- [x] Single asteroid → first 3 slots filled, rest zero
+- [x] More than k asteroids → only nearest k selected
+- [x] Dead target → alive=0, other target fields still computed
+- [x] Zero velocity ship → speed=0, velocity angle=0
+- [x] Various headings → bearing computation correct at 0, π/2, π, -π/2
+- [x] Normalization bounds verified for extreme inputs
 
 ### Visible
-- [ ] **Visible**: `import { buildObservation } from './observation.js'` produces a 36-float vector from any game state. Verified via test suite — no browser needed.
+- [x] **Visible**: `import { buildObservation } from './observation.js'` produces a 36-float vector from any game state. Verified via test suite — no browser needed.
 
 ---
 
