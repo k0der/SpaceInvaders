@@ -79,8 +79,8 @@ describe('ai-predictive-optimized: Constants', () => {
     expect(AIM_PROXIMITY_SCALE).toBe(5);
   });
 
-  it('exports FIRE_OPPORTUNITY_BONUS as 300', () => {
-    expect(FIRE_OPPORTUNITY_BONUS).toBe(300);
+  it('exports FIRE_OPPORTUNITY_BONUS as 450', () => {
+    expect(FIRE_OPPORTUNITY_BONUS).toBe(450);
   });
 });
 
@@ -854,24 +854,26 @@ describe('ai-predictive-optimized: scoreTrajectory — proximity-scaled aim', ()
   it('proximity factor is maximum (1 + AIM_PROXIMITY_SCALE) at zero distance', () => {
     const target = { x: 0, y: 0, vx: 0, vy: 0 };
 
-    // On top of target — minDist = 0, factor = 1 + AIM_PROXIMITY_SCALE = 6
+    // On top of target — minDist = 0, factor = 1 + AIM_PROXIMITY_SCALE = 6.
+    // Headings are offset by 0.2 (outside FIRE_ANGLE=0.15) to exclude fire bonus
+    // contamination from the aim-gap ratio measurement.
     const onTopGood = [
-      { x: 0, y: 0, heading: 0, vx: 0, vy: 0 },
-      { x: 0, y: 0, heading: 0, vx: 0, vy: 0 },
+      { x: 0, y: 0, heading: 0.2, vx: 0, vy: 0 },
+      { x: 0, y: 0, heading: 0.2, vx: 0, vy: 0 },
     ];
     const onTopBad = [
-      { x: 0, y: 0, heading: Math.PI, vx: 0, vy: 0 },
-      { x: 0, y: 0, heading: Math.PI, vx: 0, vy: 0 },
+      { x: 0, y: 0, heading: Math.PI + 0.2, vx: 0, vy: 0 },
+      { x: 0, y: 0, heading: Math.PI + 0.2, vx: 0, vy: 0 },
     ];
 
     // Far range (unscaled baseline)
     const farGood = [
-      { x: 600, y: 0, heading: Math.PI, vx: 0, vy: 0 },
-      { x: 600, y: 0, heading: Math.PI, vx: 0, vy: 0 },
+      { x: 600, y: 0, heading: Math.PI + 0.2, vx: 0, vy: 0 },
+      { x: 600, y: 0, heading: Math.PI + 0.2, vx: 0, vy: 0 },
     ];
     const farBad = [
-      { x: 600, y: 0, heading: 0, vx: 0, vy: 0 },
-      { x: 600, y: 0, heading: 0, vx: 0, vy: 0 },
+      { x: 600, y: 0, heading: 0.2, vx: 0, vy: 0 },
+      { x: 600, y: 0, heading: 0.2, vx: 0, vy: 0 },
     ];
 
     const onTopGap = Math.abs(
@@ -1318,6 +1320,51 @@ describe('ai-predictive-optimized: predictiveOptimizedStrategy — state managem
     expect(typeof state.prevAction.rotatingLeft).toBe('boolean');
     expect(typeof state.prevAction.rotatingRight).toBe('boolean');
     expect(typeof state.prevAction.braking).toBe('boolean');
+  });
+});
+
+describe('ai-predictive-optimized: Cycle 12 — FOB aim-holding in DZPB=-10000 architecture', () => {
+  it('aimed trajectory with moderate proximity scores higher than pure evasion when FOB >= 450', () => {
+    // Scenario: ship stationary at (0,0), target at (300,0).
+    // Asteroid at (0,97) radius=25 — within danger zone of aimed trajectory.
+    // Aimed trajectory: heading=0.10 (within FIRE_ANGLE=0.15), passes near asteroid.
+    // Evasion trajectory: heading=0.20 (outside FIRE_ANGLE=0.15), no asteroid.
+    //
+    // With DZPB=-10000 (current architecture) and FOB=300:
+    //   aimed fire bonus (5 steps) = 300 * 0.4 * 5 = 600
+    //   danger penalty = -10000 * ((120-97)/80)^2 = -10000 * 0.0827 = -827
+    //   aimed score ≈ -1433, evasion score ≈ -1224 → evasion wins (test FAILS at FOB=300)
+    //
+    // With FOB=450:
+    //   aimed fire bonus = 450 * 0.4 * 5 = 900
+    //   aimed score ≈ -1133, evasion score ≈ -1224 → aimed wins (test PASSES at FOB=450)
+    const target = { x: 300, y: 0, vx: 0, vy: 0 };
+    const asteroids = [{ x: 0, y: 97, vx: 0, vy: 0, collisionRadius: 25 }];
+
+    // 6 positions (initial + 5 steps), ship stationary, aimed within FIRE_ANGLE
+    const aimedPositions = Array.from({ length: 6 }, () => ({
+      x: 0,
+      y: 0,
+      heading: 0.1,
+      vx: 0,
+      vy: 0,
+    }));
+
+    // 6 positions, ship stationary, heading just outside FIRE_ANGLE (no fire bonus)
+    const evasionPositions = Array.from({ length: 6 }, () => ({
+      x: 0,
+      y: 0,
+      heading: 0.2,
+      vx: 0,
+      vy: 0,
+    }));
+
+    const aimedScore = scoreTrajectory(aimedPositions, target, asteroids, 0.1);
+    const evasionScore = scoreTrajectory(evasionPositions, target, [], 0.1);
+
+    // Aimed trajectory should beat evasion when FOB >= 450 provides enough fire bonus
+    // to compensate for the moderate danger zone penalty (DZPB=-10000 architecture)
+    expect(aimedScore).toBeGreaterThan(evasionScore);
   });
 });
 

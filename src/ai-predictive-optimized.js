@@ -69,7 +69,7 @@ export const CLOSING_SPEED_WEIGHT = 8;
 export const AIM_PROXIMITY_SCALE = 5;
 
 /** Bonus per sim step where ship has a viable firing solution. */
-export const FIRE_OPPORTUNITY_BONUS = 300;
+export const FIRE_OPPORTUNITY_BONUS = 450;
 
 /** Distance below which current scoring balance applies (close-range combat zone). */
 export const ENGAGE_RANGE = 350;
