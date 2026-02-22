@@ -1,1 +1,1 @@
-ROLLBACK: score gap (~285 pts) exceeds HYSTERESIS_BONUS=250, causing hold-boundary flips — HYSTERESIS_BONUS 250→500 — win rate 70%→48% (24/50), oscillations INCREASED 75% (98→171), action changes +71% (276→472) — win rate unchanged
+ROLLBACK: fire signal overwhelmed by danger penalty — FIRE_OPPORTUNITY_BONUS 300→900 — win rate 51%→48% (102/200 → 96/200), oscillations +42% (1.9→2.7/game), fires -13% (3.1→2.7/game)

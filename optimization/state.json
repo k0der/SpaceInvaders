@@ -1,32 +1,24 @@
 {
-  "cycle": 3,
+  "cycle": 4,
   "baseline": {
-    "games": 50,
-    "playerWins": 35,
-    "enemyWins": 15,
+    "games": 200,
+    "playerWins": 102,
+    "enemyWins": 98,
     "draws": 0,
-    "avgTicksPerGame": 3600,
-    "oscillations": 98,
-    "collapses": 124,
-    "passthroughs": 6,
-    "actionChanges": 276,
-    "fires": 118,
-    "proximityEvents": 546,
-    "kills": 52
+    "note": "200-game confirmed baseline (from cycle 2 analysis verbose run). True expected rate ~50% for identical AIs. Original 50-game run gave 35/50 (70%) which was a variance artifact.",
+    "oscillations_per_game": 1.9,
+    "collapses_per_game": 1.6,
+    "fires_per_game": 3.1
   },
   "current": {
-    "games": 50,
-    "playerWins": 35,
-    "enemyWins": 15,
+    "games": 200,
+    "playerWins": 102,
+    "enemyWins": 98,
     "draws": 0,
-    "avgTicksPerGame": 3600,
-    "oscillations": 98,
-    "collapses": 124,
-    "passthroughs": 6,
-    "actionChanges": 276,
-    "fires": 118,
-    "proximityEvents": 546,
-    "kills": 52
+    "note": "200-game confirmed baseline (from cycle 2 analysis verbose run). True expected rate ~50% for identical AIs. Original 50-game run gave 35/50 (70%) which was a variance artifact.",
+    "oscillations_per_game": 1.9,
+    "collapses_per_game": 1.6,
+    "fires_per_game": 3.1
   },
   "history": [
     {
@@ -52,8 +44,24 @@
       "result": "ROLLBACK",
       "metrics": { "playerWins": 24, "enemyWins": 26, "draws": 0, "oscillations": 171, "collapses": 100 },
       "reason": "Player wins 24/50 fell below baseline threshold of 35. Worse: oscillations INCREASED 75% (98→171) and action changes increased 71% (276→472), opposite of the intended effect. The higher hysteresis stabilizes some actions but makes the AI slower to adapt when the optimal action genuinely changes, creating larger commitment errors. Fires did increase significantly (118→206, +75%), suggesting more engagement — but these didn't convert to wins. The win rate signal is still within 50-game variance noise, but the oscillation regression is a genuine behavioral failure."
+    },
+    {
+      "cycle": 4,
+      "problem": "Fire-opportunity signal overwhelmed by danger-zone penalties — FIRE_OPPORTUNITY_BONUS=300 overwhelmed at moderate proximity, causing AI to prefer evasion over aim-holding. Attempting 3x increase to overcome the balance point.",
+      "fix": "Increased FIRE_OPPORTUNITY_BONUS from 300 to 900, raising max fire signal to ~5400 at mid-range (exceeds -5000 danger penalty at proximity 0.5)",
+      "result": "ROLLBACK",
+      "metrics": {
+        "playerWins": 96,
+        "enemyWins": 104,
+        "draws": 0,
+        "oscillations_per_game": 2.7,
+        "collapses_per_game": 1.7,
+        "fires_per_game": 2.7,
+        "action_changes_per_game": 7.2
+      },
+      "reason": "Player wins 96/200 fell below the 100-win threshold (48% vs 51% baseline). Oscillations increased 42% (2.7 vs 1.9 per game), exceeding the 15% secondary metric degradation limit. Fires decreased from 3.1 to 2.7/game (-13%), suggesting the higher fire bonus causes aim-holding into asteroid proximity, reducing effective firing opportunities rather than increasing them. The tripling of FOB appears to overcorrect — the AI now holds aim too aggressively in situations where evasion would have been better, likely leading to more asteroid deaths or unstable trajectories. FIRE_OPPORTUNITY_BONUS tuning is exhausted at 300→600 (too small, Cycle 2) and 300→900 (too large, Cycle 4). The 300→600 change (Cycle 2) showed favorable secondary metrics (47% collapse reduction) but was rolled back due to 50-game variance noise — a 200-game re-test of FOB=600 might be warranted, but it was already validated at 105/200 (52.5%) which is within variance noise of 50%."
     }
   ],
-  "consecutiveRollbacks": 3,
+  "consecutiveRollbacks": 4,
   "status": "ready"
 }

@@ -49,6 +49,25 @@ ROLLBACK — Player wins dropped from 35 to 23 (34% regression). Although collap
 
 ---
 
+## Cycle 4 — ROLLBACK
+
+**Problem**: FIRE_OPPORTUNITY_BONUS=300 is overwhelmed by danger zone penalties in semi-collapse scenarios. At proximity 0.5, danger penalty = -20,000 × 0.25 = -5,000, while max FOB signal at mid-range = 300 × 15 × 0.4 = 1,800. The AI always prefers evasion over aim-holding when asteroids are nearby, causing the bullet-fight deficit (player loses more bullet exchanges than enemy despite equal fire rates).
+**Fix**: Increased FIRE_OPPORTUNITY_BONUS from 300 to 900. At 900×15×0.4 = 5,400, the max fire signal now exceeds the -5,000 danger penalty at proximity 0.5, hypothetically shifting action ordering toward aim-holding in semi-collapse situations.
+**Complexity**: 1 — Tune constant
+
+### Metrics Before
+Player wins: 102/200 | Enemy wins: 98/200 | Draws: 0/200
+Oscillations: 1.9/game | Collapses: 1.6/game | Fires: 3.1/game
+
+### Metrics After
+Player wins: 96/200 | Enemy wins: 104/200 | Draws: 0/200
+Oscillations: 2.7/game (+42%) | Collapses: 1.7/game | Fires: 2.7/game (-13%) | Action changes: 7.2/game
+
+### Decision
+ROLLBACK — Player wins 96/200 fell below the 100-win threshold (48% vs 51% baseline). Secondary metric regression: oscillations increased 42% (2.7 vs 1.9/game), exceeding the 15% degradation limit. Counterintuitively, fires DECREASED from 3.1 to 2.7/game despite the stronger fire signal. This suggests the higher FOB causes the AI to hold aim trajectories into asteroid proximity, creating unstable behavior — more evasive maneuvering to recover from dangerous positions (hence higher oscillations) and ultimately fewer clean shots. The 3× increase was too aggressive; FOB tuning has a narrow effective window. 300 is too low, 900 is too high, and 600 (Cycle 2) produced favorable secondary metrics but only parity wins on 200-game runs. The fire/danger balance may require a fundamentally different mechanism rather than a single-constant FOB adjustment.
+
+---
+
 ## Cycle 3 — ROLLBACK
 
 **Problem**: Score gap between best and second-best actions (~285 pts in high-speed approach scenarios) exceeds HYSTERESIS_BONUS=250, causing the AI to flip its action on every hold-timer boundary even when state barely changed. This was expected to contribute to oscillation count (98/game baseline).
