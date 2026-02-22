@@ -37,16 +37,18 @@ export const ACTION_MAP = [
   { thrust: false, rotL: false, rotR: false, brake: false }, // 9: no-op
 ];
 
-const DEFAULT_CONFIG = {
-  shipHP: 1,
-  maxTicks: 3600,
-  asteroidDensity: 1.0,
-  enemyPolicy: 'predictive',
-  enemyShoots: true,
-  spawnDistance: 500,
-  spawnFacing: true,
-  rewardWeights: DEFAULT_REWARD_WEIGHTS,
-};
+function getDefaultConfig() {
+  return {
+    shipHP: 1,
+    maxTicks: 3600,
+    asteroidDensity: 1.0,
+    enemyPolicy: 'predictive',
+    enemyShoots: true,
+    spawnDistance: 500,
+    spawnFacing: true,
+    rewardWeights: DEFAULT_REWARD_WEIGHTS,
+  };
+}
 
 /**
  * Gym-style training environment wrapping headless game simulation.
@@ -63,7 +65,7 @@ export class GameEnv {
    * @returns {Float32Array} initial observation
    */
   reset(config = {}) {
-    this._config = { ...DEFAULT_CONFIG, ...config };
+    this._config = { ...getDefaultConfig(), ...config };
     const c = this._config;
 
     // Agent ship at viewport center, heading up (-PI/2)
