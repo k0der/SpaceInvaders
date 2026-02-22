@@ -1,5 +1,45 @@
 # Optimization Cycle Log
 
+## Cycle 23 — ROLLBACK (ALL SINGLE-CONSTANT TUNING EXHAUSTED)
+
+**Problem**: SIM_DT=0.1 never tuned. Final single-constant candidate. Hypothesis: finer steps (DT<0.1) improve simulation precision near asteroids; coarser steps (DT>0.1) extend lookahead window; changing DT changes both step granularity and total lookahead (SIM_STEPS × DT).
+**Fix**: SIM_DT sweep: 0.07, 0.08, 0.10 (baseline), 0.12, 0.15.
+**Complexity**: 1 — Tune constant
+
+### Sweep (50 games each, KILL-event-based win counter)
+
+| DT | Lookahead | Wins/50 | Win% | Osc/game | Collapse/game | Fires/game |
+|----|-----------|---------|------|----------|---------------|------------|
+| **0.07** | 1.05s | **33** | **66%** | **2.54** | **1.76** | **3.7** |
+| 0.08 | 1.20s | 22 | 44% | 3.26 | 2.08 | 3.2 |
+| 0.10 (baseline) | 1.50s | 31 | 62% | 2.86 | 1.92 | 3.2 |
+| 0.12 | 1.80s | 25 | 50% | 2.86 | 1.82 | 4.5 |
+| 0.15 | 2.25s | 21 | 42% | 3.60 | 1.86 | 3.2 |
+
+Selected: DT=0.07 (highest wins, lowest oscillation).
+
+### 200-Game Validation (DT=0.07)
+Player wins: 108/200 | Enemy wins: 85/200 | Draws: 7/200
+Oscillations: 2.50/game | Collapses: 1.61/game | Fires/game: 3.9
+
+### Decision
+ROLLBACK — 108/200 wins < 110 threshold.
+
+Key observations:
+- DT=0.07 won 50-game sweep strongly (33/50 = 66%) but this was a favorable seed cluster — 200-game result was 108/200
+- Non-monotonic pattern (0.07: 33 wins, 0.08: 22 wins, 0.10: 31 wins) is characteristic of seed sensitivity
+- Draws increased from 0 to 7 — shorter lookahead may miss long-range collision threats
+- Fires/game increased (+13.6%) but did not convert to wins at 200-game scale
+- Coarser DT values (0.12, 0.15) performed progressively worse — monotonically decreasing in both 50-game and secondary metrics
+- DT=0.1 confirmed optimal across tested range [0.07, 0.15]
+
+**ALL 18 SINGLE-CONSTANT TUNING TARGETS ARE NOW EXHAUSTED.**
+Current architecture ceiling: ~55% win rate (110/200).
+Future approaches require multi-constant combinations or structural code changes.
+See IMPROVEMENTS.md for complete list of future approaches.
+
+---
+
 ## Cycle 22 — ROLLBACK
 
 **Problem**: COLLISION_EARLY_BONUS=50 never tuned. Hypothesis: increasing the gradient may help the AI prefer late-step collisions over early-step collisions, providing more re-evaluation opportunities.

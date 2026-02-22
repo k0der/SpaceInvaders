@@ -12,6 +12,74 @@ Player wins: 110/200 (55.0%) | Enemy wins: 90/200 (45.0%) | Draws: 0/200 (0%)
 Oscillations: 2.26/game | Collapses: 1.61/game | Fires: 3.425/game
 Fix: DANGER_ZONE_BASE_PENALTY=-10000 + HYSTERESIS_BONUS=350 + FIRE_OPPORTUNITY_BONUS=450 + CLOSING_SPEED_WEIGHT=16 + DISTANCE_WEIGHT=-3
 
+## MILESTONE: ALL SINGLE-CONSTANT TUNING EXHAUSTED (After Cycle 23)
+
+All 18 tunable constants in `src/ai-predictive-optimized.js` have been swept at least once:
+
+| Constant | Confirmed Optimal | Range Tested | Cycle |
+|----------|-------------------|--------------|-------|
+| DANGER_ZONE_FACTOR | 3 | 2-3 | 1 |
+| FIRE_OPPORTUNITY_BONUS | 450 | 300-900 | 2,4,12 |
+| HYSTERESIS_BONUS | 350 | 250-500 | 3,8,11 |
+| COLLISION_BASE_PENALTY | -20000 | cannot reduce | 5 |
+| DANGER_ZONE_BASE_PENALTY | -10000 | -5000 to -20000 | 6,7 |
+| AIM_BONUS | 400 | 400-1200 | 9 |
+| HOLD_TIME | 0.15 | 0.15-0.35 | 10 |
+| COLLISION_BREAK_STEPS | 3 | 1-5 | 13 |
+| ENGAGE_RANGE | 350 | 250-500 | 14 |
+| FIRE_ANGLE | 0.15 | 0.10-0.30 | 15 |
+| SIM_STEPS | 15 | 10-22 | 16 |
+| AIM_PROXIMITY_SCALE | 5 | 3-15 | 17 |
+| CLOSING_SPEED_WEIGHT | 16 | 4-16 | 18 (KEPT) |
+| DISTANCE_WEIGHT | -3 | -3 to -14 | 19 (KEPT) |
+| ENGAGE_CLOSING_SCALE | 3 | 1-5 | 20 |
+| BRAKE_PURSUIT_STEPS | 5 | 2-7 | 21 |
+| COLLISION_EARLY_BONUS | 50 | 0-200 | 22 |
+| SIM_DT | 0.1 | 0.07-0.15 | 23 |
+
+### Current Optimal Configuration
+```
+DANGER_ZONE_BASE_PENALTY = -10000
+HYSTERESIS_BONUS = 350
+FIRE_OPPORTUNITY_BONUS = 450
+CLOSING_SPEED_WEIGHT = 16
+DISTANCE_WEIGHT = -3
+SIM_STEPS = 15
+SIM_DT = 0.1
+COLLISION_BASE_PENALTY = -20000
+COLLISION_EARLY_BONUS = 50
+BRAKE_PURSUIT_STEPS = 5
+COLLISION_BREAK_STEPS = 3
+HOLD_TIME = 0.15
+ENGAGE_RANGE = 350
+ENGAGE_CLOSING_SCALE = 3
+AIM_PROXIMITY_SCALE = 5
+AIM_BONUS = 400
+FIRE_ANGLE = 0.15
+MAX_FIRE_RANGE = 500
+DANGER_ZONE_FACTOR = 3
+```
+
+### Future Approaches (require changes beyond single-constant tuning)
+
+**Multi-constant combinations** (requires simultaneous sweeps):
+- DZPB + HB + FOB triple sweep — each constant modifies aim/evasion balance differently; their interaction has not been fully explored at 200-game scale
+- CSW + ENGAGE_CLOSING_SCALE re-sweep under current architecture (post-DW=-3)
+- SIM_STEPS + SIM_DT grid sweep — e.g., (12 steps × 0.125s = 1.5s) vs (15 × 0.1) vs (18 × 0.083)
+
+**Structural code changes** (requires modifying `src/ai-predictive-optimized.js`):
+- Dynamic HYSTERESIS_BONUS: increase bonus during high-danger situations (oscillation during collapse causes flip; static bonus can't absorb both normal and collapse-state score volatility)
+- Spawn-aim fix: rotate toward enemy at spawn (requires knowledge of enemy spawn position, available via target.x/target.y on tick 0)
+- Separate scoring for the "coast+right" vs "coast+left" candidates — currently scored identically in symmetric scenarios, causing arbitrary flip based on evaluation order
+- Trajectory diversity pruning: if two candidates have identical firstAction, only evaluate the one with better terminal state — reduces noise from PUR/T___ ties
+
+**Changes outside `src/ai-predictive-optimized.js`** (logged for human review):
+- Fix `simulate.js` win counter (updateGameState not passed dt — all wins counted as draws by the built-in counter; fixed in run-sweep.js via KILL-event counter)
+- Fix player spawn heading to pre-aim at enemy (enemy spawns aimed at player, giving 1-2s early fire advantage; player spawns at -PI/2 (up))
+
+### Statistical Note on 50-Game Sweeps
+Cycles 6-23 confirm that 50-game sweeps have ±8 win variance relative to the true 200-game rate. A candidate needs to win by >4 games in a 50-game sweep to have >50% confidence it's a real improvement. No single-constant change in cycles 11-23 exceeded this threshold reliably — all "winners" had gaps of 1-4 wins in 50-game runs that did not replicate at 200 games. Future sweeps should use 100-game runs minimum to detect 2-3% improvements reliably.
+
 ## Key Insights (read before proposing any fix)
 
 ### What we know about the AI's behavior
@@ -66,6 +134,8 @@ Fix: DANGER_ZONE_BASE_PENALTY=-10000 + HYSTERESIS_BONUS=350 + FIRE_OPPORTUNITY_B
 
   Additional finding: `simulate.js` has a broken win counter — `updateGameState` is called without `dt` argument, so the grace period timer never decrements and all games appear as draws. Win counts in Cycle 21 were measured via a KILL-event-based counter in `optimization/run-sweep.js`. The corrected counter shows BPS=5 baseline at 113/200, consistent with the recorded 110/200 (within ±8 variance). **Proposed fix for simulate.js: pass `scaledDt` as 4th argument to `updateGameState` at line 488 of simulate.js, and update the game loop to continue running during 'ending' phase (remove the early break at line 332 or add an 'ending' phase loop).** This fix requires modifying `simulate.js` (outside optimization scope) — logged here for human review.
 
+- **SIM_DT tuning exhausted (Cycle 23, ROLLBACK)**: Swept 0.07, 0.08, 0.10 (baseline), 0.12, 0.15. DT=0.07 won the 50-game sweep with 33/50 wins (66%). 200-game validation: 108/200 (54%), 2 wins below the 110 threshold. Key findings: (1) Non-monotonic sweep pattern — DT=0.07 at 33/50 then DT=0.08 collapses to 22/50, consistent with favorable seed clustering not a structural advantage. (2) DT=0.07 increased fires/game from 3.425 to 3.9 (+13.6%) — finer steps create more trajectory steps near the target but shorter 1.05s lookahead gives the AI less distance to work with. (3) Draws increased from 0 to 7 (3.5%) — shorter lookahead may miss long-range collision threats leading to boundary draws. (4) Changing SIM_DT requires updating several DT-sensitive unit tests (oscillation reproduction gap thresholds, winner name tie-handling) but these changes are reverted on ROLLBACK. **SIM_DT=0.1 (1.5s lookahead with SIM_STEPS=15) confirmed optimal across range 0.07–0.15. ALL 18 SINGLE-CONSTANT TUNING TARGETS ARE NOW EXHAUSTED. The current architecture has reached a performance ceiling at ~55% win rate under single-constant optimization. Future improvements require multi-constant combinations or structural code changes.**
+
 ## Proposed Changes Outside Optimization Scope
 
 > These changes were identified during optimization cycles but require modifying files outside `src/ai-predictive-optimized.js`. They are logged here for human review — they were NOT applied autonomously.
@@ -103,3 +173,4 @@ Fix: DANGER_ZONE_BASE_PENALTY=-10000 + HYSTERESIS_BONUS=350 + FIRE_OPPORTUNITY_B
 | 20 | ENGAGE_CLOSING_SCALE=3 never tuned — hypothesis: CSW doubling (8→16 in Cycle 18) made ECS=3 over-amplified (64× vs original 32× closingRate intent) | ENGAGE_CLOSING_SCALE sweep: 1,2,3,4,5. ECS=3 (baseline) won 50-game with 29/50. Hypothesis inverted: ECS=3 is still optimal. No code change. | N/A (rollback, baseline unchanged) | — | — | — | ROLLBACK |
 | 21 | BRAKE_PURSUIT_STEPS=5 never tuned — hypothesis: shorter brake phase (3-4 steps) re-engages pursuit faster after emergency avoidance, creating more firing opportunities | BRAKE_PURSUIT_STEPS sweep: 2,3,4,5,7. BPS=4 won 50-game (30/50, 2.06 osc/game). 200-game validation: 104/200 (52.0%) — regression of 9 wins vs BPS=5 baseline (113/200 corrected counter). Cause: lower BPS over-selects BRK candidate, reducing fires/game. | 52.0% (104/200) | 2.40 | 1.92 | 3.3 | ROLLBACK |
 | 22 | COLLISION_EARLY_BONUS=50 never tuned — hypothesis: increasing gradient makes AI prefer late-step collisions, buying more re-evaluation time. CEB=0 removes gradient entirely. | COLLISION_EARLY_BONUS sweep: 0,25,50,100,200. CEB=50 (baseline) won 50-game sweep with 33/50. No other value improved. No code change. CEB fully exhausted across 0–200. | N/A (rollback, baseline unchanged) | — | — | — | ROLLBACK |
+| 23 | SIM_DT=0.1 never tuned — final single-constant candidate. Hypothesis: finer steps (DT<0.1) improve precision near asteroids; coarser steps (DT>0.1) extend lookahead window. | SIM_DT sweep: 0.07,0.08,0.10,0.12,0.15. DT=0.07 won 50-game (33/50, 66%). 200-game validation: 108/200 (54%), 2 wins below threshold. **ALL SINGLE-CONSTANT TUNING NOW EXHAUSTED.** | 54.0% (108/200) | 2.50 (+10.6%) | 1.61 (0%) | 3.9 (+13.6%) | ROLLBACK |

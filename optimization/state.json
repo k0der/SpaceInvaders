@@ -1,5 +1,5 @@
 {
-  "cycle": 22,
+  "cycle": 23,
   "baseline": {
     "games": 200,
     "playerWins": 102,
@@ -21,6 +21,22 @@
     "fires_per_game": 3.425
   },
   "history": [
+    {
+      "cycle": 23,
+      "problem": "SIM_DT=0.1 never tuned across 22 cycles. Final single-constant candidate. Hypothesis: finer steps (DT<0.1) improve precision near asteroids; coarser steps (DT>0.1) extend lookahead window.",
+      "fix": "SIM_DT sweep: 0.07, 0.08, 0.10 (baseline), 0.12, 0.15. DT=0.07 won 50-game sweep with 33/50 (66%). 200-game validation: 108/200 (54%) — below 110 threshold.",
+      "result": "ROLLBACK",
+      "metrics": {
+        "playerWins": 108,
+        "enemyWins": 85,
+        "draws": 7,
+        "oscillations_per_game": 2.50,
+        "collapses_per_game": 1.61,
+        "fires_per_game": 3.9,
+        "sweep_summary": "DT=0.07: 33/50, 2.54 osc/game, 1.76 col/game (SELECTED); DT=0.08: 22/50, 3.26 osc/game, 2.08 col/game; DT=0.10 (baseline): 31/50, 2.86 osc/game, 1.92 col/game; DT=0.12: 25/50, 2.86 osc/game, 1.82 col/game; DT=0.15: 21/50, 3.60 osc/game, 1.86 col/game"
+      },
+      "reason": "ROLLBACK — 108/200 wins < 110 threshold. DT=0.07 won the 50-game sweep strongly (33/50 = 66%) but this was a favorable seed cluster — 200-game result: 108/200 (-2 wins from best, -3 from threshold). Non-monotonic 50-game pattern (0.07→0.08 collapses from 33 to 22) is characteristic of seed sensitivity. Draws increased from 0 to 7 (shorter lookahead may miss some long-range avoidance). Fires/game increased (+13.6%) but did not convert to wins at 200-game scale. SIM_DT=0.1 confirmed optimal across range [0.07, 0.08, 0.10, 0.12, 0.15]. ALL 18 SINGLE-CONSTANT TUNING TARGETS ARE NOW EXHAUSTED."
+    },
     {
       "cycle": 22,
       "problem": "COLLISION_EARLY_BONUS=50 never tuned. Hypothesis: increasing gradient makes AI prefer late-step collisions, buying more re-evaluation time.",
@@ -355,6 +371,6 @@
       "reason": "ROLLBACK — primary criterion failed. BPS=4 produced 104/200 wins (52.0%) vs BPS=5 baseline 113/200 (56.5%), a regression of 9 wins. 104 < 110 threshold. The 50-game sweep showed BPS=4 with 30/50 wins (vs 26 baseline), but this was a favorable seed cluster — the 200-game result inverted completely. Key finding: lower BPS values cause BRK candidate to win more trajectory evaluations (BRK firstAction = braking), reducing immediate firing (fires drop from 3.4 to 2.3/game) while improving oscillation metrics. The win regression confirms that more frequent BRK selection is detrimental to combat outcomes — the 5-step brake phase calibrates BRK to win only in genuine emergency/overshoot scenarios. BRAKE_PURSUIT_STEPS is now exhausted as a tuning target: BPS=5 is confirmed optimal across the tested range 2-7."
     }
   ],
-  "consecutiveRollbacks": 3,
-  "status": "ready"
+  "consecutiveRollbacks": 4,
+  "status": "ALL_SINGLE_CONSTANT_TUNING_EXHAUSTED"
 }

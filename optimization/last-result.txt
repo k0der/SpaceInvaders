@@ -1,1 +1,1 @@
-ROLLBACK: collision gradient — CEB 50→50 (no change) — baseline won sweep at 33/50 — wins unchanged at 110/200
+ROLLBACK: simulation granularity — SIM_DT 0.1→0.07 — wins 108/200 below 110 — ALL SINGLE-CONSTANT TUNING EXHAUSTED
