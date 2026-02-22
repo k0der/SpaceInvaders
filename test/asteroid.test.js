@@ -321,3 +321,104 @@ describe('Increment 7: A Field of Asteroids', () => {
     });
   });
 });
+
+// ── Headless mode ────────────────────────────────────────────────────
+describe('createAsteroid headless mode', () => {
+  it('headless: true sets shape to null', () => {
+    const a = createAsteroid({
+      x: 0,
+      y: 0,
+      vx: 1,
+      vy: 0,
+      radius: 40,
+      headless: true,
+    });
+    expect(a.shape).toBeNull();
+  });
+
+  it('headless: true uses deterministic collisionRadius = radius * 0.8', () => {
+    const radius = 50;
+    const a = createAsteroid({
+      x: 0,
+      y: 0,
+      vx: 1,
+      vy: 0,
+      radius,
+      headless: true,
+    });
+    expect(a.collisionRadius).toBe(radius * 0.8);
+  });
+
+  it('headless: true sets angularVelocity to 0', () => {
+    const a = createAsteroid({
+      x: 0,
+      y: 0,
+      vx: 1,
+      vy: 0,
+      radius: 30,
+      headless: true,
+    });
+    expect(a.angularVelocity).toBe(0);
+  });
+
+  it('headless: true sets strokeWidth to 0', () => {
+    const a = createAsteroid({
+      x: 0,
+      y: 0,
+      vx: 1,
+      vy: 0,
+      radius: 60,
+      headless: true,
+    });
+    expect(a.strokeWidth).toBe(0);
+  });
+
+  it('headless: false (default) generates a shape array', () => {
+    const a = createAsteroid({ x: 0, y: 0, vx: 1, vy: 0, radius: 40 });
+    expect(Array.isArray(a.shape)).toBe(true);
+    expect(a.shape.length).toBeGreaterThanOrEqual(8);
+  });
+
+  it('headless asteroid still has all physics fields (x, y, vx, vy, radius)', () => {
+    const a = createAsteroid({
+      x: 10,
+      y: 20,
+      vx: 3,
+      vy: 4,
+      radius: 25,
+      headless: true,
+    });
+    expect(a.x).toBe(10);
+    expect(a.y).toBe(20);
+    expect(a.vx).toBe(3);
+    expect(a.vy).toBe(4);
+    expect(a.radius).toBe(25);
+    expect(a.rotation).toBe(0);
+  });
+
+  it('headless collisionRadius matches expected value of random average', () => {
+    // Normal mode: collisionRadius is average vertex distance ≈ radius * 0.8
+    // Headless mode: collisionRadius = radius * 0.8 exactly
+    const radius = 50;
+    const headless = createAsteroid({
+      x: 0,
+      y: 0,
+      vx: 0,
+      vy: 0,
+      radius,
+      headless: true,
+    });
+
+    // Run many normal asteroids and check the mean is close to 0.8
+    let totalRatio = 0;
+    const N = 200;
+    for (let i = 0; i < N; i++) {
+      const normal = createAsteroid({ x: 0, y: 0, vx: 0, vy: 0, radius });
+      totalRatio += normal.collisionRadius / radius;
+    }
+    const meanRatio = totalRatio / N;
+
+    expect(headless.collisionRadius / radius).toBe(0.8);
+    expect(meanRatio).toBeCloseTo(0.8, 1); // mean of normal mode should be ~0.8
+  });
+});

@@ -1,1 +1,0 @@
-ROLLBACK: AI constants reverted by commit 585af12 — re-applied 5 confirmed constants (DZPB=-10000, HB=350, FOB=450, CSW=16, DW=-3) — win rate 37%→43.5% (87/200) — below 100-win threshold; draw rate 21% prevents reaching threshold (55% of decided games won)

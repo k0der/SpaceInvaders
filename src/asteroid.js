@@ -26,20 +26,36 @@ function getStrokeWidth(radius) {
   return 1.0; // small
 }
 
+/** Average vertex distance factor for headless collision radius (E[0.6 + U(0,0.4)]). */
+const HEADLESS_COLLISION_FACTOR = 0.8;
+
 /**
  * Create an asteroid object.
+ * When headless is true, visual-only data (shape, strokeWidth) is skipped
+ * and collisionRadius uses a deterministic approximation.
  */
-export function createAsteroid({ x, y, vx, vy, radius }) {
-  // Angular velocity scaled inversely to radius: smaller = faster spin
-  const maxAngVel = 0.5 * (20 / Math.max(radius, 10));
-  const angularVelocity = (Math.random() * 2 - 1) * Math.min(maxAngVel, 0.5);
+export function createAsteroid({ x, y, vx, vy, radius, headless = false }) {
+  let shape, collisionRadius, angularVelocity, strokeWidth;
 
-  const shape = generateShape(radius);
+  if (headless) {
+    shape = null;
+    collisionRadius = radius * HEADLESS_COLLISION_FACTOR;
+    angularVelocity = 0;
+    strokeWidth = 0;
+  } else {
+    // Angular velocity scaled inversely to radius: smaller = faster spin
+    const maxAngVel = 0.5 * (20 / Math.max(radius, 10));
+    angularVelocity = (Math.random() * 2 - 1) * Math.min(maxAngVel, 0.5);
 
-  // Compute effective collision radius as average vertex distance from center
-  const collisionRadius =
-    shape.reduce((sum, [px, py]) => sum + Math.sqrt(px * px + py * py), 0) /
-    shape.length;
+    shape = generateShape(radius);
+
+    // Compute effective collision radius as average vertex distance from center
+    collisionRadius =
+      shape.reduce((sum, [px, py]) => sum + Math.sqrt(px * px + py * py), 0) /
+      shape.length;
+
+    strokeWidth = getStrokeWidth(radius);
+  }
 
   return {
     x,
@@ -51,7 +67,7 @@ export function createAsteroid({ x, y, vx, vy, radius }) {
     rotation: 0,
     angularVelocity,
     shape,
-    strokeWidth: getStrokeWidth(radius),
+    strokeWidth,
   };
 }
 

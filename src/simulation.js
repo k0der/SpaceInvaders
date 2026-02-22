@@ -111,6 +111,7 @@ export function spawnAsteroidInBorder(
   spawnBounds,
   edgeWeights,
   speedMultiplier = 1.0,
+  headless = false,
 ) {
   const radius = randomRadius();
   const speed = speedForRadius(radius) * speedMultiplier;
@@ -167,6 +168,7 @@ export function spawnAsteroidInBorder(
     vx: Math.cos(angle) * speed,
     vy: Math.sin(angle) * speed,
     radius,
+    headless,
   });
 }
 
@@ -175,9 +177,14 @@ export function spawnAsteroidInBorder(
  * with a random direction. Used for initial population.
  * @param {object} spawnBounds - { minX, maxX, minY, maxY }
  * @param {number} speedMultiplier
+ * @param {boolean} headless
  * @returns {object} asteroid
  */
-export function spawnAsteroidInZone(spawnBounds, speedMultiplier = 1.0) {
+export function spawnAsteroidInZone(
+  spawnBounds,
+  speedMultiplier = 1.0,
+  headless = false,
+) {
   const radius = randomRadius();
   const speed = speedForRadius(radius) * speedMultiplier;
   const x =
@@ -192,6 +199,7 @@ export function spawnAsteroidInZone(spawnBounds, speedMultiplier = 1.0) {
     vx: Math.cos(angle) * speed,
     vy: Math.sin(angle) * speed,
     radius,
+    headless,
   });
 }
 
@@ -202,11 +210,15 @@ export function spawnAsteroidInZone(spawnBounds, speedMultiplier = 1.0) {
  * @param {object} viewportBounds - { minX, maxX, minY, maxY }
  * @param {number} targetCount
  */
-export function createSimulation(viewportBounds, targetCount = 20) {
+export function createSimulation(
+  viewportBounds,
+  targetCount = 20,
+  headless = false,
+) {
   const spawnBounds = computeSpawnBounds(viewportBounds);
   const asteroids = [];
   for (let i = 0; i < targetCount; i++) {
-    asteroids.push(spawnAsteroidInZone(spawnBounds));
+    asteroids.push(spawnAsteroidInZone(spawnBounds, 1.0, headless));
   }
 
   const baselineKEPerAsteroid = computeTotalKE(asteroids) / asteroids.length;
@@ -215,6 +227,7 @@ export function createSimulation(viewportBounds, targetCount = 20) {
     asteroids,
     targetCount,
     baselineKEPerAsteroid,
+    headless,
   };
 }
 
@@ -265,7 +278,13 @@ export function updateSimulation(
   const toSpawn = Math.min(Math.max(deficit, 0), MAX_SPAWN_PER_FRAME);
   for (let i = 0; i < toSpawn; i++) {
     sim.asteroids.push(
-      spawnAsteroidInBorder(viewportBounds, spawnBounds, edgeWeights, boost),
+      spawnAsteroidInBorder(
+        viewportBounds,
+        spawnBounds,
+        edgeWeights,
+        boost,
+        sim.headless,
+      ),
     );
   }
 }

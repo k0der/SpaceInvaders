@@ -481,6 +481,98 @@ describe('Sequential episodes', () => {
   });
 });
 
+// ── Frame-skipping ──────────────────────────────────────────────────
+describe('Frame-skipping (frameSkip config)', () => {
+  it('frameSkip defaults to 1', () => {
+    const env = new GameEnv();
+    env.reset({ enemyPolicy: 'static', asteroidDensity: 0 });
+    const r = env.step(3, 0);
+    expect(r.info.ticksElapsed).toBe(1);
+  });
+
+  it('frameSkip: 2 advances tick count by 2 per step call', () => {
+    const env = new GameEnv();
+    env.reset({ enemyPolicy: 'static', asteroidDensity: 0, frameSkip: 2 });
+    const r1 = env.step(3, 0);
+    expect(r1.info.ticksElapsed).toBe(2);
+    const r2 = env.step(3, 0);
+    expect(r2.info.ticksElapsed).toBe(4);
+  });
+
+  it('frameSkip: 2 accumulates reward across sub-ticks', () => {
+    const env1 = new GameEnv();
+    env1.reset({ enemyPolicy: 'static', asteroidDensity: 0, frameSkip: 1 });
+    const r1a = env1.step(0, 0);
+    const r1b = env1.step(0, 0);
+    const separateReward = r1a.reward + r1b.reward;
+
+    const env2 = new GameEnv();
+    env2.reset({ enemyPolicy: 'static', asteroidDensity: 0, frameSkip: 2 });
+    const r2 = env2.step(0, 0);
+
+    // Rewards should match: sum of 2 individual steps = 1 frame-skipped step
+    expect(r2.reward).toBeCloseTo(separateReward, 5);
+  });
+
+  it('frameSkip: 2 stops early if episode ends on first sub-tick', () => {
+    const env = new GameEnv();
+    env.reset({
+      shipHP: 1,
+      enemyPolicy: 'static',
+      asteroidDensity: 0,
+      frameSkip: 2,
+    });
+
+    // Kill agent on first sub-tick
+    env._bullets.push(
+      createBullet(env._agent.x, env._agent.y, 0, 0, 0, 'enemy'),
+    );
+
+    const result = env.step(3, 0);
+    expect(result.done).toBe(true);
+    expect(result.info.winner).toBe('opponent');
+    // Only 1 tick simulated, not 2
+    expect(result.info.ticksElapsed).toBe(1);
+  });
+
+  it('frameSkip: 2 handles maxTicks not divisible by frameSkip', () => {
+    const env = new GameEnv();
+    env.reset({
+      shipHP: 5,
+      maxTicks: 3,
+      enemyPolicy: 'static',
+      asteroidDensity: 0,
+      frameSkip: 2,
+    });
+
+    const r1 = env.step(3, 0); // ticks 1,2
+    expect(r1.done).toBe(false);
+    expect(r1.info.ticksElapsed).toBe(2);
+
+    const r2 = env.step(3, 0); // tick 3 → done (maxTicks reached mid-frame)
+    expect(r2.done).toBe(true);
+    expect(r2.info.winner).toBe('timeout');
+    expect(r2.info.ticksElapsed).toBe(3);
+  });
+
+  it('frameSkip: 1 is backward compatible with existing behavior', () => {
+    const env = new GameEnv();
+    env.reset({
+      shipHP: 5,
+      maxTicks: 3,
+      enemyPolicy: 'static',
+      asteroidDensity: 0,
+      frameSkip: 1,
+    });
+
+    env.step(3, 0); // tick 1
+    env.step(3, 0); // tick 2
+    const r3 = env.step(3, 0); // tick 3
+    expect(r3.done).toBe(true);
+    expect(r3.info.ticksElapsed).toBe(3);
+  });
+});
+
 // ── Info tracking ───────────────────────────────────────────────────
 describe('Info tracking', () => {
   let env;
@@ -533,5 +625,93 @@ describe('Info tracking', () => {
 
     const result = env.step(3, 0);
     expect(result.info.asteroidsHit).toBeGreaterThanOrEqual(1);
+  });
+});
+
+// ── Headless asteroids in GameEnv ────────────────────────────────────
+describe('GameEnv headless asteroids', () => {
+  it('GameEnv creates headless simulation (asteroids have null shape)', () => {
+    const env = new GameEnv();
+    env.reset({ asteroidDensity: 1.0, enemyPolicy: 'static' });
+    for (const a of env._sim.asteroids) {
+      expect(a.shape).toBeNull();
+    }
+  });
+
+  it('simulation headless flag is true', () => {
+    const env = new GameEnv();
+    env.reset({ enemyPolicy: 'static' });
+    expect(env._sim.headless).toBe(true);
+  });
+});
+
+// ── AI tuning overrides ──────────────────────────────────────────────
+describe('AI tuning overrides (aiHoldTime, aiSimSteps)', () => {
+  it('aiHoldTime override is applied to strategy state', () => {
+    const env = new GameEnv();
+    env.reset({
+      enemyPolicy: 'predictive',
+      asteroidDensity: 0,
+      aiHoldTime: 0.3,
+    });
+    expect(env._strategyState.holdTime).toBe(0.3);
+  });
+
+  it('aiSimSteps override is applied to strategy state', () => {
+    const env = new GameEnv();
+    env.reset({ enemyPolicy: 'predictive', asteroidDensity: 0, aiSimSteps: 8 });
+    expect(env._strategyState.simSteps).toBe(8);
+  });
+
+  it('without overrides, strategy state has no holdTime/simSteps keys', () => {
+    const env = new GameEnv();
+    env.reset({ enemyPolicy: 'predictive', asteroidDensity: 0 });
+    expect(env._strategyState.holdTime).toBeUndefined();
+    expect(env._strategyState.simSteps).toBeUndefined();
+  });
+
+  it('static policy ignores AI overrides (no strategy state)', () => {
+    const env = new GameEnv();
+    env.reset({ enemyPolicy: 'static', aiHoldTime: 0.5, aiSimSteps: 5 });
+    expect(env._strategyState).toBeNull();
+  });
+
+  it('aiHoldTime affects AI decision frequency', () => {
+    // With a larger holdTime, the AI should make fewer decisions over the same ticks
+    const envFast = new GameEnv();
+    envFast.reset({
+      enemyPolicy: 'predictive',
+      asteroidDensity: 0,
+      aiHoldTime: 0.05,
+    });
+
+    const envSlow = new GameEnv();
+    envSlow.reset({
+      enemyPolicy: 'predictive',
+      asteroidDensity: 0,
+      aiHoldTime: 0.5,
+    });
+
+    // Run 30 ticks (~0.5s) — fast AI should change action more often
+    let fastChanges = 0;
+    let slowChanges = 0;
+    let fastPrev = null;
+    let slowPrev = null;
+
+    for (let i = 0; i < 30; i++) {
+      envFast.step(3, 0);
+      envSlow.step(3, 0);
+
+      const fastAction = envFast._strategyState.prevAction;
+      const slowAction = envSlow._strategyState.prevAction;
+
+      if (fastPrev && fastAction !== fastPrev) fastChanges++;
+      if (slowPrev && slowAction !== slowPrev) slowChanges++;
+      fastPrev = fastAction;
+      slowPrev = slowAction;
+    }
+
+    // Fast AI (holdTime=0.05 = 3 ticks) should re-evaluate more often than slow (holdTime=0.5 = 30 ticks)
+    expect(fastChanges).toBeGreaterThanOrEqual(slowChanges);
   });
 });

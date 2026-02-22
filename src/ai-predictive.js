@@ -420,7 +420,13 @@ function actionsMatch(a, b) {
  * Optional prevAction enables hysteresis — matching candidates get a small bonus
  * to prevent frame-by-frame oscillation between similar-scoring actions.
  */
-export function selectBestAction(ship, target, asteroids, prevAction = null) {
+export function selectBestAction(
+  ship,
+  target,
+  asteroids,
+  prevAction = null,
+  simSteps = SIM_STEPS,
+) {
   const candidates = defineCandidates();
   let bestScore = -Infinity;
   let bestAction = candidates[0];
@@ -430,7 +436,7 @@ export function selectBestAction(ship, target, asteroids, prevAction = null) {
   // Evaluate fixed-action candidates
   for (const action of candidates) {
     const clone = cloneShipForSim(ship);
-    const positions = simulateTrajectory(clone, action, SIM_STEPS, SIM_DT);
+    const positions = simulateTrajectory(clone, action, simSteps, SIM_DT);
     let score = scoreTrajectory(positions, target, asteroids, SIM_DT);
     if (prevAction && actionsMatch(action, prevAction)) {
       score += HYSTERESIS_BONUS;
@@ -450,7 +456,7 @@ export function selectBestAction(ship, target, asteroids, prevAction = null) {
   const pursuit = simulatePursuitTrajectory(
     pursuitClone,
     target,
-    SIM_STEPS,
+    simSteps,
     SIM_DT,
     0,
   );
@@ -484,7 +490,7 @@ export function selectBestAction(ship, target, asteroids, prevAction = null) {
     const brakePursuit = simulatePursuitTrajectory(
       brakeClone,
       target,
-      SIM_STEPS,
+      simSteps,
       SIM_DT,
       BRAKE_PURSUIT_STEPS,
     );
@@ -546,6 +552,9 @@ function updatePredictiveAI(state, ship, target, asteroids, _dt) {
     return;
   }
 
+  const holdTime = state.holdTime ?? HOLD_TIME;
+  const simSteps = state.simSteps ?? SIM_STEPS;
+
   state.holdTimer = Math.max(0, state.holdTimer - _dt);
 
   const holdExpired = state.holdTimer <= 0;
@@ -555,9 +564,15 @@ function updatePredictiveAI(state, ship, target, asteroids, _dt) {
     hasImminentCollision(ship, state.prevAction, asteroids);
 
   if (holdExpired || emergency || !state.prevAction) {
-    const action = selectBestAction(ship, target, asteroids, state.prevAction);
+    const action = selectBestAction(
+      ship,
+      target,
+      asteroids,
+      state.prevAction,
+      simSteps,
+    );
     state.prevAction = action;
-    state.holdTimer = HOLD_TIME;
+    state.holdTimer = holdTime;
   }
 
   ship.thrust = state.prevAction.thrust;

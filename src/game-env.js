@@ -46,6 +46,7 @@ function getDefaultConfig() {
     enemyShoots: true,
     spawnDistance: 500,
     spawnFacing: true,
+    frameSkip: 1,
     rewardWeights: DEFAULT_REWARD_WEIGHTS,
   };
 }
@@ -118,7 +119,7 @@ export class GameEnv {
       VIEWPORT_H,
     );
     const targetCount = Math.round(ENV_BASE_ASTEROID_COUNT * c.asteroidDensity);
-    this._sim = createSimulation(viewportBounds, targetCount);
+    this._sim = createSimulation(viewportBounds, targetCount, true);
 
     // Clear spawn zones around both ships
     this._sim.asteroids = clearSpawnZone(this._sim.asteroids, [
@@ -133,6 +134,9 @@ export class GameEnv {
     } else {
       this._strategy = getStrategy(c.enemyPolicy);
       this._strategyState = this._strategy.createState();
+      // Apply per-episode AI tuning overrides (training speed optimization)
+      if (c.aiHoldTime != null) this._strategyState.holdTime = c.aiHoldTime;
+      if (c.aiSimSteps != null) this._strategyState.simSteps = c.aiSimSteps;
     }
 
     // Bullets
@@ -173,7 +177,7 @@ export class GameEnv {
       throw new Error(`Invalid fireAction: ${fireAction}. Must be 0 or 1.`);
     }
 
-    // 1. Apply agent action from ACTION_MAP
+    // 1. Apply agent action from ACTION_MAP (held for all sub-ticks)
     const action = ACTION_MAP[moveAction];
     this._agent.thrust = action.thrust;
     this._agent.rotatingLeft = action.rotL;
@@ -181,142 +185,152 @@ export class GameEnv {
     this._agent.braking = action.brake;
     this._agent.fire = fireAction === 1;
 
-    // 2. Apply opponent AI (if strategy exists and opponent alive)
-    if (this._strategy && this._opponent.alive) {
-      this._strategy.update(
-        this._strategyState,
-        this._opponent,
-        this._agent,
-        this._sim.asteroids,
-        DT,
-      );
-      // Suppress fire if enemyShoots is false
-      if (!this._config.enemyShoots) {
-        this._opponent.fire = false;
-      }
-    }
-
-    // 3. Update ships
-    updateShip(this._agent, DT);
-    updateShip(this._opponent, DT);
-
-    // 4. Bullet firing
-    this._tryFire(this._agent);
-    this._tryFire(this._opponent);
-
-    // 5. Update camera to follow agent
-    this._camera.x = this._agent.x;
-    this._camera.y = this._agent.y;
-
-    // 6. Compute viewport → spawn bounds for asteroid simulation
-    const viewportBounds = getViewportBounds(
-      this._camera,
-      VIEWPORT_W,
-      VIEWPORT_H,
-    );
-
-    // 7. Update asteroid simulation
-    updateSimulation(
-      this._sim,
-      DT,
-      viewportBounds,
-      this._agent.vx,
-      this._agent.vy,
-    );
-
-    // 8. Update bullets: move, expire, asteroid collisions
-    for (const bullet of this._bullets) {
-      updateBullet(bullet, DT);
-    }
-    this._bullets = this._bullets.filter((b) => !isBulletExpired(b));
-    this._bullets = checkBulletAsteroidCollisions(
-      this._bullets,
-      this._sim.asteroids,
-    );
-
-    // 9. Bullet-ship collisions → decrement HP (NOT alive yet)
-    const {
-      bullets: survivingBullets,
-      playerHit,
-      enemyHit,
-    } = processBulletShipCollisions(this._bullets, this._agent, this._opponent);
-    this._bullets = survivingBullets;
-
-    if (playerHit) {
-      this._agentHP -= 1;
-      this._hitsTaken += 1;
-    }
-    if (enemyHit) {
-      this._opponentHP -= 1;
-      this._hitsLanded += 1;
-    }
-
-    // 10. Ship-asteroid collisions → decrement HP (NOT alive yet)
-    if (this._agent.alive) {
-      const agentAsteroid = checkShipAsteroidCollision(
-        this._agent,
-        this._sim.asteroids,
-      );
-      if (agentAsteroid) {
-        this._agentHP -= 1;
-        this._asteroidsHit += 1;
-      }
-    }
-    if (this._opponent.alive) {
-      const opponentAsteroid = checkShipAsteroidCollision(
-        this._opponent,
-        this._sim.asteroids,
-      );
-      if (opponentAsteroid) {
-        this._opponentHP -= 1;
-      }
-    }
-
-    // 11. Build current reward state snapshot (alive=true, HP may be 0)
-    const currentRewardState = this._buildRewardState();
-
-    // 12. Compute reward
-    const reward = computeReward(
-      this._prevRewardState,
-      currentRewardState,
-      { moveAction, fireAction },
-      this._config,
-    );
-
-    // 13. Set alive=false for ships with HP <= 0 (AFTER reward snapshot)
-    if (this._agentHP <= 0) {
-      this._agent.alive = false;
-    }
-    if (this._opponentHP <= 0) {
-      this._opponent.alive = false;
-    }
-
-    // 14. Update prevRewardState
-    this._prevRewardState = currentRewardState;
-
-    // 15. Increment tick
-    this._tick += 1;
-
-    // 16. Determine done/winner
+    let totalReward = 0;
     let done = false;
     let winner = null;
+    const frameSkip = this._config.frameSkip;
 
-    if (this._agentHP <= 0) {
-      done = true;
-      winner = 'opponent';
-    } else if (this._opponentHP <= 0) {
-      done = true;
-      winner = 'agent';
-    }
-
-    if (this._tick >= this._config.maxTicks) {
-      done = true;
-      if (winner === null) {
-        winner = 'timeout';
+    for (let frame = 0; frame < frameSkip; frame++) {
+      // 2. Apply opponent AI (if strategy exists and opponent alive)
+      if (this._strategy && this._opponent.alive) {
+        this._strategy.update(
+          this._strategyState,
+          this._opponent,
+          this._agent,
+          this._sim.asteroids,
+          DT,
+        );
+        // Suppress fire if enemyShoots is false
+        if (!this._config.enemyShoots) {
+          this._opponent.fire = false;
+        }
       }
+
+      // 3. Update ships
+      updateShip(this._agent, DT);
+      updateShip(this._opponent, DT);
+
+      // 4. Bullet firing
+      this._tryFire(this._agent);
+      this._tryFire(this._opponent);
+
+      // 5. Update camera to follow agent
+      this._camera.x = this._agent.x;
+      this._camera.y = this._agent.y;
+
+      // 6. Compute viewport → spawn bounds for asteroid simulation
+      const viewportBounds = getViewportBounds(
+        this._camera,
+        VIEWPORT_W,
+        VIEWPORT_H,
+      );
+
+      // 7. Update asteroid simulation
+      updateSimulation(
+        this._sim,
+        DT,
+        viewportBounds,
+        this._agent.vx,
+        this._agent.vy,
+      );
+
+      // 8. Update bullets: move, expire, asteroid collisions
+      for (const bullet of this._bullets) {
+        updateBullet(bullet, DT);
+      }
+      this._bullets = this._bullets.filter((b) => !isBulletExpired(b));
+      this._bullets = checkBulletAsteroidCollisions(
+        this._bullets,
+        this._sim.asteroids,
+      );
+
+      // 9. Bullet-ship collisions → decrement HP (NOT alive yet)
+      const {
+        bullets: survivingBullets,
+        playerHit,
+        enemyHit,
+      } = processBulletShipCollisions(
+        this._bullets,
+        this._agent,
+        this._opponent,
+      );
+      this._bullets = survivingBullets;
+
+      if (playerHit) {
+        this._agentHP -= 1;
+        this._hitsTaken += 1;
+      }
+      if (enemyHit) {
+        this._opponentHP -= 1;
+        this._hitsLanded += 1;
+      }
+
+      // 10. Ship-asteroid collisions → decrement HP (NOT alive yet)
+      if (this._agent.alive) {
+        const agentAsteroid = checkShipAsteroidCollision(
+          this._agent,
+          this._sim.asteroids,
+        );
+        if (agentAsteroid) {
+          this._agentHP -= 1;
+          this._asteroidsHit += 1;
+        }
+      }
+      if (this._opponent.alive) {
+        const opponentAsteroid = checkShipAsteroidCollision(
+          this._opponent,
+          this._sim.asteroids,
+        );
+        if (opponentAsteroid) {
+          this._opponentHP -= 1;
+        }
+      }
+
+      // 11. Build current reward state snapshot (alive=true, HP may be 0)
+      const currentRewardState = this._buildRewardState();
+
+      // 12. Compute reward (accumulated across sub-ticks)
+      totalReward += computeReward(
+        this._prevRewardState,
+        currentRewardState,
+        { moveAction, fireAction },
+        this._config,
+      );
+
+      // 13. Set alive=false for ships with HP <= 0 (AFTER reward snapshot)
+      if (this._agentHP <= 0) {
+        this._agent.alive = false;
+      }
+      if (this._opponentHP <= 0) {
+        this._opponent.alive = false;
+      }
+
+      // 14. Update prevRewardState
+      this._prevRewardState = currentRewardState;
+
+      // 15. Increment tick
+      this._tick += 1;
+
+      // 16. Determine done/winner
+      if (this._agentHP <= 0) {
+        done = true;
+        winner = 'opponent';
+      } else if (this._opponentHP <= 0) {
+        done = true;
+        winner = 'agent';
+      }
+
+      if (this._tick >= this._config.maxTicks) {
+        done = true;
+        if (winner === null) {
+          winner = 'timeout';
+        }
+      }
+
+      if (done) break;
     }
 
-    // 17. Build observation + info
+    // 17. Build observation + info (once, after all sub-ticks)
     const observation = buildObservation(
       this._agent,
       this._opponent,
@@ -330,7 +344,7 @@ export class GameEnv {
       asteroidsHit: this._asteroidsHit,
     };
 
-    return { observation, reward, done, info };
+    return { observation, reward: totalReward, done, info };
   }
 
   /**

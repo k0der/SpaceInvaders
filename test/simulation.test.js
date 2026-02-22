@@ -605,3 +605,42 @@ describe('Increment 21b: Border-Zone Asteroid Spawning', () => {
     });
   });
 });
+
+// ── Headless simulation ──────────────────────────────────────────────
+describe('Headless simulation mode', () => {
+  it('createSimulation with headless=true stores headless flag', () => {
+    const sim = createSimulation(VIEWPORT_BOUNDS, 5, true);
+    expect(sim.headless).toBe(true);
+  });
+
+  it('createSimulation with headless=false (default) stores headless flag', () => {
+    const sim = createSimulation(VIEWPORT_BOUNDS, 5);
+    expect(sim.headless).toBe(false);
+  });
+
+  it('headless simulation creates asteroids with null shape', () => {
+    const sim = createSimulation(VIEWPORT_BOUNDS, 10, true);
+    for (const a of sim.asteroids) {
+      expect(a.shape).toBeNull();
+    }
+  });
+
+  it('non-headless simulation creates asteroids with shape arrays', () => {
+    const sim = createSimulation(VIEWPORT_BOUNDS, 10, false);
+    for (const a of sim.asteroids) {
+      expect(Array.isArray(a.shape)).toBe(true);
+    }
+  });
+
+  it('headless replacement spawns are also headless', () => {
+    const sim = createSimulation(VIEWPORT_BOUNDS, 20, true);
+    // Remove most asteroids to force respawns
+    sim.asteroids = sim.asteroids.slice(0, 5);
+    updateSimulation(sim, 0.016, VIEWPORT_BOUNDS, 0, 0);
+
+    // New spawns should also be headless
+    for (const a of sim.asteroids) {
+      expect(a.shape).toBeNull();
+    }
+  });
+});
