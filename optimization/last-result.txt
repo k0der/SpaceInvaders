@@ -1,1 +1,0 @@
-ROLLBACK: brake re-engagement timing — BPS 5→4 — wins 104/200 below 110 threshold (fresh baseline 113/200 with corrected counter)

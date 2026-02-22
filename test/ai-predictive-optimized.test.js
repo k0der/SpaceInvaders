@@ -8,7 +8,6 @@ import {
   COLLISION_BREAK_STEPS,
   COLLISION_EARLY_BONUS,
   cloneShipForSim,
-  DANGER_ZONE_BASE_PENALTY,
   DANGER_ZONE_FACTOR,
   DISTANCE_WEIGHT,
   defineCandidates,
@@ -59,28 +58,28 @@ describe('ai-predictive-optimized: Constants', () => {
     expect(COLLISION_BREAK_STEPS).toBe(3);
   });
 
-  it('exports HYSTERESIS_BONUS as 350', () => {
-    expect(HYSTERESIS_BONUS).toBe(350);
+  it('exports HYSTERESIS_BONUS as 250', () => {
+    expect(HYSTERESIS_BONUS).toBe(250);
   });
 
-  it('exports DISTANCE_WEIGHT as -3', () => {
-    expect(DISTANCE_WEIGHT).toBe(-3);
+  it('exports DISTANCE_WEIGHT as -8', () => {
+    expect(DISTANCE_WEIGHT).toBe(-8);
   });
 
   it('exports AIM_BONUS as 400', () => {
     expect(AIM_BONUS).toBe(400);
   });
 
-  it('exports CLOSING_SPEED_WEIGHT as 16', () => {
-    expect(CLOSING_SPEED_WEIGHT).toBe(16);
+  it('exports CLOSING_SPEED_WEIGHT as 8', () => {
+    expect(CLOSING_SPEED_WEIGHT).toBe(8);
   });
 
   it('exports AIM_PROXIMITY_SCALE as 5', () => {
     expect(AIM_PROXIMITY_SCALE).toBe(5);
   });
 
-  it('exports FIRE_OPPORTUNITY_BONUS as 450', () => {
-    expect(FIRE_OPPORTUNITY_BONUS).toBe(450);
+  it('exports FIRE_OPPORTUNITY_BONUS as 300', () => {
+    expect(FIRE_OPPORTUNITY_BONUS).toBe(300);
   });
 });
 
@@ -390,11 +389,11 @@ describe('ai-predictive-optimized: scoreTrajectory — distance-scaled approach 
     const sEngage = scoreTrajectory(atEngage, target, [], 0.1);
     const sDouble = scoreTrajectory(atDouble, target, [], 0.1);
 
-    // At ENGAGE_RANGE: scale=1.0, dist component = -3 * 350 = -1050
-    // At 2*ENGAGE_RANGE: scale=2.0, dist component = -3 * 2 * 700 = -4200
-    // Without scaling: diff = 3*(700-350) = 1050
-    // With scaling: diff = 4200-1050 = 3150 (3x the unscaled diff)
-    const unscaledDiff = Math.abs(DISTANCE_WEIGHT) * ENGAGE_RANGE; // 1050
+    // At ENGAGE_RANGE: scale=1.0, dist component = -8 * 350 = -2800
+    // At 2*ENGAGE_RANGE: scale=2.0, dist component = -8 * 2 * 700 = -11200
+    // Without scaling: diff = 8*(700-350) = 2800
+    // With scaling: diff = 11200-2800 = 8400 (3x the unscaled diff)
+    const unscaledDiff = Math.abs(DISTANCE_WEIGHT) * ENGAGE_RANGE; // 2800
     const actualDiff = sEngage - sDouble;
     expect(actualDiff).toBeGreaterThan(unscaledDiff * 2);
   });
@@ -588,9 +587,9 @@ describe('ai-predictive-optimized: scoreTrajectory — closing velocity bonus', 
   });
 
   it('closing velocity bonus scales with CLOSING_SPEED_WEIGHT', () => {
-    expect(CLOSING_SPEED_WEIGHT).toBe(16);
-    // At MAX_SPEED=400 toward target, bonus = 16 * 400 = 6400
-    expect(CLOSING_SPEED_WEIGHT * 400).toBe(6400);
+    expect(CLOSING_SPEED_WEIGHT).toBe(8);
+    // At MAX_SPEED=400 toward target, bonus = 8 * 400 = 3200
+    expect(CLOSING_SPEED_WEIGHT * 400).toBe(3200);
   });
 
   it('handles zero distance to target without error', () => {
@@ -854,26 +853,24 @@ describe('ai-predictive-optimized: scoreTrajectory — proximity-scaled aim', ()
   it('proximity factor is maximum (1 + AIM_PROXIMITY_SCALE) at zero distance', () => {
     const target = { x: 0, y: 0, vx: 0, vy: 0 };
 
-    // On top of target — minDist = 0, factor = 1 + AIM_PROXIMITY_SCALE = 6.
-    // Headings are offset by 0.2 (outside FIRE_ANGLE=0.15) to exclude fire bonus
-    // contamination from the aim-gap ratio measurement.
+    // On top of target — minDist = 0, factor = 1 + AIM_PROXIMITY_SCALE = 6
     const onTopGood = [
-      { x: 0, y: 0, heading: 0.2, vx: 0, vy: 0 },
-      { x: 0, y: 0, heading: 0.2, vx: 0, vy: 0 },
+      { x: 0, y: 0, heading: 0, vx: 0, vy: 0 },
+      { x: 0, y: 0, heading: 0, vx: 0, vy: 0 },
     ];
     const onTopBad = [
-      { x: 0, y: 0, heading: Math.PI + 0.2, vx: 0, vy: 0 },
-      { x: 0, y: 0, heading: Math.PI + 0.2, vx: 0, vy: 0 },
+      { x: 0, y: 0, heading: Math.PI, vx: 0, vy: 0 },
+      { x: 0, y: 0, heading: Math.PI, vx: 0, vy: 0 },
     ];
 
     // Far range (unscaled baseline)
     const farGood = [
-      { x: 600, y: 0, heading: Math.PI + 0.2, vx: 0, vy: 0 },
-      { x: 600, y: 0, heading: Math.PI + 0.2, vx: 0, vy: 0 },
+      { x: 600, y: 0, heading: Math.PI, vx: 0, vy: 0 },
+      { x: 600, y: 0, heading: Math.PI, vx: 0, vy: 0 },
     ];
     const farBad = [
-      { x: 600, y: 0, heading: 0.2, vx: 0, vy: 0 },
-      { x: 600, y: 0, heading: 0.2, vx: 0, vy: 0 },
+      { x: 600, y: 0, heading: 0, vx: 0, vy: 0 },
+      { x: 600, y: 0, heading: 0, vx: 0, vy: 0 },
     ];
 
     const onTopGap = Math.abs(
@@ -1323,51 +1320,6 @@ describe('ai-predictive-optimized: predictiveOptimizedStrategy — state managem
   });
 });
 
-describe('ai-predictive-optimized: Cycle 12 — FOB aim-holding in DZPB=-10000 architecture', () => {
-  it('aimed trajectory with moderate proximity scores higher than pure evasion when FOB >= 450', () => {
-    // Scenario: ship stationary at (0,0), target at (300,0).
-    // Asteroid at (0,97) radius=25 — within danger zone of aimed trajectory.
-    // Aimed trajectory: heading=0.10 (within FIRE_ANGLE=0.15), passes near asteroid.
-    // Evasion trajectory: heading=0.20 (outside FIRE_ANGLE=0.15), no asteroid.
-    //
-    // With DZPB=-10000 (current architecture) and FOB=300:
-    //   aimed fire bonus (5 steps) = 300 * 0.4 * 5 = 600
-    //   danger penalty = -10000 * ((120-97)/80)^2 = -10000 * 0.0827 = -827
-    //   aimed score ≈ -1433, evasion score ≈ -1224 → evasion wins (test FAILS at FOB=300)
-    //
-    // With FOB=450:
-    //   aimed fire bonus = 450 * 0.4 * 5 = 900
-    //   aimed score ≈ -1133, evasion score ≈ -1224 → aimed wins (test PASSES at FOB=450)
-    const target = { x: 300, y: 0, vx: 0, vy: 0 };
-    const asteroids = [{ x: 0, y: 97, vx: 0, vy: 0, collisionRadius: 25 }];
-
-    // 6 positions (initial + 5 steps), ship stationary, aimed within FIRE_ANGLE
-    const aimedPositions = Array.from({ length: 6 }, () => ({
-      x: 0,
-      y: 0,
-      heading: 0.1,
-      vx: 0,
-      vy: 0,
-    }));
-
-    // 6 positions, ship stationary, heading just outside FIRE_ANGLE (no fire bonus)
-    const evasionPositions = Array.from({ length: 6 }, () => ({
-      x: 0,
-      y: 0,
-      heading: 0.2,
-      vx: 0,
-      vy: 0,
-    }));
-
-    const aimedScore = scoreTrajectory(aimedPositions, target, asteroids, 0.1);
-    const evasionScore = scoreTrajectory(evasionPositions, target, [], 0.1);
-
-    // Aimed trajectory should beat evasion when FOB >= 450 provides enough fire bonus
-    // to compensate for the moderate danger zone penalty (DZPB=-10000 architecture)
-    expect(aimedScore).toBeGreaterThan(evasionScore);
-  });
-});
-
 describe('ai-predictive-optimized: DANGER_ZONE_FACTOR constant', () => {
   it('exports DANGER_ZONE_FACTOR as 3', () => {
     expect(DANGER_ZONE_FACTOR).toBe(3);
@@ -1510,59 +1462,6 @@ describe('ai-predictive-optimized: scoreTrajectory — danger zone', () => {
     // If danger used sum, two asteroids would double the penalty.
     // With max, both should have the same danger (same worst proximity).
     expect(scoreSingle).toBeCloseTo(scoreTwo, 0);
-  });
-});
-
-describe('ai-predictive-optimized: Cycle 19 — DISTANCE_WEIGHT score suppression reduction', () => {
-  it('exports DISTANCE_WEIGHT as -3 (reduced from -8 to reduce uniform score suppression)', () => {
-    // DISTANCE_WEIGHT=-8 uniformly subtracts 2400-4800pts from every trajectory
-    // at medium range (300-600px), amplifying the all-negative collapse landscape
-    // without improving discrimination between trajectories.
-    // Reducing to -3 preserves the approach incentive (still negative = closer is better)
-    // while reducing score suppression by 62.5%, giving strategic signals more relative weight.
-    expect(DISTANCE_WEIGHT).toBe(-3);
-  });
-
-  it('at 400px from target, DISTANCE_WEIGHT component is less negative than at DW=-8', () => {
-    // Formula: score += DISTANCE_WEIGHT * distanceScale * minDist
-    // At initialDist=400, distanceScale = 1 + (400-350)/350 = 1.143
-    // With DW=-8: contribution = -8 * 1.143 * 400 = -3657
-    // With DW=-3: contribution = -3 * 1.143 * 400 = -1371 (62.5% less suppressive)
-    //
-    // We verify this by using a 2-position trajectory where both positions are
-    // 400px from target (perpendicular heading — no aim/fire/closing components),
-    // and checking the score is consistent with DW=-3, not DW=-8.
-    const target = { x: 0, y: 0, vx: 0, vy: 0 };
-
-    // Both positions 400px from target (beyond ENGAGE_RANGE=350 → distanceScale > 1)
-    // Perpendicular heading (heading=PI/2) neutralizes aim and fire bonus
-    // Stationary (vx=vy=0) means no closing rate component
-    const positions = [
-      { x: 400, y: 0, heading: Math.PI / 2, vx: 0, vy: 0 },
-      { x: 400, y: 0, heading: Math.PI / 2, vx: 0, vy: 0 },
-    ];
-
-    const score = scoreTrajectory(positions, target, [], 0.1);
-
-    // At DW=-3, distanceScale = 1 + (400-350)/350 ≈ 1.143
-    // DISTANCE_WEIGHT component: -3 * 1.143 * 400 ≈ -1371
-    // AIM component: AIM_BONUS=400 * avg_cos * aimProximityFactor
-    //   angle to target from (400,0) heading=PI/2: atan2(0-0, 0-400)=PI, diff=PI-PI/2=PI/2
-    //   cos(PI/2) = 0 → aimSum=0 → aim component = 0
-    // CLOSING component: initialDist=finalDist=400 → closingRate=0 → 0
-    // FOB: dist=400 < MAX_FIRE_RANGE=500, fireAngle = atan2(0,−400)=PI, heading=PI/2
-    //   diff = PI - PI/2 = PI/2 > FIRE_ANGLE → no fire bonus
-    // Total expected score at DW=-3: ≈ -1371
-    // At DW=-8: total ≈ -3657
-    // Threshold: score must be greater than -2000 (well above DW=-8 value)
-    expect(score).toBeGreaterThan(-2000);
-    // Also verify closer is still better (score at 300px should beat 400px)
-    const positions300 = [
-      { x: 300, y: 0, heading: Math.PI / 2, vx: 0, vy: 0 },
-      { x: 300, y: 0, heading: Math.PI / 2, vx: 0, vy: 0 },
-    ];
-    const score300 = scoreTrajectory(positions300, target, [], 0.1);
-    expect(score300).toBeGreaterThan(score);
   });
 });
 
@@ -2294,136 +2193,5 @@ describe('ai-predictive-optimized: scoreTrajectory — engage-range closing bonu
     // Closing bonus: 8 * 2.14 * 30 = 514 vs coast's 0
     // Even with hysteresis (250) for coast, thrust should win
     expect(thrustScore).toBeGreaterThan(coastScore + HYSTERESIS_BONUS);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Cycle 11: DANGER_ZONE_BASE_PENALTY separate constant
-// ---------------------------------------------------------------------------
-// These tests verify the structural fix: DANGER_ZONE_BASE_PENALTY exists as
-// a separate, less-aggressive constant used only in the near-miss branch, while
-// COLLISION_BASE_PENALTY=-20000 is reserved for actual collision deterrence.
-// ---------------------------------------------------------------------------
-
-describe('ai-predictive-optimized: DANGER_ZONE_BASE_PENALTY constant', () => {
-  it('exports DANGER_ZONE_BASE_PENALTY as a separate constant', () => {
-    expect(typeof DANGER_ZONE_BASE_PENALTY).toBe('number');
-  });
-
-  it('DANGER_ZONE_BASE_PENALTY is negative (penalty)', () => {
-    expect(DANGER_ZONE_BASE_PENALTY).toBeLessThan(0);
-  });
-
-  it('DANGER_ZONE_BASE_PENALTY is less aggressive (closer to 0) than COLLISION_BASE_PENALTY', () => {
-    // Near-miss penalty should be less severe than actual collision penalty
-    expect(Math.abs(DANGER_ZONE_BASE_PENALTY)).toBeLessThan(
-      Math.abs(COLLISION_BASE_PENALTY),
-    );
-  });
-
-  it('DANGER_ZONE_BASE_PENALTY is -10000', () => {
-    expect(DANGER_ZONE_BASE_PENALTY).toBe(-10000);
-  });
-});
-
-describe('ai-predictive-optimized: scoreTrajectory — DANGER_ZONE_BASE_PENALTY behavioral', () => {
-  it('at moderate proximity (~0.4), aim-holding trajectory scores higher than pure evasion when target is visible', () => {
-    // Ship at (0, 0), target at (200, 0) — within MAX_FIRE_RANGE (500) and aim angle OK.
-    // Asteroid at (0, 80) — distance ~80px, collisionDist = 30+15=45,
-    // dangerZone = 3*45=135. Proximity = (135-80)/(135-45) = 55/90 ≈ 0.61,
-    // worstDanger = 0.61^2 ≈ 0.37 (moderate proximity ~0.4).
-    //
-    // Aim-holding: ship pointed at target (heading=0), stays near asteroid.
-    // Pure evasion: ship moves away from asteroid (heading=PI/2, moving up).
-    //
-    // With DANGER_ZONE_BASE_PENALTY=-10000 (less aggressive), the penalty at
-    // proximity~0.37 is: -10000*0.37 = -3700 vs old -20000*0.37 = -7400.
-    // This allows the aim-holding trajectory's fire opportunity bonus to compete.
-
-    const target = { x: 200, y: 0, vx: 0, vy: 0 };
-    const asteroids = [{ x: 0, y: 80, vx: 0, vy: 0, collisionRadius: 30 }];
-
-    // Aim-holding: ship pointed at target (heading=0), 2-step trajectory staying near asteroid
-    const aimPositions = [
-      { x: 0, y: 0, heading: 0, vx: 0, vy: 0 },
-      { x: 0, y: 0, heading: 0, vx: 0, vy: 0 },
-      { x: 0, y: 0, heading: 0, vx: 0, vy: 0 },
-    ];
-
-    // Pure evasion: ship heading away from asteroid (heading=PI, moving left, away from target too)
-    const evadePositions = [
-      { x: 0, y: 0, heading: Math.PI, vx: 0, vy: 0 },
-      { x: -50, y: 0, heading: Math.PI, vx: -50, vy: 0 },
-      { x: -100, y: 0, heading: Math.PI, vx: -50, vy: 0 },
-    ];
-
-    const aimScore = scoreTrajectory(aimPositions, target, asteroids, 0.1);
-    const evadeScore = scoreTrajectory(evadePositions, target, asteroids, 0.1);
-
-    // With the reduced DANGER_ZONE_BASE_PENALTY=-10000, the aim-holding trajectory
-    // gains fire opportunity bonus while the evade trajectory loses aim and fires.
-    // Aim-holding should score better than running away from both target and asteroid.
-    expect(aimScore).toBeGreaterThan(evadeScore);
-  });
-
-  it('near-miss penalty still applies (less aggressive does not mean zero)', () => {
-    // Verify the penalty is present but softer than COLLISION_BASE_PENALTY
-    const target = { x: 500, y: 0, vx: 0, vy: 0 };
-    const collisionRadius = 30;
-    // collisionDist = 30+15=45, dangerZone = 135. Ship at y=80 → proximity ~0.61, danger ~0.37
-    const asteroids = [{ x: 0, y: 80, vx: 0, vy: 0, collisionRadius }];
-
-    const positions = [
-      { x: 0, y: 0, heading: 0, vx: 0, vy: 0 },
-      { x: 0, y: 0, heading: 0, vx: 0, vy: 0 },
-    ];
-
-    const scoreWithAsteroid = scoreTrajectory(
-      positions,
-      target,
-      asteroids,
-      0.1,
-    );
-    const scoreWithout = scoreTrajectory(positions, target, [], 0.1);
-
-    // Penalty exists but is less than COLLISION_BASE_PENALTY in magnitude
-    const penalty = scoreWithout - scoreWithAsteroid;
-    expect(penalty).toBeGreaterThan(0);
-    expect(penalty).toBeLessThan(Math.abs(COLLISION_BASE_PENALTY));
-  });
-
-  it('closing trajectory scores meaningfully higher than stationary when CLOSING_SPEED_WEIGHT > 8', () => {
-    // Behavioral test: a trajectory that closes on the enemy should score
-    // meaningfully more than a stationary trajectory, with the gap growing
-    // proportionally to CLOSING_SPEED_WEIGHT. At CSW=12, the gap > 2000.
-    // This test fails at CSW=8 (gap ~1880) and passes at CSW>=12 (gap ~2680).
-    const target = { x: 500, y: 0, vx: 0, vy: 0 };
-
-    // Closing trajectory: ship at x=100 moves to x=120 (toward target at x=500)
-    // closingRate = (400 - 380) / 0.1 = 200 px/s
-    const closingPositions = [
-      { x: 100, y: 0, heading: 0, vx: 200, vy: 0 },
-      { x: 120, y: 0, heading: 0, vx: 200, vy: 0 },
-    ];
-
-    // Stationary trajectory: ship stays at x=100
-    // closingRate = 0
-    const stationaryPositions = [
-      { x: 100, y: 0, heading: 0, vx: 0, vy: 0 },
-      { x: 100, y: 0, heading: 0, vx: 0, vy: 0 },
-    ];
-
-    const closingScore = scoreTrajectory(closingPositions, target, [], 0.1);
-    const stationaryScore = scoreTrajectory(
-      stationaryPositions,
-      target,
-      [],
-      0.1,
-    );
-    const gap = closingScore - stationaryScore;
-
-    // At CSW=8: gap ≈ 1880 (below threshold)
-    // At CSW=12: gap ≈ 2680 (above threshold)
-    expect(gap).toBeGreaterThan(2000);
   });
 });
