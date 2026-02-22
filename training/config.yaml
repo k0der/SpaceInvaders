@@ -1,0 +1,139 @@
+# Curriculum training configuration for Space Dogfight RL agent.
+# See SPEC.md §16.8 for curriculum design rationale.
+
+ppo:
+  learning_rate: 3.0e-4
+  n_steps: 2048
+  batch_size: 64
+  n_epochs: 10
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  ent_coef: 0.01
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+
+policy:
+  net_arch:
+    pi: [256, 256, 256]
+    vf: [256, 256, 256]
+  activation_fn: ReLU
+
+stages:
+  1:
+    description: "Learn thrust, aim, fire against stationary target"
+    shipHP: 10
+    maxTicks: 3600
+    asteroidDensity: 0.0
+    enemyPolicy: "static"
+    enemyShoots: false
+    spawnDistance: 500
+    spawnFacing: true
+    promotionThreshold: 0.8
+    rewardWeights:
+      survival: 0.001
+      aim: 0.01
+      closing: 0.01
+      hit: 1.0
+      gotHit: -1.0
+      nearMiss: -0.1
+      firePenalty: -0.002
+      win: 5.0
+      loss: -5.0
+      draw: -2.0
+      timeout: -1.0
+
+  2:
+    description: "Learn lead targeting and pursuit against moving enemy"
+    shipHP: 10
+    maxTicks: 3600
+    asteroidDensity: 0.0
+    enemyPolicy: "reactive"
+    enemyShoots: false
+    spawnDistance: 500
+    spawnFacing: true
+    promotionThreshold: 0.8
+    rewardWeights:
+      survival: 0.001
+      aim: 0.01
+      closing: 0.01
+      hit: 1.0
+      gotHit: -1.0
+      nearMiss: -0.1
+      firePenalty: -0.002
+      win: 5.0
+      loss: -5.0
+      draw: -2.0
+      timeout: -1.0
+
+  3:
+    description: "Learn evasion plus offense against shooting enemy"
+    shipHP: 5
+    maxTicks: 3600
+    asteroidDensity: 0.0
+    enemyPolicy: "reactive"
+    enemyShoots: true
+    spawnDistance: 500
+    spawnFacing: true
+    promotionThreshold: 0.8
+    rewardWeights:
+      survival: 0.001
+      aim: 0.01
+      closing: 0.01
+      hit: 1.0
+      gotHit: -1.0
+      nearMiss: -0.1
+      firePenalty: -0.002
+      win: 5.0
+      loss: -5.0
+      draw: -2.0
+      timeout: -1.0
+
+  4:
+    description: "Learn navigation while fighting in sparse asteroid field"
+    shipHP: 3
+    maxTicks: 3600
+    asteroidDensity: 0.3
+    enemyPolicy: "predictive"
+    enemyShoots: true
+    spawnDistance: 500
+    spawnFacing: true
+    promotionThreshold: 0.8
+    rewardWeights:
+      survival: 0.001
+      aim: 0.01
+      closing: 0.01
+      hit: 1.0
+      gotHit: -1.0
+      nearMiss: -0.1
+      firePenalty: -0.002
+      win: 5.0
+      loss: -5.0
+      draw: -2.0
+      timeout: -1.0
+
+  5:
+    # True self-play (policy pool with historical snapshots) requires a
+    # two-agent bridge extension — deferred to a future increment.
+    # Using predictive AI as a strong fixed opponent for now.
+    description: "Full game conditions with normal asteroid density"
+    shipHP: 1
+    maxTicks: 3600
+    asteroidDensity: 1.0
+    enemyPolicy: "predictive"
+    enemyShoots: true
+    spawnDistance: 500
+    spawnFacing: true
+    promotionThreshold: 0.8
+    rewardWeights:
+      survival: 0.001
+      aim: 0.01
+      closing: 0.01
+      hit: 1.0
+      gotHit: -1.0
+      nearMiss: -0.1
+      firePenalty: -0.002
+      win: 5.0
+      loss: -5.0
+      draw: -2.0
+      timeout: -1.0

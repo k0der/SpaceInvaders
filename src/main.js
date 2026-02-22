@@ -366,7 +366,8 @@ export function startApp() {
     ui.gearButton.textContent = settings.panelOpen ? '\u2715' : '\u2630';
 
     // Player input: keyboard or AI (frozen in terminal phases)
-    const active = gameState.phase === 'playing' || gameState.phase === 'ending';
+    const active =
+      gameState.phase === 'playing' || gameState.phase === 'ending';
     if (playerShip.alive && active) {
       if (playerStrategy) {
         playerStrategy.update(
@@ -625,14 +626,14 @@ export function startApp() {
     );
     drawHUD(ctx, gameState.phase, logicalSize.width, logicalSize.height);
 
-    // Auto-restart in AI-vs-AI mode after showing result for 1 second
+    // Auto-restart in AI-vs-AI mode after showing result for 2 seconds
     const terminalPhase =
       gameState.phase === 'playerWin' ||
       gameState.phase === 'playerDead' ||
       gameState.phase === 'draw';
     if (terminalPhase && settings.playerIntelligence !== 'human') {
       gameState.resultTimer = (gameState.resultTimer || 0) + dt;
-      if (gameState.resultTimer >= 1) {
+      if (gameState.resultTimer >= 2) {
         restartGame();
       }
     }

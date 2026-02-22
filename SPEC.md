@@ -1124,8 +1124,11 @@ separate binary fire decision:
 | 8 | brake-right | | | ✓ | ✓ |
 | 9 | no-op | | | | |
 
-**Fire**: separate binary output (0 or 1), independent of movement. The network
-has two output heads: a 10-way softmax for movement and a sigmoid for fire.
+**Fire**: separate binary output (0 or 1), independent of movement. SB3's
+`MultiDiscrete([10, 2])` action space produces 12 logits total: a 10-way
+categorical for movement and a 2-way categorical for fire (fire/no-fire).
+The ONNX export concatenates all 12 logits; browser inference splits them as
+`argmax(logits[:10])` for movement and `argmax(logits[10:12])` for fire.
 
 This two-headed structure matches the game's mechanics — movement and firing are
 independent decisions made each frame.
@@ -1228,17 +1231,24 @@ Each stage loads the previous stage's trained weights as initialization.
 | 2 | None | Moves (reactive AI) | No | 10 | Learn lead targeting, pursuit |
 | 3 | None | Moves (reactive AI) | Yes | 5 | Learn evasion + offense |
 | 4 | Sparse (0.3×) | Moves (predictive AI) | Yes | 3 | Learn navigation while fighting |
-| 5 | Normal (1.0×) | Self-play | Yes | 1 | Learn the actual game |
+| 5 | Normal (1.0×) | Predictive AI* | Yes | 1 | Learn the actual game |
+
+*Stage 5 uses the predictive AI as a strong fixed opponent. True self-play
+(policy pool with historical snapshots) requires a two-agent bridge extension
+— deferred to a future increment.
 
 **Why curriculum matters**: Throwing the agent into the full game from scratch
 requires it to simultaneously learn movement, aiming, evasion, and navigation.
 Curriculum decomposition lets each skill build on the previous one, dramatically
 reducing total training time.
 
-### 16.9 Self-Play
+### 16.9 Self-Play (Deferred)
 
-Stage 5 uses self-play to prevent the agent from overfitting to a fixed opponent's
-weaknesses:
+**Status**: Deferred pending bridge protocol extension. Stage 5 currently uses
+the predictive AI as a strong fixed opponent.
+
+When implemented, self-play will prevent the agent from overfitting to a fixed
+opponent's weaknesses:
 
 - Maintain a **policy pool** of historical snapshots (frozen model weights)
 - Every N training episodes, snapshot the current policy and add it to the pool
@@ -1247,6 +1257,8 @@ weaknesses:
 - Prevents **strategy collapse** — the agent must generalize across opponent
   behaviors, not memorize exploits against one fixed policy
 - Pool size capped at ~20 snapshots; oldest evicted when full
+- Requires a two-agent bridge protocol or loading frozen ONNX models on the
+  Node.js side — out of scope for the initial training scaffold
 
 ### 16.10 Python Training Bridge
 

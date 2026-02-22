@@ -944,7 +944,7 @@ Increments 31–37 add a third intelligence type — a neural network trained vi
 
 ---
 
-## Increment 32: Reward Function
+## Increment 32: Reward Function ✅
 
 **Goal**: Configurable dense reward function for training. Per-step rewards provide gradient signal for learning basic behaviors (aim, pursue, evade) much faster than sparse win/loss alone.
 
@@ -953,48 +953,48 @@ Increments 31–37 add a third intelligence type — a neural network trained vi
 **Acceptance Criteria**:
 
 ### Reward Function
-- [ ] `computeReward(prevState, currentState, action, config)` returns a single float
-- [ ] `prevState` and `currentState` each contain: `{ ship, target, asteroids, shipHP, targetHP, tick }`
-- [ ] `action` contains: `{ moveAction, fireAction }` (the agent's chosen actions this step)
-- [ ] `config` contains: `{ rewardWeights, maxTicks, shipHP: initialHP }`
+- [x] `computeReward(prevState, currentState, action, config)` returns a single float
+- [x] `prevState` and `currentState` each contain: `{ ship, target, asteroids, shipHP, targetHP, tick }`
+- [x] `action` contains: `{ moveAction, fireAction }` (the agent's chosen actions this step)
+- [x] `config` contains: `{ rewardWeights, maxTicks, shipHP: initialHP }`
 
 ### Reward Components (see SPEC §16.7)
-- [ ] **Survival**: `+weights.survival` per step (while agent alive)
-- [ ] **Aim alignment**: `+weights.aim × cos(angle_to_target)` when distance < 600px
-- [ ] **Closing distance**: `+weights.closing × Δdistance / 1000` when closing (positive Δ)
-- [ ] **Hit landed**: `+weights.hit` when `currentState.targetHP < prevState.targetHP`
-- [ ] **Got hit**: `weights.gotHit` (negative) when `currentState.shipHP < prevState.shipHP`
-- [ ] **Near-miss**: `weights.nearMiss × (1 - dist/dangerRadius)²` when within 3× any asteroid's `collisionRadius`
-- [ ] **Fire discipline**: `weights.firePenalty` (negative) when `fireAction === 1`
+- [x] **Survival**: `+weights.survival` per step (while agent alive)
+- [x] **Aim alignment**: `+weights.aim × cos(angle_to_target)` when distance < 600px
+- [x] **Closing distance**: `+weights.closing × Δdistance / 1000` when closing (positive Δ)
+- [x] **Hit landed**: `+weights.hit` when `currentState.targetHP < prevState.targetHP`
+- [x] **Got hit**: `weights.gotHit` (negative) when `currentState.shipHP < prevState.shipHP`
+- [x] **Near-miss**: `weights.nearMiss × (1 - dist/dangerRadius)²` when within 3× any asteroid's `collisionRadius`
+- [x] **Fire discipline**: `weights.firePenalty` (negative) when `fireAction === 1`
 
 ### Terminal Rewards
-- [ ] **Win**: `+weights.win` when `currentState.targetHP <= 0`
-- [ ] **Loss**: `weights.loss` (negative) when `currentState.shipHP <= 0`
-- [ ] **Draw**: `weights.draw` (negative) when both `currentState.shipHP <= 0` AND `currentState.targetHP <= 0` (stacks with win+loss)
-- [ ] **Timeout**: `weights.timeout` (negative) when `currentState.tick >= config.maxTicks`
+- [x] **Win**: `+weights.win` when `currentState.targetHP <= 0`
+- [x] **Loss**: `weights.loss` (negative) when `currentState.shipHP <= 0`
+- [x] **Draw**: `weights.draw` (negative) when both `currentState.shipHP <= 0` AND `currentState.targetHP <= 0` (stacks with win+loss)
+- [x] **Timeout**: `weights.timeout` (negative) when `currentState.tick >= config.maxTicks`
 
 ### Defaults
-- [ ] `DEFAULT_REWARD_WEIGHTS` exported with values from SPEC §16.7: `{ survival: 0.001, aim: 0.01, closing: 0.01, hit: 1.0, gotHit: -1.0, nearMiss: -0.1, firePenalty: -0.002, win: 5.0, loss: -5.0, draw: -2.0, timeout: -1.0 }`
+- [x] `DEFAULT_REWARD_WEIGHTS` exported with values from SPEC §16.7: `{ survival: 0.001, aim: 0.01, closing: 0.01, hit: 1.0, gotHit: -1.0, nearMiss: -0.1, firePenalty: -0.002, win: 5.0, loss: -5.0, draw: -2.0, timeout: -1.0 }`
 
 ### Quality
-- [ ] Pure function — no mutation, no side effects
-- [ ] Returns 0.0 when agent is dead (no posthumous rewards)
-- [ ] Handles missing/undefined fields gracefully (defaults to 0 contribution)
+- [x] Pure function — no mutation, no side effects
+- [x] Returns 0.0 when agent is dead (no posthumous rewards)
+- [x] Handles missing/undefined fields gracefully (defaults to 0 contribution)
 
 ### Tests
-- [ ] Each reward component tested individually (one component active, others zeroed)
-- [ ] Combined reward with all components active
-- [ ] Terminal conditions: win, loss, timeout
-- [ ] Edge cases: zero distance to target, dead ships, no asteroids, max-range asteroid
-- [ ] Custom weights override defaults correctly
-- [ ] Dead agent returns 0.0
+- [x] Each reward component tested individually (one component active, others zeroed)
+- [x] Combined reward with all components active
+- [x] Terminal conditions: win, loss, timeout
+- [x] Edge cases: zero distance to target, dead ships, no asteroids, max-range asteroid
+- [x] Custom weights override defaults correctly
+- [x] Dead agent returns 0.0
 
 ### Visible
-- [ ] **Visible**: `import { computeReward } from './reward.js'` computes dense rewards from any pair of game states. Verified via test suite.
+- [x] **Visible**: `import { computeReward } from './reward.js'` computes dense rewards from any pair of game states. Verified via test suite.
 
 ---
 
-## Increment 33: Training Environment (GameEnv)
+## Increment 33: Training Environment (GameEnv) ✅
 
 **Goal**: Gym-style `GameEnv` class wrapping the headless game simulation with `reset()` / `step()` interface. Supports training-mode configuration (multi-HP, episode timeout, curriculum knobs).
 
@@ -1003,71 +1003,71 @@ Increments 31–37 add a third intelligence type — a neural network trained vi
 **Acceptance Criteria**:
 
 ### GameEnv Class
-- [ ] `new GameEnv()` creates an environment instance (no config needed at construction)
-- [ ] `env.reset(config)` initializes a new episode and returns initial observation (`Float32Array`)
-- [ ] `env.step(moveAction, fireAction)` returns `{ observation, reward, done, info }`
-- [ ] `observation` is a `Float32Array` of length `OBSERVATION_SIZE` (from observation builder)
-- [ ] `reward` is a float (from reward function)
-- [ ] `done` is a boolean
-- [ ] `info` is an object: `{ winner, ticksElapsed, hitsLanded, hitsTaken, asteroidsHit }`
+- [x] `new GameEnv()` creates an environment instance (no config needed at construction)
+- [x] `env.reset(config)` initializes a new episode and returns initial observation (`Float32Array`)
+- [x] `env.step(moveAction, fireAction)` returns `{ observation, reward, done, info }`
+- [x] `observation` is a `Float32Array` of length `OBSERVATION_SIZE` (from observation builder)
+- [x] `reward` is a float (from reward function)
+- [x] `done` is a boolean
+- [x] `info` is an object: `{ winner, ticksElapsed, hitsLanded, hitsTaken, asteroidsHit }`
 
 ### Training-Mode Config (reset parameter)
-- [ ] `shipHP` (default 1): agent and opponent starting HP
-- [ ] `maxTicks` (default 3600): episode timeout
-- [ ] `asteroidDensity` (default 1.0): asteroid density multiplier
-- [ ] `enemyPolicy` (default `'predictive'`): opponent strategy name (`'static'`/`'reactive'`/`'predictive'`)
-- [ ] `enemyShoots` (default true): whether opponent fires bullets
-- [ ] `spawnDistance` (default 500): initial distance between ships
-- [ ] `spawnFacing` (default true): ships face each other at spawn
-- [ ] `rewardWeights` (default `DEFAULT_REWARD_WEIGHTS`): reward function config
+- [x] `shipHP` (default 1): agent and opponent starting HP
+- [x] `maxTicks` (default 3600): episode timeout
+- [x] `asteroidDensity` (default 1.0): asteroid density multiplier
+- [x] `enemyPolicy` (default `'predictive'`): opponent strategy name (`'static'`/`'reactive'`/`'predictive'`)
+- [x] `enemyShoots` (default true): whether opponent fires bullets
+- [x] `spawnDistance` (default 500): initial distance between ships
+- [x] `spawnFacing` (default true): ships face each other at spawn
+- [x] `rewardWeights` (default `DEFAULT_REWARD_WEIGHTS`): reward function config
 
 ### HP System
-- [ ] Ships have `hp` field initialized from `config.shipHP`
-- [ ] Each bullet hit decrements target's HP by 1
-- [ ] Each asteroid collision decrements ship's HP by 1
-- [ ] Ship dies (`alive = false`) when HP reaches 0
-- [ ] HP system is internal to GameEnv — does not modify the core `ship.js` module
+- [x] Ships have `hp` field initialized from `config.shipHP`
+- [x] Each bullet hit decrements target's HP by 1
+- [x] Each asteroid collision decrements ship's HP by 1
+- [x] Ship dies (`alive = false`) when HP reaches 0
+- [x] HP system is internal to GameEnv — does not modify the core `ship.js` module
 
 ### Action Mapping
-- [ ] `moveAction` (0–9) maps to control flags per SPEC §16.3 action table
-- [ ] `fireAction` (0 or 1) maps to `ship.fire` flag
-- [ ] Invalid action indices throw an error
+- [x] `moveAction` (0–9) maps to control flags per SPEC §16.3 action table
+- [x] `fireAction` (0 or 1) maps to `ship.fire` flag
+- [x] Invalid action indices throw an error
 
 ### Episode Termination
-- [ ] Episode ends when agent HP reaches 0 → `info.winner = 'opponent'`
-- [ ] Episode ends when opponent HP reaches 0 → `info.winner = 'agent'`
-- [ ] Episode ends when `ticksElapsed >= maxTicks` → `info.winner = 'timeout'`
+- [x] Episode ends when agent HP reaches 0 → `info.winner = 'opponent'`
+- [x] Episode ends when opponent HP reaches 0 → `info.winner = 'agent'`
+- [x] Episode ends when `ticksElapsed >= maxTicks` → `info.winner = 'timeout'`
 
 ### Opponent Behavior
-- [ ] `'static'` policy: opponent does nothing (all control flags false)
-- [ ] `'reactive'` / `'predictive'`: opponent uses corresponding registered strategy
-- [ ] `enemyShoots: false` suppresses opponent's `fire` flag regardless of policy
+- [x] `'static'` policy: opponent does nothing (all control flags false)
+- [x] `'reactive'` / `'predictive'`: opponent uses corresponding registered strategy
+- [x] `enemyShoots: false` suppresses opponent's `fire` flag regardless of policy
 
 ### Simulation Per Step
-- [ ] One step = one simulation tick (fixed dt = 1/60)
-- [ ] Step applies: agent action → opponent AI → `updateShip` both → bullet update → bullet-ship collisions → ship-asteroid collisions → `updateSimulation` (asteroids)
-- [ ] Camera updated for asteroid spawning zone computation
+- [x] One step = one simulation tick (fixed dt = 1/60)
+- [x] Step applies: agent action → opponent AI → `updateShip` both → bullet update → bullet-ship collisions → ship-asteroid collisions → `updateSimulation` (asteroids)
+- [x] Camera updated for asteroid spawning zone computation
 
 ### Tests
-- [ ] `reset()` returns valid observation of correct length
-- [ ] `step()` returns correct shape `{ observation, reward, done, info }`
-- [ ] Episode terminates on agent death (HP reaches 0)
-- [ ] Episode terminates on opponent death
-- [ ] Episode terminates on timeout
-- [ ] HP decrements on bullet hit
-- [ ] HP decrements on asteroid collision
-- [ ] Action mapping: each of 10 move actions sets correct control flags
-- [ ] Static enemy doesn't move or shoot
-- [ ] `enemyShoots: false` suppresses enemy fire
-- [ ] `spawnFacing: true` spawns ships facing each other
-- [ ] Multiple sequential episodes (reset → play → reset → play) work correctly
+- [x] `reset()` returns valid observation of correct length
+- [x] `step()` returns correct shape `{ observation, reward, done, info }`
+- [x] Episode terminates on agent death (HP reaches 0)
+- [x] Episode terminates on opponent death
+- [x] Episode terminates on timeout
+- [x] HP decrements on bullet hit
+- [x] HP decrements on asteroid collision
+- [x] Action mapping: each of 10 move actions sets correct control flags
+- [x] Static enemy doesn't move or shoot
+- [x] `enemyShoots: false` suppresses enemy fire
+- [x] `spawnFacing: true` spawns ships facing each other
+- [x] Multiple sequential episodes (reset → play → reset → play) work correctly
 
 ### Visible
-- [ ] **Visible**: `const env = new GameEnv(); env.reset({ shipHP: 5 }); env.step(0, 0);` runs a training step. Verified via test suite.
+- [x] **Visible**: `const env = new GameEnv(); env.reset({ shipHP: 5 }); env.step(0, 0);` runs a training step. Verified via test suite.
 
 ---
 
-## Increment 34: Python Bridge
+## Increment 34: Python Bridge ✅
 
 **Goal**: stdin/stdout JSON-lines protocol so Python training scripts can drive the GameEnv at maximum speed. Node.js process acts as a game server, Python sends commands and receives observations.
 
@@ -1077,37 +1077,37 @@ Increments 31–37 add a third intelligence type — a neural network trained vi
 **Acceptance Criteria**:
 
 ### Bridge Mode
-- [ ] `node simulate.js --bridge` enters bridge mode: reads JSON commands from stdin, writes JSON responses to stdout
-- [ ] Bridge mode does not print any other output to stdout (all diagnostics go to stderr)
-- [ ] One JSON object per line (newline-delimited JSON-lines format)
+- [x] `node simulate.js --bridge` enters bridge mode: reads JSON commands from stdin, writes JSON responses to stdout
+- [x] Bridge mode does not print any other output to stdout (all diagnostics go to stderr)
+- [x] One JSON object per line (newline-delimited JSON-lines format)
 
 ### Commands
-- [ ] `{ "command": "reset", "config": {...} }` → calls `env.reset(config)`, responds with `{ "observation": [0.5, -0.3, ...] }`
-- [ ] `{ "command": "step", "action": N, "fire": 0 }` → calls `env.step(action, fire)`, responds with `{ "observation": [...], "reward": 0.05, "done": false, "info": {...} }`
-- [ ] `{ "command": "close" }` → responds with `{ "status": "closed" }` and exits process cleanly
-- [ ] `step` before `reset` returns `{ "error": "Environment not initialized. Call reset first." }`
-- [ ] Invalid JSON returns `{ "error": "Invalid JSON: <parse error>" }`
-- [ ] Unknown command returns `{ "error": "Unknown command: <name>" }`
-- [ ] Invalid action index returns `{ "error": "Invalid action: <details>" }`
+- [x] `{ "command": "reset", "config": {...} }` → calls `env.reset(config)`, responds with `{ "observation": [0.5, -0.3, ...] }`
+- [x] `{ "command": "step", "action": N, "fire": 0 }` → calls `env.step(action, fire)`, responds with `{ "observation": [...], "reward": 0.05, "done": false, "info": {...} }`
+- [x] `{ "command": "close" }` → responds with `{ "status": "closed" }` and exits process cleanly
+- [x] `step` before `reset` returns `{ "error": "Environment not initialized. Call reset first." }`
+- [x] Invalid JSON returns `{ "error": "Invalid JSON: <parse error>" }`
+- [x] Unknown command returns `{ "error": "Unknown command: <name>" }`
+- [x] Invalid action index returns `{ "error": "Invalid action: <details>" }`
 
 ### Performance
-- [ ] No buffering issues with rapid sequential commands (flushes stdout after each response)
-- [ ] Process exits with code 0 on `close` command
-- [ ] Process exits with code 1 on uncaught error (with error message to stderr)
+- [x] No buffering issues with rapid sequential commands (flushes stdout after each response)
+- [x] Process exits with code 0 on `close` command
+- [x] Process exits with code 1 on uncaught error (with error message to stderr)
 
 ### Backward Compatibility
-- [ ] Existing `simulate.js` CLI modes (`--games`, `--verbose`, etc.) unchanged
-- [ ] `--bridge` and `--games` are mutually exclusive (error if both provided)
+- [x] Existing `simulate.js` CLI modes (`--games`, `--verbose`, etc.) unchanged
+- [x] `--bridge` and `--games` are mutually exclusive (error if both provided)
 
 ### Tests
-- [ ] Command parsing: valid reset, step, close
-- [ ] Error handling: invalid JSON, unknown command, step before reset
-- [ ] Action validation: out-of-range action index
-- [ ] Response format matches documented schema
-- [ ] (Integration test if feasible: spawn Node process, send commands via stdin, verify responses)
+- [x] Command parsing: valid reset, step, close
+- [x] Error handling: invalid JSON, unknown command, step before reset
+- [x] Action validation: out-of-range action index
+- [x] Response format matches documented schema
+- [x] (Integration test if feasible: spawn Node process, send commands via stdin, verify responses)
 
 ### Visible
-- [ ] **Visible**: `echo '{"command":"reset","config":{}}' | node simulate.js --bridge` outputs a JSON observation. Manual pipe testing confirms the protocol works.
+- [x] **Visible**: `echo '{"command":"reset","config":{}}' | node simulate.js --bridge` outputs a JSON observation. Manual pipe testing confirms the protocol works.
 
 ---
 
