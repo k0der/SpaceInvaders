@@ -1,1 +1,1 @@
-ROLLBACK: fire angle too narrow — FIRE_ANGLE 0.15→0.30 — wins 100/200 below current best 109
+ROLLBACK: close-range aim scaling hypothesis inverted — AIM_PROXIMITY_SCALE 5→3 (sweep winner) — wins 98/200 below 109 current best

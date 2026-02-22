@@ -305,6 +305,44 @@ ROLLBACK — Primary criterion failed: player wins 106/200 (53%) < current best 
 
 ---
 
+## Cycle 16 — ROLLBACK
+
+**Problem**: All scoring-constant and mechanical levers exhausted across 15 cycles. SIM_STEPS=15 (1.5s lookahead) is the only untried structural parameter. Hypothesis: longer lookahead would detect threats at 1.5–2.5s that the current 1.5s window misses, improving trajectory planning through asteroid fields.
+
+**Fix**: SIM_STEPS sweep: 10, 12, 15, 18, 22. Hypothesis overturned — shorter lookahead won the 50-game sweep (SS=10 at 33/50), not longer. SIM_STEPS=10 selected for 200-game validation.
+
+**Architecture at test time**: DANGER_ZONE_BASE_PENALTY=-10000 + HYSTERESIS_BONUS=350 + FIRE_OPPORTUNITY_BONUS=450 (Cycle 12 config, unchanged since Cycle 12)
+
+### Sweep Results
+
+| SIM_STEPS | Lookahead | Wins/50 | Osc/game | Col/game | Fires/game | Proximity/game |
+|-----------|-----------|---------|----------|----------|------------|----------------|
+| **10** | **1.0s** | **33** | **2.42** | **2.02** | **3.16** | **8.2** |
+| 12 | 1.2s | 31 | 1.96 | 1.02 | 3.16 | 6.3 |
+| 15 (baseline) | 1.5s | 31 | 3.20 | 2.00 | 3.88 | 10.8 |
+| 18 | 1.8s | 24 | 2.96 | 1.86 | 3.20 | 4.6 |
+| 22 | 2.2s | 23 | 2.48 | 1.58 | 3.84 | 6.7 |
+
+**Selected**: SIM_STEPS=10 — highest wins/50 (33/50).
+
+Note: Sweep reveals monotonically decreasing wins as steps increase (10→12→15→18→22 = 33→31→31→24→23). Hypothesis that longer lookahead helps was incorrect in 50-game runs.
+
+### Metrics Before
+Player wins: 109/200 | Enemy wins: 91/200 | Draws: 0/200
+Oscillations: 2.51/game | Collapses: 1.28/game | Fires: 3.10/game
+
+### Metrics After (SIM_STEPS=10, 200-game validation)
+Player wins: 108/200 | Enemy wins: 92/200 | Draws: 0/200
+Oscillations: 2.75/game (+9.6%) | Collapses: 1.785/game (+39.5%) | Fires: 3.5/game (+13%) | Action changes: 8.1/game | Proximity: 14.2/game
+
+### Decision
+ROLLBACK — Primary criterion failed: player wins 108/200 (54.0%) < current best 109/200 (54.5%). The 50-game sweep winner (33/50 = 66%) was a favorable seed cluster. Collapses elevated at 1.785/game (+39.5%) — the shorter 1.0s lookahead generates 14.2 proximity events/game (vs ~6-8 at baseline) as the AI cannot see asteroid threats far enough ahead. The monotonic shorter=more-wins pattern in 50-game runs inverts at 200 games where the higher collapse rate cancels the apparent win advantage. SIM_STEPS is now fully exhausted as a tuning target. SIM_STEPS=15 is at or near the optimum: shorter reduces threat detection, longer adds computational constraint without strategic benefit. Consecutive rollbacks: 4.
+
+### Additional: Test Infrastructure Fix
+- The 'winner name matches best-scoring candidate' test had a latent tie-handling fragility: when T___ (fixed candidate) and PUR (pursuit, also thrust-straight on ship-at-origin) score identically, the test's `reduce` selected PUR (last equal) but the actual selection picked T___ (first equal). Changed to `toContain` over all top-scoring candidates.
+
+---
+
 ## Cycle 15 — ROLLBACK
 
 **Problem**: Fire angle too narrow — FIRE_ANGLE=0.15 (8.6°) means player cannot fire during the 1–2s rotation phase from spawn (player spawns heading -π/2). Enemy spawns aimed at player and fires from tick 1, creating an early-game bullet deficit. Hypothesis: wider FIRE_ANGLE lets player fire during rotation, reducing the deficit.
@@ -366,5 +404,37 @@ Oscillations: 3.175/game (+26.5%) | Collapses: 2.075/game (+62.1%) | Fires: 3.5/
 
 ### Decision
 ROLLBACK — Primary criterion failed: player wins 107/200 (53.5%) < current best 109/200 (54.5%). The 50-game sweep winner (28/50 = 56%) was a favorable seed cluster. The 200-game validation confirmed no structural improvement. Secondary metrics severely elevated: collapses +62.1% (2.075 vs 1.28/game) — the larger engage range pushes the AI to close aggressively from medium range, generating more proximity events (9.1/game vs 6.4/game at baseline) and more asteroid encounters. Fire rate improved slightly (+12.9%) but this did not translate to wins. ENGAGE_RANGE is now exhausted as a single-lever tuning target. The constant affects both the distance scaling (long-range urgency) and the closing speed scaling (close-range amplification), and widening the close-range zone increases proximity deaths faster than it increases combat wins.
+
+---
+
+## Cycle 17 — ROLLBACK
+
+**Problem**: AIM_PROXIMITY_SCALE=5 had never been tuned across 16 cycles. Hypothesis: higher APS amplifies the aim reward at close range (within MAX_FIRE_RANGE), making the AI strongly prefer aim-holding trajectories when already close. This should win more close-range bullet exchanges.
+**Fix**: AIM_PROXIMITY_SCALE sweep: 3, 5 (baseline), 8, 12, 15.
+**Constant**: `AIM_PROXIMITY_SCALE` in `src/ai-predictive-optimized.js`
+**Formula**: `aimProximityFactor = 1 + APS * max(0, 1 - minDist / MAX_FIRE_RANGE)`; score += `AIM_BONUS * aimAvg * aimProximityFactor`
+
+### Sweep (50 games each)
+
+| APS | Wins/50 | Osc/game | Fires/game | Collapses/game |
+|-----|---------|----------|------------|----------------|
+| 3   | 32      | 2.26     | 2.6        | 1.28           |
+| 5   | 30      | 1.76     | 2.6        | 1.38           |
+| 8   | 28      | 2.68     | 3.1        | 1.94           |
+| 12  | 26      | 2.20     | 3.6        | 1.28           |
+| 15  | 27      | 2.22     | 3.4        | 2.14           |
+
+**Selected**: APS=3 — highest wins/50 (32/50)
+
+### Metrics Before
+Player wins: 109/200 | Enemy wins: 91/200 | Draws: 0/200
+Oscillations: 2.51/game | Collapses: 1.28/game | Fires: 3.10/game
+
+### Metrics After (APS=3, 200-game validation)
+Player wins: 98/200 | Enemy wins: 102/200 | Draws: 0/200
+Oscillations: 2.645/game (+5.4%) | Collapses: 1.745/game (+36.3%) | Fires: 3.3/game (+6%) | Action changes: 7.6/game
+
+### Decision
+ROLLBACK — Primary criterion failed: player wins 98/200 (49%) < current best 109/200 (54.5%). The 50-game sweep winner (APS=3, 32/50) was a favorable seed cluster — the 200-game validation collapsed 11 wins below current best. The sweep inverted the hypothesis: lower APS won the sweep (3 > 5 > 8 > 12), but the 200-game result (98/200) is worse than baseline. Higher APS values (8, 12, 15) increased fires/game (+19-38%) but also increased oscillations and collapses, matching the familiar amplify-fires-but-destabilize pattern. AIM_PROXIMITY_SCALE is now exhausted as a tuning target. Consecutive rollbacks: 5.
 
 ---
