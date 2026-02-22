@@ -329,7 +329,7 @@ export function runGame(config) {
 
   // Per-tick loop
   for (let tick = 0; tick < ticks; tick++) {
-    if (gameState.phase !== 'playing') break;
+    if (gameState.phase !== 'playing' && gameState.phase !== 'ending') break;
 
     const scaledDt = dt * speed;
     elapsed += dt;
@@ -429,7 +429,7 @@ export function runGame(config) {
     bullets = checkBulletAsteroidCollisions(bullets, sim.asteroids);
 
     // 9. Bullet-ship collisions
-    if (gameState.phase === 'playing') {
+    if (gameState.phase === 'playing' || gameState.phase === 'ending') {
       const collisionResult = processBulletShipCollisions(
         bullets,
         playerShip,
@@ -485,7 +485,7 @@ export function runGame(config) {
         });
       }
 
-      updateGameState(gameState, playerShip, enemyShip);
+      updateGameState(gameState, playerShip, enemyShip, scaledDt);
     }
 
     // Update explosions

@@ -392,6 +392,22 @@ describe('Increment 26d: Headless Simulator', () => {
       expect(result.stats.ticks).toBe(10);
     });
 
+    it('reports a winner when a KILL event occurs', () => {
+      restore = installSeededRandom(2);
+      const result = runGame({
+        ticks: 300,
+        dt: 1 / 60,
+        playerAI: 'predictive',
+        enemyAI: 'predictive',
+        density: 1.0,
+        speed: 1.0,
+        thrust: 2000,
+      });
+      const kills = result.events.filter((e) => e.type === 'KILL');
+      expect(kills.length).toBeGreaterThan(0);
+      expect(result.stats.winner).not.toBe(null);
+    });
+
     it('records action distribution in stats', () => {
       restore = installSeededRandom(42);
       const result = runGame({
