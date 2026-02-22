@@ -144,17 +144,16 @@ export function startApp() {
   );
   let playerTrail = createTrail();
   const enemySpawn = spawnEnemyPosition(playerShip.x, playerShip.y);
-  const headingAwayFromPlayer = Math.atan2(
-    enemySpawn.y - playerShip.y,
-    enemySpawn.x - playerShip.x,
+  const headingToPlayer = Math.atan2(
+    playerShip.y - enemySpawn.y,
+    playerShip.x - enemySpawn.x,
   );
   let enemyShip = createShip({
     x: enemySpawn.x,
     y: enemySpawn.y,
-    heading: headingAwayFromPlayer,
+    heading: headingToPlayer,
     owner: 'enemy',
   });
-
   let enemyTrail = createTrail(ENEMY_TRAIL_COLOR);
   let bullets = [];
   const gameState = createGameState();
@@ -302,7 +301,7 @@ export function startApp() {
     playerShip.thrustPower = settings.thrustPower;
 
     const spawn = spawnEnemyPosition(playerShip.x, playerShip.y);
-    const heading = Math.atan2(spawn.y - playerShip.y, spawn.x - playerShip.x);
+    const heading = Math.atan2(playerShip.y - spawn.y, playerShip.x - spawn.x);
     enemyShip = createShip({
       x: spawn.x,
       y: spawn.y,
@@ -524,6 +523,9 @@ export function startApp() {
         settings.asteroidDensity *
         (zoneArea / viewportArea),
     );
+    while (sim.asteroids.length > sim.targetCount) {
+      sim.asteroids.pop();
+    }
     updateSimulation(
       sim,
       scaledDt,

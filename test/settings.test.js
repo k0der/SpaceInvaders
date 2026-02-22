@@ -12,9 +12,9 @@ import {
 
 describe('Increment 13: Settings Menu', () => {
   describe('SETTINGS_CONFIG', () => {
-    it('defines asteroid density: min 0.5, max 3.0, step 0.1, default 1.0', () => {
+    it('defines asteroid density: min 0.0, max 3.0, step 0.1, default 1.0', () => {
       const c = SETTINGS_CONFIG.asteroidDensity;
-      expect(c.min).toBe(0.5);
+      expect(c.min).toBe(0.0);
       expect(c.max).toBe(3.0);
       expect(c.step).toBe(0.1);
       expect(c.default).toBe(1.0);
@@ -74,8 +74,8 @@ describe('Increment 13: Settings Menu', () => {
   });
 
   describe('clampSetting', () => {
-    it('clamps asteroid density below minimum to 0.5', () => {
-      expect(clampSetting('asteroidDensity', 0.1)).toBe(0.5);
+    it('clamps asteroid density below minimum to 0.0', () => {
+      expect(clampSetting('asteroidDensity', -0.1)).toBe(0.0);
     });
 
     it('clamps asteroid density above maximum to 3.0', () => {
@@ -198,7 +198,7 @@ describe('Increment 13: Settings Menu', () => {
     it('asteroid density slider has correct min/max/step/value', () => {
       const ui = createSettingsUI(container, settings);
       const slider = ui.sliders.asteroidDensity;
-      expect(slider.min).toBe('0.5');
+      expect(slider.min).toBe('0');
       expect(slider.max).toBe('3');
       expect(slider.step).toBe('0.1');
       expect(slider.value).toBe('1');

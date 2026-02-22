@@ -211,8 +211,8 @@ export function detectOscillation(events) {
 }
 
 /**
- * Detect pass-through: ship body overlaps asteroid body without dying.
- * Fires when dist < asteroid.collisionRadius + SHIP_SIZE (actual lethal threshold).
+ * Detect pass-through: ship overlaps asteroid collisionRadius without dying.
+ * (Placeholder until ship-asteroid collision is implemented.)
  * @param {object[]} events - Event array from a game
  * @returns {object[]} detections
  */
@@ -221,7 +221,7 @@ export function detectPassthrough(events) {
   const detections = [];
 
   for (const event of proximities) {
-    if (event.data.dist < event.data.radius + SHIP_SIZE) {
+    if (event.data.dist < event.data.radius) {
       detections.push({
         type: 'passthrough',
         tick: event.tick,
@@ -284,14 +284,14 @@ export function runGame(config) {
   playerShip.thrustPower = thrust;
 
   const enemySpawn = spawnEnemyPosition(playerShip.x, playerShip.y);
-  const headingAwayFromPlayer = Math.atan2(
-    enemySpawn.y - playerShip.y,
-    enemySpawn.x - playerShip.x,
+  const headingToPlayer = Math.atan2(
+    playerShip.y - enemySpawn.y,
+    playerShip.x - enemySpawn.x,
   );
   const enemyShip = createShip({
     x: enemySpawn.x,
     y: enemySpawn.y,
-    heading: headingAwayFromPlayer,
+    heading: headingToPlayer,
     owner: 'enemy',
   });
   enemyShip.thrustPower = thrust;
@@ -499,7 +499,6 @@ export function runGame(config) {
     // 10. Proximity detection (ship within 2× asteroid collisionRadius)
     for (const ast of sim.asteroids) {
       for (const ship of [playerShip, enemyShip]) {
-        if (!ship.alive) continue;
         const dx = ship.x - ast.x;
         const dy = ship.y - ast.y;
         const dist = Math.sqrt(dx * dx + dy * dy);

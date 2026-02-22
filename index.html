@@ -287,11 +287,6 @@ const COLLISION_BASE_PENALTY = -20000;
 /** Linear tiebreaker: later collisions are slightly less bad (more time to re-evaluate). */
 const COLLISION_EARLY_BONUS = 50;
 
-/** Base penalty for near-miss danger zone — tuned independently of actual collision penalty.
- *  Decoupling this from COLLISION_BASE_PENALTY lets us reduce proximity discouragement
- *  without weakening actual collision deterrence. */
-const DANGER_ZONE_BASE_PENALTY = -10000;
-
 /** Number of brake steps before pursuit in the brake-pursuit candidate. */
 const BRAKE_PURSUIT_STEPS = 5;
 
@@ -305,19 +300,19 @@ const PURSUIT_THRUST_ANGLE = Math.PI / 3;
 const PURSUIT_BRAKE_SPEED = 50;
 
 /** Weight applied to distance-to-target (negative = closer is better). */
-const DISTANCE_WEIGHT = -3;
+const DISTANCE_WEIGHT = -8;
 
 /** Bonus for aiming toward target at closest approach. */
 const AIM_BONUS = 400;
 
 /** Weight for closing speed bonus (dot of velocity toward target). */
-const CLOSING_SPEED_WEIGHT = 16;
+const CLOSING_SPEED_WEIGHT = 8;
 
 /** Proximity scaling factor for aim bonus — amplifies aim importance at close range. */
 const AIM_PROXIMITY_SCALE = 5;
 
 /** Bonus per sim step where ship has a viable firing solution. */
-const FIRE_OPPORTUNITY_BONUS = 450;
+const FIRE_OPPORTUNITY_BONUS = 300;
 
 /** Distance below which current scoring balance applies (close-range combat zone). */
 const ENGAGE_RANGE = 350;
@@ -329,7 +324,7 @@ const HOLD_TIME = 0.15;
 const COLLISION_BREAK_STEPS = 3;
 
 /** Score bonus for matching the previous frame's action (reduces oscillation). */
-const HYSTERESIS_BONUS = 350;
+const HYSTERESIS_BONUS = 250;
 
 /** Danger zone extends to this factor × collision distance. Near-misses within
  *  this zone receive a graduated penalty (quadratic ramp from 0 at edge to
@@ -470,7 +465,7 @@ function scoreTrajectory(positions, target, asteroids, simDt) {
   }
 
   if (!collided && worstDanger > 0) {
-    score += DANGER_ZONE_BASE_PENALTY * worstDanger;
+    score += COLLISION_BASE_PENALTY * worstDanger;
   }
 
   // Compute initial distance to target (used for approach urgency and closing rate)
@@ -1699,11 +1694,11 @@ registerStrategy('predictive', predictiveStrategy);
 const createAIState = createReactiveState;
 const updateAI = updateReactiveAI;
 
-/** Minimum enemy spawn offset from player (px). Off-screen at 1920×1080. */
-const MIN_SPAWN_DISTANCE = 1100;
+/** Minimum enemy spawn offset from player (px). */
+const MIN_SPAWN_DISTANCE = 600;
 
-/** Maximum enemy spawn offset from player (px). Near viewport limits. */
-const MAX_SPAWN_DISTANCE = 1300;
+/** Maximum enemy spawn offset from player (px). */
+const MAX_SPAWN_DISTANCE = 1000;
 
 /**
  * Compute a random spawn position for the enemy ship at
@@ -3471,17 +3466,16 @@ function startApp() {
   );
   let playerTrail = createTrail();
   const enemySpawn = spawnEnemyPosition(playerShip.x, playerShip.y);
-  const headingAwayFromPlayer = Math.atan2(
-    enemySpawn.y - playerShip.y,
-    enemySpawn.x - playerShip.x,
+  const headingToPlayer = Math.atan2(
+    playerShip.y - enemySpawn.y,
+    playerShip.x - enemySpawn.x,
   );
   let enemyShip = createShip({
     x: enemySpawn.x,
     y: enemySpawn.y,
-    heading: headingAwayFromPlayer,
+    heading: headingToPlayer,
     owner: 'enemy',
   });
-
   let enemyTrail = createTrail(ENEMY_TRAIL_COLOR);
   let bullets = [];
   const gameState = createGameState();
@@ -3629,7 +3623,7 @@ function startApp() {
     playerShip.thrustPower = settings.thrustPower;
 
     const spawn = spawnEnemyPosition(playerShip.x, playerShip.y);
-    const heading = Math.atan2(spawn.y - playerShip.y, spawn.x - playerShip.x);
+    const heading = Math.atan2(playerShip.y - spawn.y, playerShip.x - spawn.x);
     enemyShip = createShip({
       x: spawn.x,
       y: spawn.y,
@@ -3851,6 +3845,9 @@ function startApp() {
         settings.asteroidDensity *
         (zoneArea / viewportArea),
     );
+    while (sim.asteroids.length > sim.targetCount) {
+      sim.asteroids.pop();
+    }
     updateSimulation(
       sim,
       scaledDt,

@@ -269,16 +269,15 @@ describe('Increment 26d: Headless Simulator', () => {
       expect(detections[0].type).toBe('passthrough');
     });
 
-    it('does not flag when ship body is outside asteroid body (dist > radius + SHIP_SIZE)', () => {
+    it('does not flag when ship is outside collisionRadius', () => {
       const events = [
         {
           tick: 50,
           elapsed: 0.83,
           type: 'PROXIMITY',
-          data: { owner: 'player', dist: 50, radius: 30 },
+          data: { owner: 'player', dist: 40, radius: 30 },
         },
       ];
-      // lethal threshold = 30 + 15 (SHIP_SIZE) = 45; dist=50 > 45 → no passthrough
       const detections = detectPassthrough(events);
       expect(detections.length).toBe(0);
     });
@@ -427,60 +426,6 @@ describe('Increment 26d: Headless Simulator', () => {
         0,
       );
       expect(totalActions).toBe(60);
-    });
-
-    it('enemy spawns with back toward player (not aimed at player)', () => {
-      restore = installSeededRandom(42);
-      // The enemy's first FIRE event should have a large angle (back is turned),
-      // while the player fires first since it doesn't need to rotate as much.
-      const result = runGame({
-        ticks: 120,
-        dt: 1 / 60,
-        playerAI: 'predictive',
-        enemyAI: 'predictive',
-        density: 0.5,
-        speed: 1.0,
-        thrust: 2000,
-      });
-      const enemyFires = result.events.filter(
-        (e) => e.type === 'FIRE' && e.data.owner === 'enemy',
-      );
-      const playerFires = result.events.filter(
-        (e) => e.type === 'FIRE' && e.data.owner === 'player',
-      );
-      // Enemy should fire later than before since it starts facing away
-      // If both fire, player should fire first or at similar time
-      if (enemyFires.length > 0 && playerFires.length > 0) {
-        expect(playerFires[0].elapsed).toBeLessThanOrEqual(
-          enemyFires[0].elapsed + 0.5,
-        );
-      }
-    });
-
-    it('does not generate PROXIMITY events for dead ships', () => {
-      restore = installSeededRandom(2);
-      const result = runGame({
-        ticks: 300,
-        dt: 1 / 60,
-        playerAI: 'predictive',
-        enemyAI: 'predictive',
-        density: 2.0,
-        speed: 1.0,
-        thrust: 2000,
-      });
-      const kills = result.events.filter((e) => e.type === 'KILL');
-      if (kills.length > 0) {
-        const firstKillTick = kills[0].tick;
-        const victim = kills[0].data.victim;
-        // No PROXIMITY events for the dead ship after the kill tick
-        const postDeathProximity = result.events.filter(
-          (e) =>
-            e.type === 'PROXIMITY' &&
-            e.data.owner === victim &&
-            e.tick > firstKillTick,
-        );
-        expect(postDeathProximity.length).toBe(0);
-      }
     });
   });
 });
