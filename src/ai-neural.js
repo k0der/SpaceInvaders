@@ -109,7 +109,7 @@ async function runInference(state, ship, target, asteroids) {
       1,
       OBSERVATION_SIZE,
     ]);
-    const feeds = { obs: tensor };
+    const feeds = { observation: tensor };
     const results = await state.session.run(feeds);
 
     const logits = results.logits.data;
