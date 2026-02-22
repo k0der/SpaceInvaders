@@ -1,5 +1,5 @@
 {
-  "cycle": 12,
+  "cycle": 13,
   "baseline": {
     "games": 200,
     "playerWins": 102,
@@ -190,8 +190,25 @@
         "sweep_summary": "FOB=300: 28/50 wins, 2.38 osc/game; FOB=375: 28/50, 2.28 osc/game; FOB=450: 29/50, 2.28 osc/game (selected — highest wins); FOB=525: 25/50, 2.56 osc/game; FOB=600: 25/50, 2.84 osc/game"
       },
       "reason": "KEPT — primary criterion met. Player wins 109/200 (54.5%) > 108/200 current best. Marginal +1 win improvement. Collapses improved 28% (1.77→1.28/game) — best collapse result in any KEPT cycle. Oscillations stable (+0.4%). FOB=450 appears to be the effective ceiling for this architecture: values above 450 (525, 600) regress to 25/50 wins, consistent with Cycle 4's aim-holding-into-proximity pattern. Consecutive rollback counter remains 0."
+    },
+    {
+      "cycle": 13,
+      "problem": "Emergency-break oscillation dominates — 62% of detected oscillations have gap=0.000s, caused by hasImminentCollision bypassing HYSTERESIS_BONUS. COLLISION_BREAK_STEPS=3 (0.3s lookahead) triggers false-positive emergency overrides on near-misses in the 0.1–0.3s window.",
+      "fix": "COLLISION_BREAK_STEPS 3→1 (sweep: 1,2,3,4,5; CBS=1 won 50-game sweep with 30/50)",
+      "result": "ROLLBACK",
+      "metrics": {
+        "playerWins": 106,
+        "enemyWins": 94,
+        "draws": 0,
+        "oscillations_per_game": 1.965,
+        "collapses_per_game": 1.605,
+        "fires_per_game": 2.86,
+        "action_changes_per_game": 7.0,
+        "sweep_summary": "CBS=1: 30/50 wins, 2.30 osc/game (selected); CBS=2: 22/50, 2.16 osc/game; CBS=3: 21/50, 2.40 osc/game (baseline); CBS=4: 26/50, 2.70 osc/game; CBS=5: 27/50, 4.10 osc/game"
+      },
+      "reason": "ROLLBACK — primary criterion failed. Player wins 106/200 (53%) < current best 109/200 (54.5%). CBS=1 confirmed the oscillation reduction hypothesis: oscillations dropped 21.7% (1.965 vs 2.51/game). However, collapses increased 25.4% (1.605 vs 1.28/game) — CBS=1 is too aggressive a reduction. Genuine collisions in the 0.1–0.3s window that the emergency break would have caught are now missed; the 0.15s hold-expiry handles them one cycle late, resulting in more asteroid deaths. The oscillation fix trades oscillation reduction for collapse increase and does not improve win rate. CBS tuning appears exhausted: CBS=3 is the balanced operating point given HOLD_TIME=0.15s. Consecutive rollbacks: 1."
     }
   ],
-  "consecutiveRollbacks": 0,
+  "consecutiveRollbacks": 1,
   "status": "ready"
 }

@@ -1,1 +1,1 @@
-KEPT: fire rate low in DZPB=-10000 architecture — FOB 300→450 — win rate 54%→54.5% (108→109/200), collapses 1.77→1.28/game
+ROLLBACK: emergency-break false positives — CBS 3→1 — wins 106/200 below current best 109

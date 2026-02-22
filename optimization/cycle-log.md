@@ -269,4 +269,38 @@ Oscillations: 2.51/game (+0.4%) | Collapses: 1.28/game (-28%) | Fires: 3.10/game
 
 ### Decision
 KEPT — Primary criterion met: player wins 109/200 (54.5%) > 108/200 (current best). Marginal improvement of +1 win (+0.5%). Collapses improved 28% (1.77→1.28/game) — the best collapse reduction in any KEPT cycle. Oscillations held stable (+0.4%). Fires slightly lower (3.10 vs 3.36/game) but still above baseline. The sweep shows FOB>450 harms performance (525,600 both 25/50) — consistent with the Cycle 4 pattern where excessive FOB causes aim-holding into proximity zones. FOB=450 appears to be the effective ceiling for this architecture.
+
+---
+
+## Cycle 13 — ROLLBACK
+
+**Problem**: Emergency-break oscillation dominates behavioral instability. Cycle 13 analysis identified that 62% of detected oscillations have gap=0.000s — these are emergency collision-break overrides fired by `hasImminentCollision`, which bypasses HYSTERESIS_BONUS entirely. Previous cycles 3, 8, 10 targeted HYSTERESIS_BONUS and HOLD_TIME respectively, but these do not affect emergency breaks. The root cause is COLLISION_BREAK_STEPS=3 (0.3s lookahead) triggering false-positive emergency overrides for near-misses that the full 1.5s simulation would route around safely.
+**Fix**: COLLISION_BREAK_STEPS 3→1 (sweep: 1,2,3,4,5)
+**Complexity**: 1 — Tune constant
+
+### Sweep Results
+DANGER_ZONE_BASE_PENALTY=-10000, HYSTERESIS_BONUS=350, FIRE_OPPORTUNITY_BONUS=450 (all fixed)
+Sweeping: COLLISION_BREAK_STEPS
+
+| CBS | Wins/50 | Osc/game | Collapses/game | Fires/game | Action changes/game |
+|-----|---------|----------|----------------|------------|---------------------|
+| **1** | **30** | 2.30 | 1.34 | 2.96 | 8.1 |
+| 2   | 22 | 2.16 | 1.46 | 2.46 | 6.0 |
+| 3   | 21 | 2.40 | 1.74 | 2.68 | 7.2 |
+| 4   | 26 | 2.70 | 1.68 | 2.44 | 7.0 |
+| 5   | 27 | 4.10 | 1.64 | 3.44 | 9.3 |
+
+CBS=3 is the current/original value. **Selected**: CBS=1 — highest wins/50 (30/50).
+
+### Metrics Before
+Player wins: 109/200 | Enemy wins: 91/200 | Draws: 0/200
+Oscillations: 2.51/game | Collapses: 1.28/game | Fires: 3.10/game
+
+### Metrics After (CBS=1, 200-game validation)
+Player wins: 106/200 | Enemy wins: 94/200 | Draws: 0/200
+Oscillations: 1.965/game (-21.7%) | Collapses: 1.605/game (+25.4%) | Fires: 2.86/game (-7.7%) | Action changes: 7.0/game
+
+### Decision
+ROLLBACK — Primary criterion failed: player wins 106/200 (53%) < current best 109/200 (54.5%). The oscillation hypothesis was confirmed: CBS=1 reduced oscillations 21.7% as predicted (emergency breaks restricted to genuine 0.1s collisions only). However, collapses increased 25.4% — genuine collisions in the 0.1–0.3s window formerly caught by the emergency break are now handled by the hold-expiry one cycle later (0.15s), resulting in more asteroid deaths. The oscillation reduction and collapse increase cancel each other out, producing no win rate improvement. CBS tuning is exhausted: CBS=3 is the balanced operating point for HOLD_TIME=0.15s. Any reduction improves oscillation but regresses collapses symmetrically.
+
 ---
