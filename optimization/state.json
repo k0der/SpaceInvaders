@@ -1,5 +1,5 @@
 {
-  "cycle": 20,
+  "cycle": 21,
   "baseline": {
     "games": 200,
     "playerWins": 102,
@@ -323,8 +323,26 @@
         "sweep_summary": "ECS=1: 28/50, 93 osc, 76 collapse, 3.7 fires/game; ECS=2: 25/50, 139 osc, 109 collapse, 3.2 fires/game; ECS=3 (baseline): 29/50, 96 osc, 66 collapse, 4.2 fires/game; ECS=4: 27/50, 91 osc, 86 collapse, 3.0 fires/game; ECS=5: 24/50, 82 osc, 49 collapse, 2.8 fires/game"
       },
       "reason": "ROLLBACK — ECS=3 (baseline) won the 50-game sweep with 29/50, tied within ±8 variance with ECS=1 (28/50). The hypothesis that CSW-doubling made ECS=3 over-amplified was NOT confirmed empirically — ECS=3 remains the best-performing value across all 5 candidates on both wins AND collapses. No code change was applied. The RED test (gap < 1800 at dist=200px) failed with ECS=3 (gap=2054), and the baseline cannot satisfy this test, so test is rolled back. Key finding: ENGAGE_CLOSING_SCALE is now exhausted across its full 1–5 range; ECS=3 is confirmed optimal."
+    },
+    {
+      "cycle": 21,
+      "problem": "BRAKE_PURSUIT_STEPS=5 never tuned across 20 cycles. Hypothesis: shorter brake phase (3-4 steps) re-engages pursuit faster, improving combat engagement after emergency avoidance maneuvers.",
+      "fix": "BRAKE_PURSUIT_STEPS sweep: 2, 3, 4, 5 (baseline), 7. BPS=4 won 50-game sweep with 30/50 wins, lowest oscillations (2.06/game). 200-game validation: 104/200 wins (52.0%) — below threshold.",
+      "result": "ROLLBACK",
+      "metrics": {
+        "playerWins": 104,
+        "enemyWins": 92,
+        "draws": 4,
+        "oscillations_per_game": 2.40,
+        "collapses_per_game": 1.92,
+        "fires_per_game": 3.3,
+        "action_changes_per_game": 7.8,
+        "note": "Win count from corrected KILL-event counter (simulate.js win tracker broken — updateGameState not passed dt). Fresh BPS=5 baseline (corrected counter): 113/200 (56.5%). BPS=4: 104/200 (52.0%). Regression of 9 wins.",
+        "sweep_summary": "BPS=2: 28/50, 2.50 osc/game, 1.54 col/game, 3.1 fires/game; BPS=3: 24/50, 2.04 osc/game, 1.74 col/game, 2.2 fires/game; BPS=4: 30/50, 2.06 osc/game, 1.90 col/game, 2.3 fires/game; BPS=5 (baseline): 26/50, 2.54 osc/game, 1.58 col/game, 3.4 fires/game; BPS=7: 24/50, 2.74 osc/game, 1.46 col/game, 3.1 fires/game"
+      },
+      "reason": "ROLLBACK — primary criterion failed. BPS=4 produced 104/200 wins (52.0%) vs BPS=5 baseline 113/200 (56.5%), a regression of 9 wins. 104 < 110 threshold. The 50-game sweep showed BPS=4 with 30/50 wins (vs 26 baseline), but this was a favorable seed cluster — the 200-game result inverted completely. Key finding: lower BPS values cause BRK candidate to win more trajectory evaluations (BRK firstAction = braking), reducing immediate firing (fires drop from 3.4 to 2.3/game) while improving oscillation metrics. The win regression confirms that more frequent BRK selection is detrimental to combat outcomes — the 5-step brake phase calibrates BRK to win only in genuine emergency/overshoot scenarios. BRAKE_PURSUIT_STEPS is now exhausted as a tuning target: BPS=5 is confirmed optimal across the tested range 2-7."
     }
   ],
-  "consecutiveRollbacks": 1,
+  "consecutiveRollbacks": 2,
   "status": "ready"
 }

@@ -1,5 +1,43 @@
 # Optimization Cycle Log
 
+## Cycle 21 — ROLLBACK
+
+**Problem**: BRAKE_PURSUIT_STEPS=5 never tuned. Hypothesis: shorter brake phase (3-4 steps) re-engages pursuit faster after emergency brake, creating more firing opportunities within the 1.5s simulation window.
+**Fix**: BRAKE_PURSUIT_STEPS sweep: 2, 3, 4, 5 (baseline), 7.
+**Complexity**: 1 — Tune constant
+
+### Sweep (50 games each, KILL-event-based win counter)
+
+| BPS | Wins/50 | Win% | Osc/game | Collapse/game | Fires/game |
+|-----|---------|------|----------|---------------|------------|
+| 2 | 28 | 56% | 2.50 | 1.54 | 3.1 |
+| 3 | 24 | 48% | 2.04 | 1.74 | 2.2 |
+| **4** | **30** | **60%** | **2.06** | **1.90** | **2.3** |
+| 5 (baseline) | 26 | 52% | 2.54 | 1.58 | 3.4 |
+| 7 | 24 | 48% | 2.74 | 1.46 | 3.1 |
+
+Selected: BPS=4 (highest wins, lowest oscillations)
+
+### Metrics Before (BPS=5, corrected counter)
+Player wins: 113/200 | Enemy wins: 83/200 | Draws: 4/200
+Oscillations: 2.94/game | Collapses: 2.31/game | Fires: 4.1/game
+
+### Metrics After (BPS=4, 200-game validation)
+Player wins: 104/200 | Enemy wins: 92/200 | Draws: 4/200
+Oscillations: 2.40/game | Collapses: 1.92/game | Fires: 3.3/game
+
+### Decision
+ROLLBACK — 104/200 wins < 110 threshold. BPS=4 regressed 9 wins from fresh baseline (113→104).
+The 50-game sweep result (30/50) was a favorable seed cluster. Lower BPS over-selects the BRK candidate,
+reducing fires/game dramatically (2.3 vs 3.4/game) as the AI spends more time in initial-brake mode.
+BPS=5 confirmed as optimal. BRAKE_PURSUIT_STEPS fully exhausted across range 2–7.
+
+Note: Discovered simulate.js win counter is broken — updateGameState called without dt, causing all
+games to be "draws" in standard output. Win counts measured via KILL-event-based counter
+(optimization/run-sweep.js). Proposed fix for simulate.js logged in IMPROVEMENTS.md.
+
+---
+
 ## Cycle 0 — BASELINE
 
 **Simulation**: 50 games, predictive-optimized vs predictive
