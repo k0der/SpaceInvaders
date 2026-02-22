@@ -706,11 +706,11 @@ describe('Increment 19: Thrust Power Setting', () => {
   });
 
   describe('SETTINGS_CONFIG — thrustPower', () => {
-    it('defines thrustPower with min 1000, max 10000, step 50, default 2000', () => {
+    it('defines thrustPower with min 1000, max 100000, step 50, default 2000', () => {
       const c = SETTINGS_CONFIG.thrustPower;
       expect(c).toBeDefined();
       expect(c.min).toBe(1000);
-      expect(c.max).toBe(10000);
+      expect(c.max).toBe(100000);
       expect(c.step).toBe(50);
       expect(c.default).toBe(2000);
     });
@@ -777,11 +777,11 @@ describe('Increment 19: Thrust Power Setting', () => {
           speedMultiplier: 1.0,
           starLayers: 3,
           starDirection: 'left',
-          thrustPower: 99999,
+          thrustPower: 999999,
         }),
       );
       const loaded = loadSettings();
-      expect(loaded.thrustPower).toBe(10000);
+      expect(loaded.thrustPower).toBe(100000);
     });
 
     it('round-trip: save then load preserves thrustPower', () => {
@@ -811,7 +811,7 @@ describe('Increment 19: Thrust Power Setting', () => {
       const ui = createSettingsUI(container, settings);
       const slider = ui.sliders.thrustPower;
       expect(slider.min).toBe('1000');
-      expect(slider.max).toBe('10000');
+      expect(slider.max).toBe('100000');
       expect(slider.step).toBe('50');
       expect(slider.value).toBe('2000');
     });
