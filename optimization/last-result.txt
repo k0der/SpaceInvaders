@@ -1,1 +1,1 @@
-ROLLBACK: close-range aim scaling hypothesis inverted — AIM_PROXIMITY_SCALE 5→3 (sweep winner) — wins 98/200 below 109 current best
+KEPT: closing speed reward — CSW 8→16 — win rate 54.5%→55.0% (109→110/200)

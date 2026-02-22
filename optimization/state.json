@@ -1,5 +1,5 @@
 {
-  "cycle": 17,
+  "cycle": 18,
   "baseline": {
     "games": 200,
     "playerWins": 102,
@@ -12,13 +12,13 @@
   },
   "current": {
     "games": 200,
-    "playerWins": 109,
-    "enemyWins": 91,
+    "playerWins": 110,
+    "enemyWins": 90,
     "draws": 0,
-    "note": "Cycle 12 KEPT: DANGER_ZONE_BASE_PENALTY=-10000 + HYSTERESIS_BONUS=350 + FIRE_OPPORTUNITY_BONUS=450. 200-game validation: 109/200 wins (54.5%).",
-    "oscillations_per_game": 2.51,
-    "collapses_per_game": 1.28,
-    "fires_per_game": 3.10
+    "note": "Cycle 18 KEPT: DANGER_ZONE_BASE_PENALTY=-10000 + HYSTERESIS_BONUS=350 + FIRE_OPPORTUNITY_BONUS=450 + CLOSING_SPEED_WEIGHT=16. 200-game validation: 110/200 wins (55.0%).",
+    "oscillations_per_game": 2.845,
+    "collapses_per_game": 1.565,
+    "fires_per_game": 3.385
   },
   "history": [
     {
@@ -275,8 +275,25 @@
         "sweep_summary": "APS=3: 32/50 wins (selected — highest); APS=5: 30/50 (baseline); APS=8: 28/50; APS=12: 26/50; APS=15: 27/50"
       },
       "reason": "ROLLBACK — primary criterion failed. Player wins 98/200 (49%) < current best 109/200 (54.5%). APS=3 won the 50-game sweep (32/50) but collapsed to 98/200 at 200-game scale. The sweep shows monotonically decreasing wins as APS increases (3→5→8→12), inverting the stated hypothesis. Lower APS reduces the close-range aim amplification signal, which apparently helps in 50-game seed clusters but performs significantly worse at 200 games. Higher APS values (8, 12, 15) increase fires/game (+19-38%) but also increase oscillations and collapses, matching the familiar amplify-fires-but-destabilize pattern from FOB and AIM_BONUS cycles. AIM_PROXIMITY_SCALE is now exhausted as a tuning target — APS=5 is at or near the optimum for this architecture. Consecutive rollbacks: 5."
+    },
+    {
+      "cycle": 18,
+      "problem": "CLOSING_SPEED_WEIGHT=8 never tuned across 17 cycles. Hypothesis: higher CSW incentivizes closing trajectories, reducing time-to-first-shot and partially offsetting enemy spawn-aim advantage.",
+      "fix": "CLOSING_SPEED_WEIGHT 8→16 (sweep: 4,6,8,12,16; CSW=16 tied highest wins at 30/50 with lowest oscillation 2.78/game)",
+      "result": "KEPT",
+      "metrics": {
+        "playerWins": 110,
+        "enemyWins": 90,
+        "draws": 0,
+        "oscillations_per_game": 2.845,
+        "collapses_per_game": 1.565,
+        "fires_per_game": 3.385,
+        "action_changes_per_game": 7.8,
+        "sweep_summary": "CSW=4: 25/50 wins, 2.96 osc/game; CSW=6: 26/50, 2.86 osc/game; CSW=8 (baseline): 30/50, 3.58 osc/game; CSW=12: 29/50, 3.10 osc/game; CSW=16: 30/50, 2.78 osc/game (selected — tied highest wins, lowest osc)"
+      },
+      "reason": "KEPT — primary criterion met. Player wins 110/200 (55.0%) > current best 109/200 (54.5%). Marginal +1 win improvement. Higher CSW (16) increases the closing-rate reward without introducing the aim-holding instability seen with FOB/AIM_BONUS increases. Fires improved +9.2% (3.385 vs 3.10), suggesting the AI is reaching firing position faster. Secondary metrics elevated (osc +13%, collapse +22%) but not blocking. Consecutive rollback counter reset to 0."
     }
   ],
-  "consecutiveRollbacks": 5,
+  "consecutiveRollbacks": 0,
   "status": "ready"
 }

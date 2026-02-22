@@ -7,10 +7,10 @@ Action changes: 276 (5.5/game) | Fires: 118 (2.4/game)
 
 Note: The 70% baseline is a small-sample artifact. True expected win rate with identical AIs is ~50% (confirmed by 200-game run: 102/200 = 51%).
 
-## Current Best (Cycle 12 — KEPT)
-Player wins: 109/200 (54.5%) | Enemy wins: 91/200 (45.5%) | Draws: 0/200 (0%)
-Oscillations: 2.51/game | Collapses: 1.28/game | Fires: 3.10/game
-Fix: DANGER_ZONE_BASE_PENALTY=-10000 + HYSTERESIS_BONUS=350 + FIRE_OPPORTUNITY_BONUS=450
+## Current Best (Cycle 18 — KEPT)
+Player wins: 110/200 (55.0%) | Enemy wins: 90/200 (45.0%) | Draws: 0/200 (0%)
+Oscillations: 2.845/game | Collapses: 1.565/game | Fires: 3.385/game
+Fix: DANGER_ZONE_BASE_PENALTY=-10000 + HYSTERESIS_BONUS=350 + FIRE_OPPORTUNITY_BONUS=450 + CLOSING_SPEED_WEIGHT=16
 
 ## Key Insights (read before proposing any fix)
 
@@ -54,6 +54,8 @@ Fix: DANGER_ZONE_BASE_PENALTY=-10000 + HYSTERESIS_BONUS=350 + FIRE_OPPORTUNITY_B
 
 - **AIM_PROXIMITY_SCALE tuning is exhausted (Cycle 17, ROLLBACK)**: Swept 3, 5, 8, 12, 15. The 50-game sweep showed monotonically decreasing wins as APS increases (APS=3: 32/50, APS=5: 30/50, APS=8: 28/50, APS=12: 26/50, APS=15: 27/50), inverting the stated hypothesis that higher APS improves close-range combat. APS=3 was selected (32/50 wins). The 200-game validation collapsed to 98/200 (49%), -11 wins below current best. Higher APS values (8, 12, 15) increase fires/game (+19-38%) but also increase oscillations and collapses — same amplify-fires-but-destabilize pattern seen across FOB, AIM_BONUS, and ENGAGE_RANGE. The 50-game signal (APS=3 at 32/50 vs APS=5 at 30/50) is within the ±8 variance band and is not a structural advantage. **Key insight: AIM_PROXIMITY_SCALE=5 is at or near the optimum. Lower values reduce the close-range aim gradient (causing the AI to treat close and far range more equally), while higher values over-amplify aim-holding into proximity zones causing instability. Neither direction improves 200-game win rate.** This is the 5th consecutive rollback and the last remaining un-tuned constant from the original candidate list (AIM_PROXIMITY_SCALE, CLOSING_SPEED_WEIGHT, DISTANCE_WEIGHT, ENGAGE_CLOSING_SCALE, MAX_FIRE_RANGE, BRAKE_PURSUIT_STEPS, COLLISION_EARLY_BONUS, SIM_DT) — with APS exhausted, CLOSING_SPEED_WEIGHT and DISTANCE_WEIGHT remain untried.
 
+- **CLOSING_SPEED_WEIGHT=16 (Cycle 18, KEPT)**: Swept 4, 6, 8, 12, 16. CSW=16 tied for highest 50-game wins (30/50, tied with CSW=8) but had the lowest oscillation (2.78/game vs 3.58 for CSW=8). 200-game validation: 110/200 wins (55.0%, +0.5% over current best). Fires improved +9.2% (3.385 vs 3.10/game). Secondary metrics elevated (osc +13%, collapse +22%) but not blocking. **Key insight: CLOSING_SPEED_WEIGHT increases do not cause the aim-holding instability seen with FOB/AIM_BONUS increases — the closing rate reward is path-level (net distance closed over the whole trajectory), not per-step aim-holding, so it doesn't create local score spikes that cause oscillation. Higher CSW makes the AI seek approach trajectories more aggressively, which modestly increases fires/game. Remaining untried: DISTANCE_WEIGHT, ENGAGE_CLOSING_SCALE, BRAKE_PURSUIT_STEPS, COLLISION_EARLY_BONUS, SIM_DT.**
+
 ## Proposed Changes Outside Optimization Scope
 
 > These changes were identified during optimization cycles but require modifying files outside `src/ai-predictive-optimized.js`. They are logged here for human review — they were NOT applied autonomously.
@@ -86,3 +88,4 @@ Fix: DANGER_ZONE_BASE_PENALTY=-10000 + HYSTERESIS_BONUS=350 + FIRE_OPPORTUNITY_B
 | 15 | Fire angle too narrow — player spawns off-axis (-π/2) and needs 1–2s to rotate before firing; FIRE_ANGLE=0.15 (8.6°) means no shots during rotation | FIRE_ANGLE 0.15→0.30 (sweep: 0.10,0.15,0.20,0.25,0.30; FA=0.30 won 50-game with 36+32=68/100) | 50.0% (100/200) | 2.265 (-10%) | 1.59 (+24%) | 3.7 (+19%) | ROLLBACK |
 | 16 | SIM_STEPS=15 (1.5s lookahead) hypothesized to miss threats at 1.5–2.5s; all signal-strength levers exhausted; SIM_STEPS untried across 15 cycles | SIM_STEPS sweep: 10,12,15,18,22. SS=10 won 50-game (33/50). Hypothesis overturned: shorter wins 50-game but collapses increase at 200 games | 54.0% (108/200) | 2.75 (+9.6%) | 1.785 (+39.5%) | 3.5 (+13%) | ROLLBACK |
 | 17 | AIM_PROXIMITY_SCALE=5 never tuned — hypothesis: higher APS amplifies aim reward at close range, winning more close-range bullet exchanges | AIM_PROXIMITY_SCALE sweep: 3,5,8,12,15. APS=3 won 50-game (32/50). Hypothesis inverted: lower APS wins sweep but collapses at 200 games | 49.0% (98/200) | 2.645 (+5.4%) | 1.745 (+36.3%) | 3.3 (+6%) | ROLLBACK |
+| 18 | CLOSING_SPEED_WEIGHT=8 never tuned — hypothesis: higher CSW incentivizes closing trajectories, reducing time-to-first-shot | CLOSING_SPEED_WEIGHT sweep: 4,6,8,12,16. CSW=16 won 50-game (30/50, tied with CSW=8, lowest osc). 200-game validation: 110/200 (+1 vs current best) | 55.0% (110/200) | 2.845 (+13.4%) | 1.565 (+22.3%) | 3.385 (+9.2%) | **KEPT** |

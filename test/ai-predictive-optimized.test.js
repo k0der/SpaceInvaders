@@ -71,8 +71,8 @@ describe('ai-predictive-optimized: Constants', () => {
     expect(AIM_BONUS).toBe(400);
   });
 
-  it('exports CLOSING_SPEED_WEIGHT as 8', () => {
-    expect(CLOSING_SPEED_WEIGHT).toBe(8);
+  it('exports CLOSING_SPEED_WEIGHT as 16', () => {
+    expect(CLOSING_SPEED_WEIGHT).toBe(16);
   });
 
   it('exports AIM_PROXIMITY_SCALE as 5', () => {
@@ -588,9 +588,9 @@ describe('ai-predictive-optimized: scoreTrajectory — closing velocity bonus', 
   });
 
   it('closing velocity bonus scales with CLOSING_SPEED_WEIGHT', () => {
-    expect(CLOSING_SPEED_WEIGHT).toBe(8);
-    // At MAX_SPEED=400 toward target, bonus = 8 * 400 = 3200
-    expect(CLOSING_SPEED_WEIGHT * 400).toBe(3200);
+    expect(CLOSING_SPEED_WEIGHT).toBe(16);
+    // At MAX_SPEED=400 toward target, bonus = 16 * 400 = 6400
+    expect(CLOSING_SPEED_WEIGHT * 400).toBe(6400);
   });
 
   it('handles zero distance to target without error', () => {
@@ -2337,5 +2337,40 @@ describe('ai-predictive-optimized: scoreTrajectory — DANGER_ZONE_BASE_PENALTY 
     const penalty = scoreWithout - scoreWithAsteroid;
     expect(penalty).toBeGreaterThan(0);
     expect(penalty).toBeLessThan(Math.abs(COLLISION_BASE_PENALTY));
+  });
+
+  it('closing trajectory scores meaningfully higher than stationary when CLOSING_SPEED_WEIGHT > 8', () => {
+    // Behavioral test: a trajectory that closes on the enemy should score
+    // meaningfully more than a stationary trajectory, with the gap growing
+    // proportionally to CLOSING_SPEED_WEIGHT. At CSW=12, the gap > 2000.
+    // This test fails at CSW=8 (gap ~1880) and passes at CSW>=12 (gap ~2680).
+    const target = { x: 500, y: 0, vx: 0, vy: 0 };
+
+    // Closing trajectory: ship at x=100 moves to x=120 (toward target at x=500)
+    // closingRate = (400 - 380) / 0.1 = 200 px/s
+    const closingPositions = [
+      { x: 100, y: 0, heading: 0, vx: 200, vy: 0 },
+      { x: 120, y: 0, heading: 0, vx: 200, vy: 0 },
+    ];
+
+    // Stationary trajectory: ship stays at x=100
+    // closingRate = 0
+    const stationaryPositions = [
+      { x: 100, y: 0, heading: 0, vx: 0, vy: 0 },
+      { x: 100, y: 0, heading: 0, vx: 0, vy: 0 },
+    ];
+
+    const closingScore = scoreTrajectory(closingPositions, target, [], 0.1);
+    const stationaryScore = scoreTrajectory(
+      stationaryPositions,
+      target,
+      [],
+      0.1,
+    );
+    const gap = closingScore - stationaryScore;
+
+    // At CSW=8: gap ≈ 1880 (below threshold)
+    // At CSW=12: gap ≈ 2680 (above threshold)
+    expect(gap).toBeGreaterThan(2000);
   });
 });

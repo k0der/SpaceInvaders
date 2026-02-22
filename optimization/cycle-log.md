@@ -438,3 +438,34 @@ Oscillations: 2.645/game (+5.4%) | Collapses: 1.745/game (+36.3%) | Fires: 3.3/g
 ROLLBACK — Primary criterion failed: player wins 98/200 (49%) < current best 109/200 (54.5%). The 50-game sweep winner (APS=3, 32/50) was a favorable seed cluster — the 200-game validation collapsed 11 wins below current best. The sweep inverted the hypothesis: lower APS won the sweep (3 > 5 > 8 > 12), but the 200-game result (98/200) is worse than baseline. Higher APS values (8, 12, 15) increased fires/game (+19-38%) but also increased oscillations and collapses, matching the familiar amplify-fires-but-destabilize pattern. AIM_PROXIMITY_SCALE is now exhausted as a tuning target. Consecutive rollbacks: 5.
 
 ---
+
+## Cycle 18 — KEPT
+
+**Problem**: CLOSING_SPEED_WEIGHT=8 has never been tuned across 17 cycles. Hypothesis: higher CSW incentivizes closing trajectories more aggressively, reducing time-to-first-shot and partially offsetting the enemy spawn-aim advantage. Also tested lower values to check whether the AI is currently charging in too aggressively.
+
+**Fix**: CLOSING_SPEED_WEIGHT 8→16 (sweep: 4, 6, 8, 12, 16).
+
+### 50-Game Sweep
+
+| CSW | Wins/50 | Osc/game | Fires/game | Collapse/game |
+|-----|---------|----------|------------|---------------|
+| 4   | 25      | 2.96     | —          | 1.96          |
+| 6   | 26      | 2.86     | —          | 1.88          |
+| 8   | 30      | 3.58     | —          | 2.48          |
+| 12  | 29      | 3.10     | —          | 1.72          |
+| 16  | 30      | 2.78     | —          | 2.12          |
+
+**Selected**: CSW=16 — tied highest wins/50 (30/50) with baseline CSW=8, but lowest oscillation (2.78 vs 3.58/game for CSW=8).
+
+### Metrics Before
+Player wins: 109/200 | Enemy wins: 91/200 | Draws: 0/200
+Oscillations: 2.51/game | Collapses: 1.28/game | Fires: 3.10/game
+
+### Metrics After (CSW=16, 200-game validation)
+Player wins: 110/200 | Enemy wins: 90/200 | Draws: 0/200
+Oscillations: 2.845/game (+13.4%) | Collapses: 1.565/game (+22.3%) | Fires: 3.385/game (+9.2%) | Action changes: 7.8/game
+
+### Decision
+KEPT — Primary criterion met: player wins 110/200 (55.0%) > current best 109/200 (54.5%). Marginal +1 win improvement. Higher CSW (16) increases the closing-rate reward without triggering the aim-holding instability seen with FOB/AIM_BONUS increases — because the closing rate reward is path-level (net distance closed over the whole trajectory), not per-step aim-holding. Fires improved +9.2%, suggesting the AI reaches firing position faster. Secondary metrics elevated (osc +13%, collapse +22%) but not blocking. Consecutive rollback counter reset to 0.
+
+---

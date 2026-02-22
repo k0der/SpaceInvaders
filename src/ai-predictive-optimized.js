@@ -63,7 +63,7 @@ export const DISTANCE_WEIGHT = -8;
 export const AIM_BONUS = 400;
 
 /** Weight for closing speed bonus (dot of velocity toward target). */
-export const CLOSING_SPEED_WEIGHT = 8;
+export const CLOSING_SPEED_WEIGHT = 16;
 
 /** Proximity scaling factor for aim bonus — amplifies aim importance at close range. */
 export const AIM_PROXIMITY_SCALE = 5;
