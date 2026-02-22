@@ -8,6 +8,7 @@ import {
   COLLISION_BREAK_STEPS,
   COLLISION_EARLY_BONUS,
   cloneShipForSim,
+  DANGER_ZONE_BASE_PENALTY,
   DANGER_ZONE_FACTOR,
   DISTANCE_WEIGHT,
   defineCandidates,
@@ -58,8 +59,8 @@ describe('ai-predictive-optimized: Constants', () => {
     expect(COLLISION_BREAK_STEPS).toBe(3);
   });
 
-  it('exports HYSTERESIS_BONUS as 250', () => {
-    expect(HYSTERESIS_BONUS).toBe(250);
+  it('exports HYSTERESIS_BONUS as 350', () => {
+    expect(HYSTERESIS_BONUS).toBe(350);
   });
 
   it('exports DISTANCE_WEIGHT as -8', () => {
@@ -2193,5 +2194,101 @@ describe('ai-predictive-optimized: scoreTrajectory — engage-range closing bonu
     // Closing bonus: 8 * 2.14 * 30 = 514 vs coast's 0
     // Even with hysteresis (250) for coast, thrust should win
     expect(thrustScore).toBeGreaterThan(coastScore + HYSTERESIS_BONUS);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Cycle 11: DANGER_ZONE_BASE_PENALTY separate constant
+// ---------------------------------------------------------------------------
+// These tests verify the structural fix: DANGER_ZONE_BASE_PENALTY exists as
+// a separate, less-aggressive constant used only in the near-miss branch, while
+// COLLISION_BASE_PENALTY=-20000 is reserved for actual collision deterrence.
+// ---------------------------------------------------------------------------
+
+describe('ai-predictive-optimized: DANGER_ZONE_BASE_PENALTY constant', () => {
+  it('exports DANGER_ZONE_BASE_PENALTY as a separate constant', () => {
+    expect(typeof DANGER_ZONE_BASE_PENALTY).toBe('number');
+  });
+
+  it('DANGER_ZONE_BASE_PENALTY is negative (penalty)', () => {
+    expect(DANGER_ZONE_BASE_PENALTY).toBeLessThan(0);
+  });
+
+  it('DANGER_ZONE_BASE_PENALTY is less aggressive (closer to 0) than COLLISION_BASE_PENALTY', () => {
+    // Near-miss penalty should be less severe than actual collision penalty
+    expect(Math.abs(DANGER_ZONE_BASE_PENALTY)).toBeLessThan(
+      Math.abs(COLLISION_BASE_PENALTY),
+    );
+  });
+
+  it('DANGER_ZONE_BASE_PENALTY is -10000', () => {
+    expect(DANGER_ZONE_BASE_PENALTY).toBe(-10000);
+  });
+});
+
+describe('ai-predictive-optimized: scoreTrajectory — DANGER_ZONE_BASE_PENALTY behavioral', () => {
+  it('at moderate proximity (~0.4), aim-holding trajectory scores higher than pure evasion when target is visible', () => {
+    // Ship at (0, 0), target at (200, 0) — within MAX_FIRE_RANGE (500) and aim angle OK.
+    // Asteroid at (0, 80) — distance ~80px, collisionDist = 30+15=45,
+    // dangerZone = 3*45=135. Proximity = (135-80)/(135-45) = 55/90 ≈ 0.61,
+    // worstDanger = 0.61^2 ≈ 0.37 (moderate proximity ~0.4).
+    //
+    // Aim-holding: ship pointed at target (heading=0), stays near asteroid.
+    // Pure evasion: ship moves away from asteroid (heading=PI/2, moving up).
+    //
+    // With DANGER_ZONE_BASE_PENALTY=-10000 (less aggressive), the penalty at
+    // proximity~0.37 is: -10000*0.37 = -3700 vs old -20000*0.37 = -7400.
+    // This allows the aim-holding trajectory's fire opportunity bonus to compete.
+
+    const target = { x: 200, y: 0, vx: 0, vy: 0 };
+    const asteroids = [{ x: 0, y: 80, vx: 0, vy: 0, collisionRadius: 30 }];
+
+    // Aim-holding: ship pointed at target (heading=0), 2-step trajectory staying near asteroid
+    const aimPositions = [
+      { x: 0, y: 0, heading: 0, vx: 0, vy: 0 },
+      { x: 0, y: 0, heading: 0, vx: 0, vy: 0 },
+      { x: 0, y: 0, heading: 0, vx: 0, vy: 0 },
+    ];
+
+    // Pure evasion: ship heading away from asteroid (heading=PI, moving left, away from target too)
+    const evadePositions = [
+      { x: 0, y: 0, heading: Math.PI, vx: 0, vy: 0 },
+      { x: -50, y: 0, heading: Math.PI, vx: -50, vy: 0 },
+      { x: -100, y: 0, heading: Math.PI, vx: -50, vy: 0 },
+    ];
+
+    const aimScore = scoreTrajectory(aimPositions, target, asteroids, 0.1);
+    const evadeScore = scoreTrajectory(evadePositions, target, asteroids, 0.1);
+
+    // With the reduced DANGER_ZONE_BASE_PENALTY=-10000, the aim-holding trajectory
+    // gains fire opportunity bonus while the evade trajectory loses aim and fires.
+    // Aim-holding should score better than running away from both target and asteroid.
+    expect(aimScore).toBeGreaterThan(evadeScore);
+  });
+
+  it('near-miss penalty still applies (less aggressive does not mean zero)', () => {
+    // Verify the penalty is present but softer than COLLISION_BASE_PENALTY
+    const target = { x: 500, y: 0, vx: 0, vy: 0 };
+    const collisionRadius = 30;
+    // collisionDist = 30+15=45, dangerZone = 135. Ship at y=80 → proximity ~0.61, danger ~0.37
+    const asteroids = [{ x: 0, y: 80, vx: 0, vy: 0, collisionRadius }];
+
+    const positions = [
+      { x: 0, y: 0, heading: 0, vx: 0, vy: 0 },
+      { x: 0, y: 0, heading: 0, vx: 0, vy: 0 },
+    ];
+
+    const scoreWithAsteroid = scoreTrajectory(
+      positions,
+      target,
+      asteroids,
+      0.1,
+    );
+    const scoreWithout = scoreTrajectory(positions, target, [], 0.1);
+
+    // Penalty exists but is less than COLLISION_BASE_PENALTY in magnitude
+    const penalty = scoreWithout - scoreWithAsteroid;
+    expect(penalty).toBeGreaterThan(0);
+    expect(penalty).toBeLessThan(Math.abs(COLLISION_BASE_PENALTY));
   });
 });

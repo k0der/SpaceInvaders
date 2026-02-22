@@ -36,6 +36,11 @@ export const SIM_DT = 0.1;
 /** Base penalty for collision — always catastrophic (collision = death). */
 export const COLLISION_BASE_PENALTY = -20000;
 
+/** Base penalty for near-miss danger zone — less aggressive than collision penalty.
+ *  Used only in the graduated near-miss branch so actual collision deterrence
+ *  (COLLISION_BASE_PENALTY) remains unchanged. */
+export const DANGER_ZONE_BASE_PENALTY = -10000;
+
 /** Linear tiebreaker: later collisions are slightly less bad (more time to re-evaluate). */
 export const COLLISION_EARLY_BONUS = 50;
 
@@ -76,7 +81,7 @@ export const HOLD_TIME = 0.15;
 export const COLLISION_BREAK_STEPS = 3;
 
 /** Score bonus for matching the previous frame's action (reduces oscillation). */
-export const HYSTERESIS_BONUS = 250;
+export const HYSTERESIS_BONUS = 350;
 
 /** Danger zone extends to this factor × collision distance. Near-misses within
  *  this zone receive a graduated penalty (quadratic ramp from 0 at edge to
@@ -217,7 +222,7 @@ export function scoreTrajectory(positions, target, asteroids, simDt) {
   }
 
   if (!collided && worstDanger > 0) {
-    score += COLLISION_BASE_PENALTY * worstDanger;
+    score += DANGER_ZONE_BASE_PENALTY * worstDanger;
   }
 
   // Compute initial distance to target (used for approach urgency and closing rate)
