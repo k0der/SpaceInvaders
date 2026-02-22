@@ -144,14 +144,10 @@ export function startApp() {
   );
   let playerTrail = createTrail();
   const enemySpawn = spawnEnemyPosition(playerShip.x, playerShip.y);
-  const headingAwayFromPlayer = Math.atan2(
-    enemySpawn.y - playerShip.y,
-    enemySpawn.x - playerShip.x,
-  );
   let enemyShip = createShip({
     x: enemySpawn.x,
     y: enemySpawn.y,
-    heading: headingAwayFromPlayer,
+    heading: Math.random() * 2 * Math.PI,
     owner: 'enemy',
   });
   let enemyTrail = createTrail(ENEMY_TRAIL_COLOR);
@@ -301,11 +297,10 @@ export function startApp() {
     playerShip.thrustPower = settings.thrustPower;
 
     const spawn = spawnEnemyPosition(playerShip.x, playerShip.y);
-    const heading = Math.atan2(spawn.y - playerShip.y, spawn.x - playerShip.x);
     enemyShip = createShip({
       x: spawn.x,
       y: spawn.y,
-      heading,
+      heading: Math.random() * 2 * Math.PI,
       owner: 'enemy',
     });
     enemyShip.thrustPower = settings.thrustPower;
