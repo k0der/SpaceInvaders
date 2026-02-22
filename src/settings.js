@@ -3,7 +3,7 @@
  */
 export const SETTINGS_CONFIG = {
   asteroidDensity: {
-    min: 0.5,
+    min: 0.0,
     max: 3.0,
     step: 0.1,
     default: 1.0,

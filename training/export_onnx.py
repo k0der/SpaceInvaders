@@ -16,6 +16,12 @@ import argparse
 import os
 import sys
 
+# Prevent Unicode crashes on Windows consoles (cp1252) when PyTorch's ONNX
+# exporter prints emoji like checkmarks.
+if sys.stdout.encoding and sys.stdout.encoding.lower().startswith("cp"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -82,7 +88,7 @@ def export_onnx(checkpoint_path, output_path):
             "observation": {0: "batch_size"},
             "logits": {0: "batch_size"},
         },
-        opset_version=17,
+        opset_version=18,
     )
     print(f"ONNX model exported: {output_path}")
 

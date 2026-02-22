@@ -2,9 +2,9 @@
 # See SPEC.md §16.8 for curriculum design rationale.
 
 ppo:
-  learning_rate: 3.0e-4
+  learning_rate: 1.0e-4
   n_steps: 2048
-  batch_size: 64
+  batch_size: 256
   n_epochs: 10
   gamma: 0.99
   gae_lambda: 0.95
@@ -93,7 +93,33 @@ stages:
       timeout: -1.0
 
   4:
-    description: "Learn navigation while fighting in sparse asteroid field"
+    description: "Learn to fight predictive enemy without asteroids"
+    shipHP: 3
+    maxTicks: 3600
+    asteroidDensity: 0.0
+    enemyPolicy: "predictive"
+    enemyShoots: true
+    spawnDistance: 500
+    spawnFacing: true
+    frameSkip: 2
+    aiHoldTime: 0.25
+    aiSimSteps: 10
+    promotionThreshold: 0.8
+    rewardWeights:
+      survival: 0.001
+      aim: 0.01
+      closing: 0.01
+      hit: 1.0
+      gotHit: -1.0
+      nearMiss: -0.1
+      firePenalty: -0.002
+      win: 5.0
+      loss: -5.0
+      draw: -2.0
+      timeout: -1.0
+
+  5:
+    description: "Fight predictive enemy in sparse asteroid field"
     shipHP: 3
     maxTicks: 3600
     asteroidDensity: 0.3
@@ -118,10 +144,7 @@ stages:
       draw: -2.0
       timeout: -1.0
 
-  5:
-    # True self-play (policy pool with historical snapshots) requires a
-    # two-agent bridge extension — deferred to a future increment.
-    # Using predictive AI as a strong fixed opponent for now.
+  6:
     description: "Full game conditions with normal asteroid density"
     shipHP: 1
     maxTicks: 3600

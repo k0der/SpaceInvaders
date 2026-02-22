@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Space Dogfight — Training Dashboard</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #0a0e1a;
+    color: #e0e6f0;
+    min-height: 100vh;
+    padding: 24px;
+  }
+  h1 {
+    text-align: center;
+    font-size: 1.6rem;
+    margin-bottom: 8px;
+    color: #7eb8ff;
+    letter-spacing: 1px;
+  }
+  .subtitle {
+    text-align: center;
+    font-size: 0.85rem;
+    color: #5a6a8a;
+    margin-bottom: 20px;
+  }
+  .stats {
+    display: flex;
+    justify-content: center;
+    gap: 32px;
+    flex-wrap: wrap;
+    margin-bottom: 24px;
+  }
+  .stat {
+    text-align: center;
+  }
+  .stat-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #7eb8ff;
+  }
+  .stat-label {
+    font-size: 0.75rem;
+    color: #5a6a8a;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .charts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    max-width: 1400px;
+    margin: 0 auto;
+  }
+  .chart-container {
+    background: #111827;
+    border: 1px solid #1e293b;
+    border-radius: 12px;
+    padding: 20px;
+    position: relative;
+  }
+  .chart-container h2 {
+    font-size: 0.95rem;
+    color: #94a3b8;
+    margin-bottom: 12px;
+  }
+  .chart-container canvas {
+    width: 100% !important;
+    height: 300px !important;
+  }
+  .no-data {
+    text-align: center;
+    color: #5a6a8a;
+    padding: 80px 20px;
+    font-size: 1.1rem;
+  }
+  @media (max-width: 800px) {
+    .charts { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+  <h1>SPACE DOGFIGHT — TRAINING DASHBOARD</h1>
+  <div class="subtitle" id="refresh-info">Auto-refreshes every 15s</div>
+
+  <div class="stats">
+    <div class="stat"><div class="stat-value" id="s-stage">—</div><div class="stat-label">Stage</div></div>
+    <div class="stat"><div class="stat-value" id="s-episodes">—</div><div class="stat-label">Episodes</div></div>
+    <div class="stat"><div class="stat-value" id="s-steps">—</div><div class="stat-label">Steps</div></div>
+    <div class="stat"><div class="stat-value" id="s-wr">—</div><div class="stat-label">Win Rate</div></div>
+    <div class="stat"><div class="stat-value" id="s-best">—</div><div class="stat-label">Best WR</div></div>
+  </div>
+
+  <div class="charts" id="charts-area">
+    <div class="chart-container">
+      <h2>Win Rate</h2>
+      <canvas id="chart-wr"></canvas>
+    </div>
+    <div class="chart-container">
+      <h2>Mean Reward</h2>
+      <canvas id="chart-reward"></canvas>
+    </div>
+  </div>
+  <div class="no-data" id="no-data" style="display:none">
+    Waiting for training data&hellip;<br>
+    <small>Start training and data will appear here automatically.</small>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <script>
+    var DASHBOARD_DATA = [];
+    var wrChart = null;
+    var rewardChart = null;
+
+    function loadData(cb) {
+      var s = document.createElement('script');
+      s.src = 'logs/dashboard_data.js?t=' + Date.now();
+      s.onload = function () {
+        document.head.removeChild(s);
+        cb(true);
+      };
+      s.onerror = function () {
+        document.head.removeChild(s);
+        cb(false);
+      };
+      document.head.appendChild(s);
+    }
+
+    function formatNum(n) {
+      if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
+      if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+      return String(n);
+    }
+
+    function updateDashboard() {
+      var data = window.DASHBOARD_DATA || [];
+      if (!data.length) {
+        document.getElementById('no-data').style.display = '';
+        document.getElementById('charts-area').style.display = 'none';
+        return;
+      }
+      document.getElementById('no-data').style.display = 'none';
+      document.getElementById('charts-area').style.display = '';
+
+      var last = data[data.length - 1];
+      document.getElementById('s-stage').textContent = last.stage;
+      document.getElementById('s-episodes').textContent = formatNum(last.episodes);
+      document.getElementById('s-steps').textContent = formatNum(last.step);
+      document.getElementById('s-wr').textContent = last.win_rate != null ? (last.win_rate * 100).toFixed(1) + '%' : '—';
+
+      var bestWr = 0;
+      data.forEach(function (d) { if (d.best_wr > bestWr) bestWr = d.best_wr; });
+      document.getElementById('s-best').textContent = (bestWr * 100).toFixed(1) + '%';
+
+      var labels = data.map(function (d) { return d.episodes; });
+      var wrValues = data.map(function (d) { return d.win_rate != null ? d.win_rate * 100 : null; });
+      var bestValues = data.map(function (d) { return d.best_wr != null ? d.best_wr * 100 : null; });
+      var rewardValues = data.map(function (d) { return d.mean_reward; });
+
+      var chartOpts = {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: false,
+        scales: {
+          x: {
+            title: { display: true, text: 'Episodes', color: '#5a6a8a' },
+            ticks: { color: '#5a6a8a' },
+            grid: { color: '#1e293b' }
+          },
+          y: {
+            ticks: { color: '#5a6a8a' },
+            grid: { color: '#1e293b' }
+          }
+        },
+        plugins: {
+          legend: { labels: { color: '#94a3b8' } }
+        }
+      };
+
+      if (!wrChart) {
+        wrChart = new Chart(document.getElementById('chart-wr'), {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: 'Win Rate %',
+                data: wrValues,
+                borderColor: '#3b82f6',
+                backgroundColor: 'rgba(59,130,246,0.1)',
+                fill: true,
+                tension: 0.3,
+                pointRadius: 0,
+                borderWidth: 2
+              },
+              {
+                label: 'Best WR %',
+                data: bestValues,
+                borderColor: '#f59e0b',
+                borderDash: [6, 3],
+                pointRadius: 0,
+                borderWidth: 1.5,
+                fill: false
+              },
+              {
+                label: '80% Threshold',
+                data: labels.map(function () { return 80; }),
+                borderColor: '#ef4444',
+                borderDash: [4, 4],
+                pointRadius: 0,
+                borderWidth: 1,
+                fill: false
+              }
+            ]
+          },
+          options: Object.assign({}, chartOpts, {
+            scales: Object.assign({}, chartOpts.scales, {
+              y: Object.assign({}, chartOpts.scales.y, { min: 0, max: 100 })
+            })
+          })
+        });
+      } else {
+        wrChart.data.labels = labels;
+        wrChart.data.datasets[0].data = wrValues;
+        wrChart.data.datasets[1].data = bestValues;
+        wrChart.data.datasets[2].data = labels.map(function () { return 80; });
+        wrChart.update();
+      }
+
+      if (!rewardChart) {
+        rewardChart = new Chart(document.getElementById('chart-reward'), {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [{
+              label: 'Mean Reward',
+              data: rewardValues,
+              borderColor: '#10b981',
+              backgroundColor: 'rgba(16,185,129,0.1)',
+              fill: true,
+              tension: 0.3,
+              pointRadius: 0,
+              borderWidth: 2
+            }]
+          },
+          options: chartOpts
+        });
+      } else {
+        rewardChart.data.labels = labels;
+        rewardChart.data.datasets[0].data = rewardValues;
+        rewardChart.update();
+      }
+    }
+
+    function refresh() {
+      loadData(function (ok) {
+        updateDashboard();
+        var now = new Date().toLocaleTimeString();
+        document.getElementById('refresh-info').textContent =
+          (ok ? 'Last updated ' + now : 'No data yet') + ' — auto-refreshes every 15s';
+      });
+    }
+
+    refresh();
+    setInterval(refresh, 15000);
+  </script>
+</body>
+</html>
