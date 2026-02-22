@@ -265,6 +265,9 @@ const FIRE_ANGLE = 0.15;
 /** Max distance (px) at which AI will fire — duplicated from ai-reactive for decoupling. */
 const MAX_FIRE_RANGE = 500;
 
+/** Bullet speed (px/s) — duplicated from bullet.js for decoupling. */
+const BULLET_SPEED = 600;
+
 /** Last debug info captured by selectBestAction. */
 let _lastDebugInfo = null;
 
@@ -784,6 +787,38 @@ function selectBestAction(
 }
 
 /**
+ * Compute the lead angle for firing at a moving target.
+ * Returns the world-space angle to aim at so the bullet intercepts the target,
+ * or null if no solution exists (target outrunning bullet).
+ *
+ * @param {object} ship - { x, y, vx, vy }
+ * @param {object} target - { x, y, vx, vy }
+ * @returns {{ angle: number, travelTime: number } | null}
+ */
+function computeLeadAngle(ship, target) {
+  const dx = target.x - ship.x;
+  const dy = target.y - ship.y;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  if (dist < 1) return { angle: Math.atan2(dy, dx), travelTime: 0 };
+
+  // Relative velocity of target w.r.t. ship (bullet inherits ship velocity)
+  const rvx = target.vx - ship.vx;
+  const rvy = target.vy - ship.vy;
+
+  // Estimate travel time: dist / BULLET_SPEED (first-order approximation)
+  const travelTime = dist / BULLET_SPEED;
+
+  // Predict target position at intercept time
+  const predX = target.x + rvx * travelTime;
+  const predY = target.y + rvy * travelTime;
+
+  return {
+    angle: Math.atan2(predY - ship.y, predX - ship.x),
+    travelTime,
+  };
+}
+
+/**
  * Normalize an angle to [-PI, PI].
  */
 function normalizeAngle(angle) {
@@ -843,14 +878,18 @@ function updatePredictiveOptimizedAI(state, ship, target, asteroids, _dt) {
   ship.rotatingRight = state.prevAction.rotatingRight;
   ship.braking = state.prevAction.braking;
 
-  // Fire decision: snap check based on current aim geometry
+  // Fire decision: lead-angle check — aim where the target will be
   const dx = target.x - ship.x;
   const dy = target.y - ship.y;
   const dist = Math.sqrt(dx * dx + dy * dy);
-  const angleToTarget = Math.atan2(dy, dx);
-  const headingDiff = Math.abs(normalizeAngle(angleToTarget - ship.heading));
 
-  ship.fire = headingDiff < FIRE_ANGLE && dist < MAX_FIRE_RANGE;
+  if (dist < MAX_FIRE_RANGE) {
+    const lead = computeLeadAngle(ship, target);
+    const headingDiff = Math.abs(normalizeAngle(lead.angle - ship.heading));
+    ship.fire = headingDiff < FIRE_ANGLE;
+  } else {
+    ship.fire = false;
+  }
 }
 
 /**
