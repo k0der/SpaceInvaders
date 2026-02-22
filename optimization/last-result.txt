@@ -1,1 +1,1 @@
-ROLLBACK: dual-use COLLISION_BASE_PENALTY — separate DANGER_ZONE_BASE_PENALTY -20000->-5000 — win rate 51%->52% (104/200) — oscillations +63% (1.9->3.1/game) exceeded 15% limit
+ROLLBACK: near-miss overwhelms strategic signals — DANGER_ZONE_BASE_PENALTY=-10000 — win rate 51%->47.5% (95/200) — oscillations +38% (1.9->2.63/game) exceeded 15% limit

@@ -1,5 +1,5 @@
 {
-  "cycle": 6,
+  "cycle": 7,
   "baseline": {
     "games": 200,
     "playerWins": 102,
@@ -89,8 +89,24 @@
         "action_changes_per_game": 8.1
       },
       "reason": "ROLLBACK due to oscillation regression. Player wins 104/200 (52%) exceeded the 100-win threshold, but oscillations increased 63% (3.1 vs 1.9/game), well above the 15% secondary metric limit. The reduced near-miss penalty gradient creates a narrower scoring gap in proximity situations, causing the AI to flip more frequently between aim-holding and evasion trajectories. The structural fix (decoupling the constants) is correct in principle, but DANGER_ZONE_BASE_PENALTY=-5000 is still too large a reduction — the shallow gradient produces oscillation. Next attempt should use a less aggressive reduction (e.g., -8000 to -12000 instead of -5000) to find a value that reduces collapse without inducing oscillation. Alternatively, the oscillation may require a multi-lever fix: reduce DANGER_ZONE_BASE_PENALTY moderately AND increase HYSTERESIS_BONUS to compensate for the increased score gap volatility."
+    },
+    {
+      "cycle": 7,
+      "problem": "Near-miss penalty overwhelms strategic signals — DANGER_ZONE_BASE_PENALTY=-5000 (Cycle 6) was too aggressive a reduction (4× less than -20000), causing oscillation. Attempting 2× reduction with DANGER_ZONE_BASE_PENALTY=-10000 to preserve gradient while reducing collapse.",
+      "fix": "Set DANGER_ZONE_BASE_PENALTY=-10000 (2× reduction vs COLLISION_BASE_PENALTY=-20000). At proximity 0.4: penalty -1600 vs fire signal ~2700. At proximity 0.7: penalty -4900 (still strongly discouraging). Structure unchanged from Cycle 6.",
+      "result": "ROLLBACK",
+      "metrics": {
+        "playerWins": 95,
+        "enemyWins": 105,
+        "draws": 0,
+        "oscillations_per_game": 2.63,
+        "collapses_per_game": 1.56,
+        "fires_per_game": 3.1,
+        "action_changes_per_game": 7.5
+      },
+      "reason": "ROLLBACK — two criteria failed. Player wins 95/200 (47.5%) fell below the 100-win threshold. Oscillations increased 38.4% (2.63 vs 1.9/game), exceeding the 15% secondary metric limit. Collapses improved slightly (-2.5%, 1.56 vs 1.6/game). The oscillation pattern is consistent with Cycles 4 and 6: any reduction in near-miss penalty (whether via FOB increase, or direct DZPB reduction) makes aim-holding and evasion trajectories score more similarly in proximity zones, causing the AI to flip more frequently. DANGER_ZONE_BASE_PENALTY=-10000 also induced oscillation (38% increase) despite being a more conservative reduction than -5000 (63% increase, Cycle 6). This suggests the oscillation is structural: the HYSTERESIS_BONUS=250 is insufficient to absorb the increased score gap volatility in proximity zones regardless of the exact DZPB value. The DZPB decoupling approach is exhausted as a single-lever fix — a combination with HYSTERESIS_BONUS increase is likely required, or a fundamentally different scoring mechanism."
     }
   ],
-  "consecutiveRollbacks": 6,
+  "consecutiveRollbacks": 7,
   "status": "ready"
 }

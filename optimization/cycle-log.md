@@ -112,3 +112,17 @@ Oscillations: 171 | Collapses: 100 | Fires: 206 | Action changes: 472
 ROLLBACK — Player wins 24/50 fell below the hard threshold of 35. More critically, oscillations INCREASED 75% (98→171) and action changes increased 71% (276→472), the opposite of the intended effect. Higher hysteresis stabilizes small-gap transitions but causes larger commitment errors when conditions genuinely change — the AI holds suboptimal braking/thrusting trajectories too long as asteroid fields evolve. Fires did increase significantly (+75%), suggesting more engagement time, but without more precise aim quality, the extra firing didn't convert to wins. The oscillation regression is a real behavioral failure, not just a variance artifact.
 
 ---
+
+## Cycle 7 — ROLLBACK
+**Problem**: Near-miss penalty overwhelms strategic signals; DANGER_ZONE_BASE_PENALTY=-5000 (Cycle 6) was too aggressive (4× reduction), causing oscillation +63%. Attempting 2× reduction with DANGER_ZONE_BASE_PENALTY=-10000 to preserve gradient while reducing collapse.
+**Fix**: DANGER_ZONE_BASE_PENALTY=-10000 (2× reduction vs COLLISION_BASE_PENALTY=-20000). At proximity 0.4 (worstDanger=0.16): penalty = -1600, fire signal ~2700 dominates. At proximity 0.7 (worstDanger=0.49): penalty = -4900, strongly discouraging.
+**Complexity**: 3 — New constant + change one usage line (structure identical to Cycle 6)
+### Metrics Before
+Player wins: 102/200 | Enemy wins: 98/200 | Draws: 0/200
+Oscillations: 1.9/game | Collapses: 1.6/game | Fires: 3.1/game
+### Metrics After
+Player wins: 95/200 | Enemy wins: 105/200 | Draws: 0/200
+Oscillations: 2.63/game (+38%) | Collapses: 1.56/game (-2.5%) | Fires: 3.1/game | Action changes: 7.5/game
+### Decision
+ROLLBACK — Two criteria failed: (1) player wins 95/200 below the 100-win threshold; (2) oscillations +38.4% exceeded the 15% secondary metric limit. Collapses improved slightly (-2.5%) and fires held steady, but both primary and oscillation criteria failed. The oscillation pattern is consistent across Cycles 4, 6, and 7: any change that makes aim-holding more competitive with evasion in proximity zones narrows the scoring gap and increases oscillation. DANGER_ZONE_BASE_PENALTY=-10000 still induced oscillation despite being a more conservative reduction than -5000 (Cycle 6). This demonstrates that DZPB tuning is exhausted as a single-lever fix — the oscillation is structural: HYSTERESIS_BONUS=250 is insufficient to absorb the increased score gap volatility in proximity zones regardless of the exact DZPB value. A multi-lever combination (DZPB reduction + HYSTERESIS_BONUS increase) is the most plausible next approach.
+---
