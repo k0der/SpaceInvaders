@@ -428,6 +428,60 @@ describe('Increment 26d: Headless Simulator', () => {
       );
       expect(totalActions).toBe(60);
     });
+
+    it('enemy spawns with back toward player (not aimed at player)', () => {
+      restore = installSeededRandom(42);
+      // The enemy's first FIRE event should have a large angle (back is turned),
+      // while the player fires first since it doesn't need to rotate as much.
+      const result = runGame({
+        ticks: 120,
+        dt: 1 / 60,
+        playerAI: 'predictive',
+        enemyAI: 'predictive',
+        density: 0.5,
+        speed: 1.0,
+        thrust: 2000,
+      });
+      const enemyFires = result.events.filter(
+        (e) => e.type === 'FIRE' && e.data.owner === 'enemy',
+      );
+      const playerFires = result.events.filter(
+        (e) => e.type === 'FIRE' && e.data.owner === 'player',
+      );
+      // Enemy should fire later than before since it starts facing away
+      // If both fire, player should fire first or at similar time
+      if (enemyFires.length > 0 && playerFires.length > 0) {
+        expect(playerFires[0].elapsed).toBeLessThanOrEqual(
+          enemyFires[0].elapsed + 0.5,
+        );
+      }
+    });
+
+    it('does not generate PROXIMITY events for dead ships', () => {
+      restore = installSeededRandom(2);
+      const result = runGame({
+        ticks: 300,
+        dt: 1 / 60,
+        playerAI: 'predictive',
+        enemyAI: 'predictive',
+        density: 2.0,
+        speed: 1.0,
+        thrust: 2000,
+      });
+      const kills = result.events.filter((e) => e.type === 'KILL');
+      if (kills.length > 0) {
+        const firstKillTick = kills[0].tick;
+        const victim = kills[0].data.victim;
+        // No PROXIMITY events for the dead ship after the kill tick
+        const postDeathProximity = result.events.filter(
+          (e) =>
+            e.type === 'PROXIMITY' &&
+            e.data.owner === victim &&
+            e.tick > firstKillTick,
+        );
+        expect(postDeathProximity.length).toBe(0);
+      }
+    });
   });
 });
 

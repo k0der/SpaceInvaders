@@ -1699,11 +1699,11 @@ registerStrategy('predictive', predictiveStrategy);
 const createAIState = createReactiveState;
 const updateAI = updateReactiveAI;
 
-/** Minimum enemy spawn offset from player (px). */
-const MIN_SPAWN_DISTANCE = 600;
+/** Minimum enemy spawn offset from player (px). Off-screen at 1920×1080. */
+const MIN_SPAWN_DISTANCE = 1100;
 
-/** Maximum enemy spawn offset from player (px). */
-const MAX_SPAWN_DISTANCE = 1000;
+/** Maximum enemy spawn offset from player (px). Near viewport limits. */
+const MAX_SPAWN_DISTANCE = 1300;
 
 /**
  * Compute a random spawn position for the enemy ship at
@@ -3471,16 +3471,17 @@ function startApp() {
   );
   let playerTrail = createTrail();
   const enemySpawn = spawnEnemyPosition(playerShip.x, playerShip.y);
-  const headingToPlayer = Math.atan2(
-    playerShip.y - enemySpawn.y,
-    playerShip.x - enemySpawn.x,
+  const headingAwayFromPlayer = Math.atan2(
+    enemySpawn.y - playerShip.y,
+    enemySpawn.x - playerShip.x,
   );
   let enemyShip = createShip({
     x: enemySpawn.x,
     y: enemySpawn.y,
-    heading: headingToPlayer,
+    heading: headingAwayFromPlayer,
     owner: 'enemy',
   });
+
   let enemyTrail = createTrail(ENEMY_TRAIL_COLOR);
   let bullets = [];
   const gameState = createGameState();
@@ -3628,7 +3629,7 @@ function startApp() {
     playerShip.thrustPower = settings.thrustPower;
 
     const spawn = spawnEnemyPosition(playerShip.x, playerShip.y);
-    const heading = Math.atan2(playerShip.y - spawn.y, playerShip.x - spawn.x);
+    const heading = Math.atan2(spawn.y - playerShip.y, spawn.x - playerShip.x);
     enemyShip = createShip({
       x: spawn.x,
       y: spawn.y,

@@ -28,11 +28,11 @@ registerStrategy('predictive', predictiveStrategy);
 export const createAIState = createReactiveState;
 export const updateAI = updateReactiveAI;
 
-/** Minimum enemy spawn offset from player (px). */
-export const MIN_SPAWN_DISTANCE = 600;
+/** Minimum enemy spawn offset from player (px). Off-screen at 1920×1080. */
+export const MIN_SPAWN_DISTANCE = 1100;
 
-/** Maximum enemy spawn offset from player (px). */
-export const MAX_SPAWN_DISTANCE = 1000;
+/** Maximum enemy spawn offset from player (px). Near viewport limits. */
+export const MAX_SPAWN_DISTANCE = 1300;
 
 /**
  * Compute a random spawn position for the enemy ship at
