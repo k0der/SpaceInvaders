@@ -68,6 +68,18 @@ ROLLBACK — Player wins 96/200 fell below the 100-win threshold (48% vs 51% bas
 
 ---
 
+## Cycle 5 — ROLLBACK
+**Problem**: Danger-zone penalty depth overwhelms strategic signals
+**Fix**: COLLISION_BASE_PENALTY -20000 → -10000
+**Complexity**: 1 — Tune constant
+### Metrics Before
+Player wins: 102/200 | Enemy wins: 98/200 | Draws: 0/200
+### Metrics After
+Player wins: N/A | Enemy wins: N/A | Draws: N/A
+### Decision
+ROLLBACK — Blocked at test phase, simulation not reached. With COLLISION_BASE_PENALTY=-10000, the existing test 'avoids asteroid when a clear path exists' failed: the AI preferred thrusting straight into an asteroid (score -4131.8) over turning to dodge (score -9215.5). Root cause: COLLISION_BASE_PENALTY controls both actual collision deterrence AND near-miss danger zone penalty via the same constant. Halving it weakened actual collision avoidance: T___ collision trajectory scored -4131.8 (penalty -10000 + early_bonus + all_strategic_signals), which beat turning candidates that accumulated danger zone proximity penalties during the turn maneuver (-9215.5). This is a structural limitation — the single constant cannot be reduced without breaking asteroid avoidance. A refactoring is required: split into COLLISION_PENALTY (actual collisions, keep -20000) and DANGER_ZONE_BASE_PENALTY (near-miss penalty, reduce to -5000 to -8000). See IMPROVEMENTS.md "Proposed Changes Outside Optimization Scope" for the detailed proposed refactoring.
+---
+
 ## Cycle 3 — ROLLBACK
 
 **Problem**: Score gap between best and second-best actions (~285 pts in high-speed approach scenarios) exceeds HYSTERESIS_BONUS=250, causing the AI to flip its action on every hold-timer boundary even when state barely changed. This was expected to contribute to oscillation count (98/game baseline).

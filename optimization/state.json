@@ -1,5 +1,5 @@
 {
-  "cycle": 4,
+  "cycle": 5,
   "baseline": {
     "games": 200,
     "playerWins": 102,
@@ -60,8 +60,21 @@
         "action_changes_per_game": 7.2
       },
       "reason": "Player wins 96/200 fell below the 100-win threshold (48% vs 51% baseline). Oscillations increased 42% (2.7 vs 1.9 per game), exceeding the 15% secondary metric degradation limit. Fires decreased from 3.1 to 2.7/game (-13%), suggesting the higher fire bonus causes aim-holding into asteroid proximity, reducing effective firing opportunities rather than increasing them. The tripling of FOB appears to overcorrect — the AI now holds aim too aggressively in situations where evasion would have been better, likely leading to more asteroid deaths or unstable trajectories. FIRE_OPPORTUNITY_BONUS tuning is exhausted at 300→600 (too small, Cycle 2) and 300→900 (too large, Cycle 4). The 300→600 change (Cycle 2) showed favorable secondary metrics (47% collapse reduction) but was rolled back due to 50-game variance noise — a 200-game re-test of FOB=600 might be warranted, but it was already validated at 105/200 (52.5%) which is within variance noise of 50%."
+    },
+    {
+      "cycle": 5,
+      "problem": "Danger-zone penalty depth overwhelms strategic signals — COLLISION_BASE_PENALTY=-20000 produces near-miss penalties up to -20000, dwarfing fire signal (~1800) and aim bonus (~1200). Attempting to halve penalty depth.",
+      "fix": "Reduced COLLISION_BASE_PENALTY from -20000 to -10000, halving the penalty depth for both near-misses and actual collisions",
+      "result": "ROLLBACK",
+      "metrics": {
+        "playerWins": null,
+        "enemyWins": null,
+        "draws": null,
+        "note": "Rolled back before simulation — blocked by failing tests"
+      },
+      "reason": "ROLLBACK at test phase. Halving COLLISION_BASE_PENALTY from -20000 to -10000 broke the existing 'avoids asteroid when a clear path exists' test: with the halved penalty, T___ (thrust-straight into asteroid) scored -4131.8 while TL__ (turn-left to dodge) scored -9215.5, causing the AI to prefer crashing into the asteroid over evading it. Root cause: COLLISION_BASE_PENALTY controls both (a) actual collision score and (b) near-miss danger zone penalty. Halving the base affects both. With -10000, the collision penalty (-10000 + early_bonus + all_strategic_signals) is no longer sufficient to deter choosing trajectories that actually collide when the target is directly behind the asteroid. Lesson: COLLISION_BASE_PENALTY is a unified constant — it cannot be halved for 'near-miss penalty reduction' without also halving the 'actual collision deterrence'. These two effects cannot be separated without refactoring scoreTrajectory to use distinct constants for each case."
     }
   ],
-  "consecutiveRollbacks": 4,
+  "consecutiveRollbacks": 5,
   "status": "ready"
 }
