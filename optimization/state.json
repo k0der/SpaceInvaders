@@ -1,5 +1,5 @@
 {
-  "cycle": 24,
+  "cycle": 25,
   "baseline": {
     "games": 200,
     "playerWins": 102,
@@ -385,8 +385,24 @@
         "sweep_summary": "BPS=2: 28/50, 2.50 osc/game, 1.54 col/game, 3.1 fires/game; BPS=3: 24/50, 2.04 osc/game, 1.74 col/game, 2.2 fires/game; BPS=4: 30/50, 2.06 osc/game, 1.90 col/game, 2.3 fires/game; BPS=5 (baseline): 26/50, 2.54 osc/game, 1.58 col/game, 3.4 fires/game; BPS=7: 24/50, 2.74 osc/game, 1.46 col/game, 3.1 fires/game"
       },
       "reason": "ROLLBACK — primary criterion failed. BPS=4 produced 104/200 wins (52.0%) vs BPS=5 baseline 113/200 (56.5%), a regression of 9 wins. 104 < 110 threshold. The 50-game sweep showed BPS=4 with 30/50 wins (vs 26 baseline), but this was a favorable seed cluster — the 200-game result inverted completely. Key finding: lower BPS values cause BRK candidate to win more trajectory evaluations (BRK firstAction = braking), reducing immediate firing (fires drop from 3.4 to 2.3/game) while improving oscillation metrics. The win regression confirms that more frequent BRK selection is detrimental to combat outcomes — the 5-step brake phase calibrates BRK to win only in genuine emergency/overshoot scenarios. BRAKE_PURSUIT_STEPS is now exhausted as a tuning target: BPS=5 is confirmed optimal across the tested range 2-7."
+    },
+    {
+      "cycle": 25,
+      "problem": "AI constants reverted to pre-optimization baseline by commit 585af12. Five confirmed-optimal constants (DANGER_ZONE_BASE_PENALTY=-10000, HYSTERESIS_BONUS=350, FIRE_OPPORTUNITY_BONUS=450, CLOSING_SPEED_WEIGHT=16, DISTANCE_WEIGHT=-3) from Cycles 11-19 are absent. Current reverted state measured at ~37% win rate vs 55% with optimized constants.",
+      "fix": "Re-apply all five confirmed constants simultaneously: add DANGER_ZONE_BASE_PENALTY=-10000 and use in near-miss branch; HYSTERESIS_BONUS 250→350; FIRE_OPPORTUNITY_BONUS 300→450; CLOSING_SPEED_WEIGHT 8→16; DISTANCE_WEIGHT -8→-3. No parameter sweep (values previously validated in Cycles 11-19).",
+      "result": "ROLLBACK",
+      "metrics": {
+        "playerWins": 87,
+        "enemyWins": 71,
+        "draws": 42,
+        "oscillations_per_game": 2.9,
+        "collapses_per_game": 2.1,
+        "fires_per_game": 3.7,
+        "action_changes_per_game": 8.7
+      },
+      "reason": "ROLLBACK — primary criterion failed. Player wins 87/200 (43.5%) < 100-win threshold. Result is +6.5pp improvement over reverted baseline (~37%), but still far below the 55% achieved in Cycle 19. The combined constants did improve over the baseline (87 vs ~74 avg), but the high draw rate (42/200 = 21%) is consuming decision outcomes. Of the 158 decided games, player won 87 (55%), matching the historical Cycle 19 result — but draws at 21% are suppressing the raw win count below the 100 threshold. The draw rate appears to be a corrected-simulator artifact: games are timing out at 3600 ticks with no kill, whereas historical cycles measured 0 draws with the broken simulator. The KEEP threshold of 100 wins requires winning ~63% of decided games when draws=21%, which is beyond the ~55% capability of the confirmed-optimal constants. The five-constant restoration improves combat effectiveness but cannot overcome the draw-rate confound within the 200-game threshold. Consecutive rollbacks: 6."
     }
   ],
-  "consecutiveRollbacks": 5,
+  "consecutiveRollbacks": 6,
   "status": "ALL_SINGLE_CONSTANT_TUNING_EXHAUSTED"
 }

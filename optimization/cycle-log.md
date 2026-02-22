@@ -1,5 +1,36 @@
 # Optimization Cycle Log
 
+## Cycle 25 — ROLLBACK
+
+**Problem**: AI constants reverted to pre-optimization baseline by commit 585af12. Five confirmed-optimal constants (DANGER_ZONE_BASE_PENALTY=-10000, HYSTERESIS_BONUS=350, FIRE_OPPORTUNITY_BONUS=450, CLOSING_SPEED_WEIGHT=16, DISTANCE_WEIGHT=-3) from Cycles 11-19 are absent. ANALYZE measured ~37% win rate for the current reverted code.
+**Fix**: Re-apply all five confirmed constants simultaneously as a multi-constant restoration. Add DANGER_ZONE_BASE_PENALTY=-10000 and wire to near-miss branch; HYSTERESIS_BONUS 250→350; FIRE_OPPORTUNITY_BONUS 300→450; CLOSING_SPEED_WEIGHT 8→16; DISTANCE_WEIGHT -8→-3.
+**Complexity**: 2 — Multi-constant combination (restoring confirmed-good state, no new tuning territory)
+
+### Sweep
+N/A — Skipped per cycle instructions. Values were individually validated in Cycles 11-19; combination was the Cycle 19 KEPT configuration.
+
+### Metrics Before (reverted baseline, corrected simulator)
+Player wins: ~74/200 (37.0%) | Enemy wins: ~85/200 (42.5%) | Draws: ~41/200 (20.5%)
+Oscillations: 2.73/game | Collapses: 1.89/game | Fires: 3.0/game
+
+### Metrics After (five-constant restoration)
+Player wins: 87/200 (43.5%) | Enemy wins: 71/200 (35.5%) | Draws: 42/200 (21.0%)
+Oscillations: 2.9/game | Collapses: 2.1/game | Fires: 3.7/game
+
+### Decision
+ROLLBACK — 87/200 wins (43.5%) < 100 threshold.
+
+Key observations:
+- The five-constant restoration improved wins from ~74 to 87 (+13), confirming the constants DO help. Of decided games (158), player won 87 (55%) — matching the Cycle 19 historical rate.
+- The draw rate (42/200 = 21%) is the primary blocker. With 21% draws, reaching 100/200 wins requires 63% of decided games — beyond the ~55% ceiling of the confirmed-optimal constants.
+- The draw rate appears to be a corrected-simulator artifact: the old broken simulator never reported draws (the grace period timer bug meant games ended via KILL-event only). With the fix, ~20% of games go to the 3600-tick timeout.
+- The KEEP threshold of 100/200 was calibrated against the old broken simulator where draws were 0%. Under the corrected simulator with 21% draws, the effective required win rate of decided games is ~63%, much higher than the ~55% the constants can achieve.
+- Critical implication: the historical KEEP/ROLLBACK decisions (Cycles 11-24) may all be invalid because the simulator was broken during those cycles. The true baseline with the corrected simulator is unknown.
+
+**Key insight**: The KEEP threshold (100/200) is incompatible with the corrected simulator's 21% draw rate. The optimization framework needs threshold recalibration before further cycles are meaningful. The five confirmed-optimal constants genuinely improve win rate among decided games to ~55%, but the raw win count cannot reach 100 when 21% of games are draws.
+
+---
+
 ## Cycle 24 — ROLLBACK
 
 **Problem**: Emergency-break oscillation dominates — 62% of detected oscillations have gap=0.000s, caused by `hasImminentCollision()` bypassing HYSTERESIS_BONUS entirely. CBS tuning (Cycle 13) reduced window but traded oscillation for collapses. Attempting a structural circuit breaker: track consecutive emergency breaks and suppress the override when the streak exceeds a threshold, letting scored action selection find a path through.

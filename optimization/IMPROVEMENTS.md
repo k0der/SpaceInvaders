@@ -138,9 +138,33 @@ Cycles 6-23 confirm that 50-game sweeps have ±8 win variance relative to the tr
 
 - **SIM_DT tuning exhausted (Cycle 23, ROLLBACK)**: Swept 0.07, 0.08, 0.10 (baseline), 0.12, 0.15. DT=0.07 won the 50-game sweep with 33/50 wins (66%). 200-game validation: 108/200 (54%), 2 wins below the 110 threshold. Key findings: (1) Non-monotonic sweep pattern — DT=0.07 at 33/50 then DT=0.08 collapses to 22/50, consistent with favorable seed clustering not a structural advantage. (2) DT=0.07 increased fires/game from 3.425 to 3.9 (+13.6%) — finer steps create more trajectory steps near the target but shorter 1.05s lookahead gives the AI less distance to work with. (3) Draws increased from 0 to 7 (3.5%) — shorter lookahead may miss long-range collision threats leading to boundary draws. (4) Changing SIM_DT requires updating several DT-sensitive unit tests (oscillation reproduction gap thresholds, winner name tie-handling) but these changes are reverted on ROLLBACK. **SIM_DT=0.1 (1.5s lookahead with SIM_STEPS=15) confirmed optimal across range 0.07–0.15. ALL 18 SINGLE-CONSTANT TUNING TARGETS ARE NOW EXHAUSTED. The current architecture has reached a performance ceiling at ~55% win rate under single-constant optimization. Future improvements require multi-constant combinations or structural code changes.**
 
+- **KEEP threshold incompatible with corrected simulator's draw rate (Cycle 25, ROLLBACK)**: Re-applying all five confirmed-optimal constants (DZPB=-10000, HB=350, FOB=450, CSW=16, DW=-3) produced 87/200 wins (43.5%). However, of the 158 decided games (non-draws), the player won 87 (55%) — exactly matching the Cycle 19 historical win rate. The 42/200 draw rate (21%) is preventing the raw win count from reaching the 100-win threshold. Under the corrected simulator, ~21% of games go to the 3600-tick timeout; under the old broken simulator, draws were reported as 0. **Critical implication: The KEEP threshold of 100/200 was calibrated against the old broken simulator. With 21% draws, reaching 100 raw wins requires winning 63% of decided games — far beyond the ~55% capability of the optimized AI. Before optimization can continue meaningfully, the KEEP threshold must be recalibrated to account for the draw rate, OR the draw rate must be reduced via game-logic changes (outside scope). Proposed threshold: wins >= 90 OR wins/(total_games - draws) >= 52%, whichever is easier to justify statistically.**
+
+## simulate.js Fix Applied (Pre-Cycle 25)
+
+The `simulate.js` win counter bug has been fixed (commit `77d53b2`). Previously, `updateGameState` was called without `dt`, causing the grace period timer to become NaN, so all game-ending kills were recorded as draws instead of wins.
+
+**Impact on historical data**: Win counts from simulate.js in all cycles prior to cycle 25 are understated. The KILL-event-based counter in `optimization/run-sweep.js` (used in Cycle 21) was accurate. Cycle 21 corrected-counter data:
+- BPS=5 (current optimized AI) corrected baseline: **113/200 (56.5%)**
+- True baseline for identical AIs: likely ~105/200 (vs recorded 102/200)
+
+**Cycle 25 ANALYZE will establish the corrected baseline** with the fixed simulator.
+
 ## Proposed Changes Outside Optimization Scope
 
 > These changes were identified during optimization cycles but require modifying files outside `src/ai-predictive-optimized.js`. They are logged here for human review — they were NOT applied autonomously.
+
+### Proposed: Fix ship-asteroid passthrough (Cycle 25 ANALYZE observation)
+
+**Status**: Observed but not fixed — requires modifying files outside `src/ai-predictive-optimized.js`.
+
+**Problem**: Verbose simulation shows ships at dist=23-31 with asteroid radius=31.3 for 40+ consecutive ticks without dying. With ship-asteroid collision implemented (Increment 28, commit f920e72), these should be lethal hits. The PROXIMITY detection fires when `dist < event.data.radius` (asteroid radius only), but actual collision uses `dist < radius + SHIP_SIZE`. Ships at dist=23 with radius=31.3 are inside the asteroid body and should die.
+
+**Possible cause**: The collision check in `simulate.js` or `src/ship.js` has a gap for specific asteroid size classes, or the collision detection only fires during certain game phases. The detector fires the PROXIMITY event when `dist < radius` but the game engine may only check `dist < radius + SHIP_SIZE` for the lethal collision — if SHIP_SIZE is very small relative to radius, there's a band where PROXIMITY fires but lethality doesn't trigger.
+
+**Recommended fix**: Inspect `updateAsteroidCollisions` or equivalent in `src/ship.js` and the game loop in `simulate.js` to verify the collision check fires every tick for all asteroid sizes, and that the collision radius threshold matches the PROXIMITY detector threshold. Requires modifying files outside optimization scope — not applied autonomously.
+
+**Impact**: 9.74 passthroughs/game measured in Cycle 25 ANALYZE. These false survivals may benefit or harm the player asymmetrically (hard to tell without investigating which ship survives more often). Not blocking optimization progress but may distort performance metrics.
 
 ### Proposed: Split COLLISION_BASE_PENALTY into two separate constants (Cycle 5) — IMPLEMENTED in Cycle 6, then ROLLED BACK
 
@@ -177,3 +201,4 @@ Cycles 6-23 confirm that 50-game sweeps have ±8 win variance relative to the tr
 | 22 | COLLISION_EARLY_BONUS=50 never tuned — hypothesis: increasing gradient makes AI prefer late-step collisions, buying more re-evaluation time. CEB=0 removes gradient entirely. | COLLISION_EARLY_BONUS sweep: 0,25,50,100,200. CEB=50 (baseline) won 50-game sweep with 33/50. No other value improved. No code change. CEB fully exhausted across 0–200. | N/A (rollback, baseline unchanged) | — | — | — | ROLLBACK |
 | 23 | SIM_DT=0.1 never tuned — final single-constant candidate. Hypothesis: finer steps (DT<0.1) improve precision near asteroids; coarser steps (DT>0.1) extend lookahead window. | SIM_DT sweep: 0.07,0.08,0.10,0.12,0.15. DT=0.07 won 50-game (33/50, 66%). 200-game validation: 108/200 (54%), 2 wins below threshold. **ALL SINGLE-CONSTANT TUNING NOW EXHAUSTED.** | 54.0% (108/200) | 2.50 (+10.6%) | 1.61 (0%) | 3.9 (+13.6%) | ROLLBACK |
 | 24 | Emergency-break oscillation — 62% of oscillations are gap=0.000s emergency overrides bypassing HYSTERESIS_BONUS. Circuit breaker: track consecutive breaks, suppress override when streak >= EMERGENCY_BREAK_LIMIT. | Add _emergencyBreakStreak counter; suppress break when streak >= LIMIT; decay streak on non-emergency ticks. Sweep LIMIT=1..6,999. LIMIT=5 won 50-game (29/50, 58%). 200-game: 80/200 (40%). | 40.0% (80/200) | 2.68 | 1.755 | 3.2 | ROLLBACK |
+| 25 | AI constants reverted to pre-optimization baseline by commit 585af12. Five confirmed-optimal constants from Cycles 11-19 (DZPB=-10000, HB=350, FOB=450, CSW=16, DW=-3) absent. Reverted baseline: ~37% wins. | Multi-constant restoration: re-apply all five constants simultaneously (no sweep). 200-game: 87/200 (43.5%). Decided-game win rate: 87/158 (55%) — matches historical Cycle 19. | 43.5% (87/200) | 2.9 | 2.1 | 3.7 | ROLLBACK |
