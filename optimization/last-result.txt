@@ -1,1 +1,1 @@
-ROLLBACK: emergency-break false positives — CBS 3→1 — wins 106/200 below current best 109
+ROLLBACK: fire angle too narrow — FIRE_ANGLE 0.15→0.30 — wins 100/200 below current best 109

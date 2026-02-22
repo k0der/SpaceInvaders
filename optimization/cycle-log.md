@@ -304,3 +304,67 @@ Oscillations: 1.965/game (-21.7%) | Collapses: 1.605/game (+25.4%) | Fires: 2.86
 ROLLBACK — Primary criterion failed: player wins 106/200 (53%) < current best 109/200 (54.5%). The oscillation hypothesis was confirmed: CBS=1 reduced oscillations 21.7% as predicted (emergency breaks restricted to genuine 0.1s collisions only). However, collapses increased 25.4% — genuine collisions in the 0.1–0.3s window formerly caught by the emergency break are now handled by the hold-expiry one cycle later (0.15s), resulting in more asteroid deaths. The oscillation reduction and collapse increase cancel each other out, producing no win rate improvement. CBS tuning is exhausted: CBS=3 is the balanced operating point for HOLD_TIME=0.15s. Any reduction improves oscillation but regresses collapses symmetrically.
 
 ---
+
+## Cycle 15 — ROLLBACK
+
+**Problem**: Fire angle too narrow — FIRE_ANGLE=0.15 (8.6°) means player cannot fire during the 1–2s rotation phase from spawn (player spawns heading -π/2). Enemy spawns aimed at player and fires from tick 1, creating an early-game bullet deficit. Hypothesis: wider FIRE_ANGLE lets player fire during rotation, reducing the deficit.
+
+**Fix**: FIRE_ANGLE sweep: 0.10, 0.15, 0.20, 0.25, 0.30. Selected FIRE_ANGLE=0.30 (17.2°) — highest 50-game wins.
+
+**Architecture at test time**: DANGER_ZONE_BASE_PENALTY=-10000 + HYSTERESIS_BONUS=350 + FIRE_OPPORTUNITY_BONUS=450 (Cycle 12 config)
+
+### Sweep Results
+| FIRE_ANGLE | Degrees | Wins/50 | Osc/game | Fires/game | Notes |
+|------------|---------|---------|----------|------------|-------|
+| 0.10 | 5.7° | 23 | 3.48 | low | Too narrow, very few fires |
+| 0.15 | 8.6° | 20 | 3.14 | 4.5 | Baseline (50-game noise) |
+| 0.20 | 11.5° | 30 | 2.52 | 2.4 | Clear improvement |
+| 0.25 | 14.3° | 24 | 2.80 | 4.5 | Diminishing returns |
+| **0.30** | **17.2°** | **36+32** | **2.74** | **3.2** | **Winner — two runs averaged 34/50** |
+
+### Metrics Before
+Player wins: 109/200 | Enemy wins: 91/200 | Draws: 0/200
+Oscillations: 2.51/game | Collapses: 1.28/game | Fires: 3.10/game
+
+### Metrics After (FIRE_ANGLE=0.30, 200-game validation)
+Player wins: 100/200 | Enemy wins: 100/200 | Draws: 0/200
+Oscillations: 2.265/game (-10%) | Collapses: 1.59/game (+24%) | Fires: 3.7/game (+19%) | Action changes: 7.2/game
+
+### Decision
+ROLLBACK — Primary criterion failed: player wins 100/200 (50.0%) < current best 109/200 (54.5%). The two-run 50-game average of 34/50 (68%) was a favorable seed cluster — 200-game collapsed to exactly 50%. Fire rate increased +19% but more shots at wider angles do not convert to kills on moving targets. The spawn-aim disadvantage is real but FIRE_ANGLE is not the right lever to address it. Consecutive rollbacks: 3.
+
+---
+
+## Cycle 14 — ROLLBACK
+
+**Problem**: Enemy fires 3× more in early-game engagement window due to spawn-aim advantage (enemy spawns pointed at player; player spawns heading up (-π/2) and needs 0.5–1.5s to acquire aim). ENGAGE_RANGE=350 limits the close-range combat scaling to already-close distances; the hypothesis was that widening ENGAGE_RANGE would make the AI more aggressively close from medium range, reducing the enemy's head-start advantage.
+**Fix**: ENGAGE_RANGE 350→450 (sweep: 250, 300, 350 baseline, 400, 450, 500)
+**Complexity**: 1 — Tune constant
+
+### Sweep Results
+DANGER_ZONE_BASE_PENALTY=-10000, HYSTERESIS_BONUS=350, FIRE_OPPORTUNITY_BONUS=450, CBS=3 (all fixed)
+Sweeping: ENGAGE_RANGE
+
+| ENGAGE_RANGE | Wins/50 | Osc/game | Collapses/game | Fires/game | Action changes/game |
+|-------------|---------|----------|----------------|------------|---------------------|
+| 250         | 22 | 2.62 | 1.76 | 3.5 | 7.9 |
+| 300         | 22 | 3.38 | 2.14 | 3.4 | 9.7 |
+| 350 (baseline) | 24 | 2.50 | 1.76 | 4.5 | 8.7 |
+| 400         | 27 | 2.66 | 1.98 | 4.1 | 7.5 |
+| **450**     | **28** | 2.78 | 2.32 | 3.8 | 9.3 |
+| 500         | 28 | 2.70 | 2.36 | 2.9 | 8.1 |
+
+**Selected**: ENGAGE_RANGE=450 — highest wins/50 (28/50, tied with 500 but 450 retains better fire rate).
+
+### Metrics Before
+Player wins: 109/200 | Enemy wins: 91/200 | Draws: 0/200
+Oscillations: 2.51/game | Collapses: 1.28/game | Fires: 3.10/game
+
+### Metrics After (ENGAGE_RANGE=450, 200-game validation)
+Player wins: 107/200 | Enemy wins: 93/200 | Draws: 0/200
+Oscillations: 3.175/game (+26.5%) | Collapses: 2.075/game (+62.1%) | Fires: 3.5/game (+12.9%) | Action changes: 8.935/game | Proximity: 9.1/game
+
+### Decision
+ROLLBACK — Primary criterion failed: player wins 107/200 (53.5%) < current best 109/200 (54.5%). The 50-game sweep winner (28/50 = 56%) was a favorable seed cluster. The 200-game validation confirmed no structural improvement. Secondary metrics severely elevated: collapses +62.1% (2.075 vs 1.28/game) — the larger engage range pushes the AI to close aggressively from medium range, generating more proximity events (9.1/game vs 6.4/game at baseline) and more asteroid encounters. Fire rate improved slightly (+12.9%) but this did not translate to wins. ENGAGE_RANGE is now exhausted as a single-lever tuning target. The constant affects both the distance scaling (long-range urgency) and the closing speed scaling (close-range amplification), and widening the close-range zone increases proximity deaths faster than it increases combat wins.
+
+---

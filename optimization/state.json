@@ -1,5 +1,5 @@
 {
-  "cycle": 13,
+  "cycle": 15,
   "baseline": {
     "games": 200,
     "playerWins": 102,
@@ -207,8 +207,43 @@
         "sweep_summary": "CBS=1: 30/50 wins, 2.30 osc/game (selected); CBS=2: 22/50, 2.16 osc/game; CBS=3: 21/50, 2.40 osc/game (baseline); CBS=4: 26/50, 2.70 osc/game; CBS=5: 27/50, 4.10 osc/game"
       },
       "reason": "ROLLBACK — primary criterion failed. Player wins 106/200 (53%) < current best 109/200 (54.5%). CBS=1 confirmed the oscillation reduction hypothesis: oscillations dropped 21.7% (1.965 vs 2.51/game). However, collapses increased 25.4% (1.605 vs 1.28/game) — CBS=1 is too aggressive a reduction. Genuine collisions in the 0.1–0.3s window that the emergency break would have caught are now missed; the 0.15s hold-expiry handles them one cycle late, resulting in more asteroid deaths. The oscillation fix trades oscillation reduction for collapse increase and does not improve win rate. CBS tuning appears exhausted: CBS=3 is the balanced operating point given HOLD_TIME=0.15s. Consecutive rollbacks: 1."
+    },
+    {
+      "cycle": 14,
+      "problem": "Early engagement gap — enemy spawns aimed at player and fires 3× more in the early-game window. ENGAGE_RANGE=350 means close-range combat scaling only kicks in when ships are already at close range; player needs more aggressive closing incentive from medium range to reduce the enemy's head-start advantage.",
+      "fix": "ENGAGE_RANGE 350→450 (sweep: 250, 300, 350 baseline, 400, 450, 500; ENGAGE_RANGE=450 won 50-game sweep with 28/50)",
+      "result": "ROLLBACK",
+      "metrics": {
+        "playerWins": 107,
+        "enemyWins": 93,
+        "draws": 0,
+        "oscillations_per_game": 3.175,
+        "collapses_per_game": 2.075,
+        "fires_per_game": 3.5,
+        "action_changes_per_game": 8.935,
+        "sweep_summary": "ER=250: 22/50 wins, 2.62 osc/game, 1.76 col/game; ER=300: 22/50, 3.38 osc/game, 2.14 col/game; ER=350 (baseline): 24/50, 2.50 osc/game, 1.76 col/game; ER=400: 27/50, 2.66 osc/game, 1.98 col/game; ER=450: 28/50, 2.78 osc/game, 2.32 col/game (selected — highest wins); ER=500: 28/50, 2.70 osc/game, 2.36 col/game"
+      },
+      "reason": "ROLLBACK — primary criterion failed. Player wins 107/200 (53.5%) < current best 109/200 (54.5%). ENGAGE_RANGE=450 won the 50-game sweep (28/50 = 56%) but the 200-game validation came in 2 wins below the current best, confirming the 50-game result was a favorable seed cluster. Collapses elevated at 2.075/game (+62% vs current best 1.28/game) — the larger engage range causes the AI to close more aggressively from medium range, resulting in more proximity events (9.1/game vs 6.4/game at baseline) and more asteroid encounters. The ENGAGE_RANGE sweep shows a monotonic win increase from 250→400→450 but the secondary metrics (collapses, oscillation) degrade as range increases. ENGAGE_RANGE is now exhausted as a single-lever tuning target. Consecutive rollbacks: 2."
     }
   ],
-  "consecutiveRollbacks": 1,
+    {
+      "cycle": 15,
+      "problem": "Fire angle too narrow — FIRE_ANGLE=0.15 (8.6°) means player must rotate to within 8.6° before firing. Enemy spawns aimed at player and fires from tick 1; player spawns heading up (-π/2) and needs 1–2s to acquire aim. Hypothesis: wider FIRE_ANGLE lets player fire while still rotating, reducing early-game bullet deficit.",
+      "fix": "FIRE_ANGLE sweep: 0.10, 0.15, 0.20, 0.25, 0.30. Selected FIRE_ANGLE=0.30 (17.2°) — won 50-game sweep with 36/50 wins (repeated run: 32/50). Set as base fix.",
+      "result": "ROLLBACK",
+      "metrics": {
+        "playerWins": 100,
+        "enemyWins": 100,
+        "draws": 0,
+        "oscillations_per_game": 2.265,
+        "collapses_per_game": 1.59,
+        "fires_per_game": 3.7,
+        "action_changes_per_game": 7.2,
+        "sweep_summary": "FA=0.10: 23/50 wins, 3.48 osc/game; FA=0.15 (baseline): 20/50, 3.14 osc/game; FA=0.20: 30/50, 2.52 osc/game; FA=0.25: 24/50, 2.80 osc/game; FA=0.30: 36/50 + 32/50 (avg 34), 2.74 osc/game (selected)"
+      },
+      "reason": "ROLLBACK — primary criterion failed. Player wins 100/200 (50%) < current best 109/200 (54.5%). The 50-game sweep showed FIRE_ANGLE=0.30 as a strong winner (36+32=68/100 over two runs) but the 200-game validation collapsed to 50%, exactly at chance. This is the classic favorable-seed-cluster pattern seen in cycles 8, 11, 14. The wider firing angle produced 3.7 fires/game (+19% over current best 3.10) but did not translate to kills — firing at 17.2° offset means more shots at wider angles that miss more often. The early-game spawn-aim hypothesis may be valid but FIRE_ANGLE widening addresses the wrong variable: the issue is rotation time, not firing threshold. The player needs to rotate faster or engage from a different angle at spawn, not fire inaccurate shots earlier. FIRE_ANGLE tuning is exhausted: 0.15 (baseline/current best), 0.20 (moderate improvement in 50-game sweep), 0.30 (50-game best, collapses at 200 games). Consecutive rollbacks: 3."
+    }
+  ],
+  "consecutiveRollbacks": 3,
   "status": "ready"
 }
