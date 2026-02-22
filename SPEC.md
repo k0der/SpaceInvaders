@@ -288,7 +288,7 @@ rather than a fixed direction:
 
 | Setting              | Control  | Range                          | Default | Step |
 |----------------------|----------|--------------------------------|---------|------|
-| Asteroid Density     | Slider   | 0.5x – 3.0x                   | 1.0x    | 0.1  |
+| Asteroid Density     | Slider   | 0.0x – 3.0x                   | 1.0x    | 0.1  |
 | Speed Multiplier     | Slider   | 0.2 – 3.0                     | 1.0     | 0.1  |
 | Star Parallax Layers | Slider   | 3 – 6                         | 3       | 1    |
 | Thrust Power         | Slider   | 1000 – 5000                       | 2000    | 50   |
@@ -408,6 +408,8 @@ SpaceInvaders/
     train.py        ← PPO training script with curriculum stages
     export_onnx.py  ← export PyTorch model to ONNX format
     config.yaml     ← curriculum stage definitions and hyperparameters
+    dashboard.html  ← live training dashboard (Chart.js, auto-refresh)
+    logs/           ← JSONL training logs + dashboard data (not in git)
   test/             ← Vitest test files (one per module)
   dev.html          ← development entry point (ES module imports)
   index.html        ← production build (single file, all JS inlined)
@@ -1189,6 +1191,9 @@ environment**, not in the shipped game:
 | `spawnDistance` | 400–600 | 500 (fixed) | Consistent episode starts for stable learning |
 | `spawnFacing` | Random | true | Both ships face each other — faster engagement, less wasted exploration |
 | `rewardWeights` | N/A | See §16.7 | Per-component reward scaling |
+| `frameSkip` | N/A | 2 | Simulate N ticks per RL step — halves IPC round-trips |
+| `aiHoldTime` | 0.15 | 0.25 | Enemy AI decision interval in seconds — reduces AI compute |
+| `aiSimSteps` | 15 | 10 | Enemy AI lookahead steps — reduces AI compute |
 
 ### 16.7 Reward Shaping
 
@@ -1230,12 +1235,18 @@ Each stage loads the previous stage's trained weights as initialization.
 | 1 | None | Static (doesn't move) | No | 10 | Learn thrust, aim, fire |
 | 2 | None | Moves (reactive AI) | No | 10 | Learn lead targeting, pursuit |
 | 3 | None | Moves (reactive AI) | Yes | 5 | Learn evasion + offense |
-| 4 | Sparse (0.3×) | Moves (predictive AI) | Yes | 3 | Learn navigation while fighting |
-| 5 | Normal (1.0×) | Predictive AI* | Yes | 1 | Learn the actual game |
+| 4 | None | Predictive AI | Yes | 3 | Learn to fight predictive enemy |
+| 5 | Sparse (0.3×) | Predictive AI | Yes | 3 | Learn navigation while fighting |
+| 6 | Normal (1.0×) | Predictive AI* | Yes | 1 | Learn the actual game |
 
-*Stage 5 uses the predictive AI as a strong fixed opponent. True self-play
+*Stage 6 uses the predictive AI as a strong fixed opponent. True self-play
 (policy pool with historical snapshots) requires a two-agent bridge extension
 — deferred to a future increment.
+
+**Design note**: Stage 4 was originally "predictive + sparse asteroids" but the
+agent catastrophically forgot its combat skills when facing two new challenges
+simultaneously. Splitting into stage 4 (predictive enemy only) and stage 5
+(add asteroids) follows the one-new-challenge-at-a-time principle.
 
 **Why curriculum matters**: Throwing the agent into the full game from scratch
 requires it to simultaneously learn movement, aiming, evasion, and navigation.
@@ -1244,7 +1255,7 @@ reducing total training time.
 
 ### 16.9 Self-Play (Deferred)
 
-**Status**: Deferred pending bridge protocol extension. Stage 5 currently uses
+**Status**: Deferred pending bridge protocol extension. Stage 6 currently uses
 the predictive AI as a strong fixed opponent.
 
 When implemented, self-play will prevent the agent from overfitting to a fixed
@@ -1260,7 +1271,52 @@ opponent's weaknesses:
 - Requires a two-agent bridge protocol or loading frozen ONNX models on the
   Node.js side — out of scope for the initial training scaffold
 
-### 16.10 Python Training Bridge
+### 16.10 Training Tooling
+
+Training runs can take many hours and win rates oscillate significantly. Three tools
+address this:
+
+#### Best-Model Checkpointing
+
+During training, the best model seen (by rolling win rate) is saved automatically:
+
+- Every 50 completed episodes, the current rolling win rate is compared to the best seen
+- If it exceeds the previous best, the model is saved as `best.zip` + `best_meta.json`
+  in the stage's checkpoint directory
+- `best_meta.json` records: `{ win_rate, episodes, step, timestamp }`
+- Training can be interrupted and resumed from the best model:
+  `--checkpoint training/checkpoints/stage3/best.zip`
+- The `final.zip` (saved at end of training) and `best.zip` (saved mid-training) coexist
+
+#### JSONL Training Logs
+
+Training metrics are logged to disk for analysis and live monitoring:
+
+- Every ~10 seconds, a JSON line is appended to `training/logs/stageN.jsonl`
+- Each line: `{ ts, step, episodes, win_rate, mean_reward, best_wr, stage }`
+- On startup, existing entries from the JSONL file are loaded (preserves history across restarts)
+- A `dashboard_data.js` file is also written (JS variable assignment for the dashboard)
+
+#### Live Training Dashboard
+
+A self-contained HTML file (`training/dashboard.html`) provides live visualization:
+
+- Two Chart.js charts: Win Rate over time (with best WR overlay and 80% threshold line)
+  and Mean Reward over time
+- Header stats: Stage, Episodes, Steps, Current Win Rate, Best Win Rate
+- Auto-refreshes every 15 seconds
+- Dark theme, monospace font
+- Served via `python -m http.server 8080 --directory training`
+- Loads data from `logs/dashboard_data.js` via script tag injection (cache-busted)
+
+#### Rolling Window Size
+
+The rolling window for win rate calculation is configurable via `--window-size N`
+(default 200). A larger window reduces measurement noise — with window=100, a 60%
+true win-rate agent can randomly hit 80% on a lucky streak. Window=200 gives more
+reliable promotion signals.
+
+### 16.11 Python Training Bridge
 
 Communication protocol between the Python training script and the Node.js GameEnv:
 
@@ -1287,7 +1343,7 @@ delimited).
   managed by the Python `SubprocVecEnv` wrapper)
 - The Python side wraps this in a Gymnasium-compatible `SpaceDogfightEnv` class
 
-### 16.11 File Structure Additions
+### 16.12 File Structure Additions
 
 ```
 SpaceInvaders/
@@ -1304,4 +1360,6 @@ SpaceInvaders/
     train.py            ← PPO training script with curriculum stages
     export_onnx.py      ← Export trained PyTorch model to ONNX format
     config.yaml         ← Curriculum stage definitions and hyperparameters
+    dashboard.html      ← Live training dashboard (Chart.js, auto-refresh)
+    logs/               ← JSONL training logs + dashboard data (not in git)
 ```

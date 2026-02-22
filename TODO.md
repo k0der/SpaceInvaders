@@ -1163,6 +1163,67 @@ Increments 31–37 add a third intelligence type — a neural network trained vi
 
 ---
 
+## Increment 35b: Training Tooling (Best-Model Checkpointing, Live Dashboard, Hyperparameter Fixes)
+
+**Goal**: Improve training observability and resilience. Stage 3 training took ~13 hours with win rates oscillating at ~55-60% — hitting 80% was a lucky streak on the 100-episode window. These tools let you monitor convergence in real time, save the best intermediate model, and resume training without losing progress. See SPEC §16.10.
+
+**Modify**: `training/train_v3.py`, `training/config.yaml`, `.gitignore`
+**New files**: `training/dashboard.html`
+
+**Acceptance Criteria**:
+
+### Config Improvements (`config.yaml`)
+- [x] `batch_size` changed from 64 to 256 (reduces gradient noise with 4-env × 2048-step buffer)
+- [x] `learning_rate` changed from 3e-4 to 1e-4 (finer updates for fine-tuning across stages)
+- [x] Curriculum restructured: stage 4 = predictive enemy only, stage 5 = predictive + asteroids, stage 6 = full game
+- [x] `frameSkip`, `aiHoldTime`, `aiSimSteps` forwarded from config to bridge (was missing)
+
+### Window Size CLI Arg (`train_v3.py`)
+- [x] New `--window-size` argument (default 200, was hardcoded 100)
+- [x] Passed through `train_stage()` to `WinRateCallback`
+- [x] Printed in the stage header alongside other config
+
+### Best-Model Checkpointing (`train_v3.py`)
+- [x] `BestModelCallback` class reads from `WinRateCallback` (no duplicate counting)
+- [x] Every 50 episodes, checks if rolling win rate > best seen so far
+- [x] Saves `best.zip` + `best_meta.json` to checkpoint dir when new best found
+- [x] `best_meta.json` contains: `{ win_rate, episodes, step, timestamp }`
+- [x] Prints `[BEST] New best model! win_rate=XX%` when saving
+- [x] Resume works via `--checkpoint training/checkpoints/stage3/best.zip`
+
+### JSONL Logging (`train_v3.py`)
+- [x] `JsonLogCallback` appends to `training/logs/stageN.jsonl` every ~10s
+- [x] Each line: `{ ts, step, episodes, win_rate, mean_reward, best_wr, stage }`
+- [x] Also writes `training/logs/dashboard_data.js` (JS variable assignment)
+- [x] Loads existing JSONL entries on startup (data persists across restarts)
+- [x] `best_wr` reads directly from `BestModelCallback.best_win_rate` (stays in sync with stdout)
+
+### Live Dashboard (`training/dashboard.html`)
+- [x] Self-contained HTML with Chart.js from CDN
+- [x] Two charts: Win Rate (with best WR + 80% threshold lines) and Mean Reward
+- [x] Header stats: Stage, Episodes, Steps, Current WR, Best WR
+- [x] Auto-refreshes every 15s via script tag injection (cache-busted)
+- [x] Dark theme, monospace font
+- [x] Served via `python -m http.server 8080 --directory training`
+
+### Export Script Fixes (`export_onnx.py`)
+- [x] Windows cp1252 Unicode crash fixed (PyTorch emoji in ONNX exporter)
+- [x] ONNX opset version bumped from 17 to 18 (minimum supported by current PyTorch)
+
+### Asteroid Density Slider
+- [x] Minimum changed from 0.5 to 0.0
+- [x] Setting density to 0.0 immediately removes all asteroids (trim in main.js game loop)
+
+### Gitignore
+- [x] `training/logs/` added to `.gitignore`
+
+### Validation
+- [x] `python training/train_v3.py --help` shows `--window-size` with default 200
+- [x] Training runs produce `best.zip`, `best_meta.json`, JSONL logs, and dashboard data
+- [x] Dashboard renders charts when served via HTTP
+
+---
+
 ## Increment 36: Neural Strategy (Browser Inference)
 
 **Goal**: `ai-neural.js` pluggable strategy that loads an ONNX model and runs inference client-side in the browser at 60fps.
@@ -1172,41 +1233,41 @@ Increments 31–37 add a third intelligence type — a neural network trained vi
 **Acceptance Criteria**:
 
 ### Strategy Interface
-- [ ] `neuralStrategy = { createState, update }` exported — follows the pluggable strategy interface
-- [ ] Registered as `'neural'` in the strategy registry (via `ai.js`)
+- [x] `neuralStrategy = { createState, update }` exported — follows the pluggable strategy interface
+- [x] Registered as `'neural'` in the strategy registry (via `ai.js`)
 
 ### createState
-- [ ] Returns `{ session, inputBuffer, ready, fallbackStrategy }` object
-- [ ] Loads ONNX Runtime Web from CDN (`<script>` tag) if not already loaded
-- [ ] Creates `ort.InferenceSession` from `models/policy.onnx`
-- [ ] Allocates reusable `Float32Array` input buffer (size `OBSERVATION_SIZE`)
-- [ ] Sets `ready = true` once model is loaded; `ready = false` while loading
-- [ ] On load failure: sets `fallbackStrategy` to predictive strategy, logs warning
+- [x] Returns `{ session, inputBuffer, ready, fallbackStrategy }` object
+- [x] Loads ONNX Runtime Web from CDN (`<script>` tag) if not already loaded
+- [x] Creates `ort.InferenceSession` from `models/policy.onnx`
+- [x] Allocates reusable `Float32Array` input buffer (size `OBSERVATION_SIZE`)
+- [x] Sets `ready = true` once model is loaded; `ready = false` while loading
+- [x] On load failure: sets `fallbackStrategy` to predictive strategy, logs warning
 
 ### update
-- [ ] When `ready`: builds observation via `buildObservation()` → runs ONNX inference → reads outputs
-- [ ] Movement output: argmax of 10-way softmax → maps to control flags per SPEC §16.3
-- [ ] Fire output: sigmoid > 0.5 → `ship.fire = true`
-- [ ] When not `ready` (model still loading or failed): delegates to `fallbackStrategy.update()`
-- [ ] Inference time < 1ms per call (MLP forward pass on 36 floats)
+- [x] When `ready`: builds observation via `buildObservation()` → runs ONNX inference → reads outputs
+- [x] Movement output: argmax of 10-way softmax → maps to control flags per SPEC §16.3
+- [x] Fire output: sigmoid > 0.5 → `ship.fire = true`
+- [x] When not `ready` (model still loading or failed): delegates to `fallbackStrategy.update()`
+- [x] Inference time < 1ms per call (MLP forward pass on 36 floats)
 
 ### Action Mapping
-- [ ] Action index 0–9 maps to the same control flag combinations as GameEnv (SPEC §16.3)
-- [ ] `ACTION_MAP` array exported for shared use with GameEnv
+- [x] Action index 0–9 maps to the same control flag combinations as GameEnv (SPEC §16.3)
+- [x] `ACTION_MAP` array exported for shared use with GameEnv
 
 ### Shared Code
-- [ ] Uses `buildObservation()` from `src/observation.js` — identical normalization as training
-- [ ] Uses `ACTION_MAP` from a shared location (avoid duplication with `game-env.js`)
+- [x] Uses `buildObservation()` from `src/observation.js` — identical normalization as training
+- [x] Uses `ACTION_MAP` from a shared location (avoid duplication with `game-env.js`)
 
 ### Tests
-- [ ] Mock ONNX session: verify observation is built correctly and passed to session
-- [ ] Verify action mapping: each index 0–9 produces correct control flag combination
-- [ ] Verify fire decision: sigmoid > 0.5 → fire, ≤ 0.5 → no fire
-- [ ] Verify fallback: when `ready = false`, predictive strategy is called instead
-- [ ] Verify graceful handling when ONNX Runtime is not available (CDN blocked)
+- [x] Mock ONNX session: verify observation is built correctly and passed to session
+- [x] Verify action mapping: each index 0–9 produces correct control flag combination
+- [x] Verify fire decision: sigmoid > 0.5 → fire, ≤ 0.5 → no fire
+- [x] Verify fallback: when `ready = false`, predictive strategy is called instead
+- [x] Verify graceful handling when ONNX Runtime is not available (CDN blocked)
 
 ### Visible
-- [ ] **Visible**: With a trained `policy.onnx` file in `models/`, selecting "neural" from the intelligence dropdown makes the ship fly using the trained neural network. Without a model file, it silently falls back to predictive AI.
+- [x] **Visible**: With a trained `policy.onnx` file in `models/`, selecting "neural" from the intelligence dropdown makes the ship fly using the trained neural network. Without a model file, it silently falls back to predictive AI.
 
 ---
 
