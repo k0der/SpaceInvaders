@@ -32,4 +32,10 @@ describe('Build validation', () => {
   it('script tag is not type="module"', () => {
     expect(html).not.toMatch(/<script type="module">/);
   });
+
+  it('includes ONNX Runtime CDN script tag with async attribute', () => {
+    expect(html).toMatch(
+      /<script\s[^>]*src="[^"]*onnxruntime-web[^"]*"[^>]*async[^>]*>/,
+    );
+  });
 });

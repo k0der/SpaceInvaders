@@ -988,7 +988,7 @@ describe('Increment 15: Star Field Direction Setting', () => {
   });
 
   describe('SETTINGS_CONFIG — playerIntelligence', () => {
-    it('defines playerIntelligence with options human, reactive, predictive, predictive-optimized', () => {
+    it('defines playerIntelligence with options human, reactive, predictive, predictive-optimized, neural', () => {
       const c = SETTINGS_CONFIG.playerIntelligence;
       expect(c).toBeDefined();
       expect(c.options).toEqual([
@@ -996,6 +996,7 @@ describe('Increment 15: Star Field Direction Setting', () => {
         'reactive',
         'predictive',
         'predictive-optimized',
+        'neural',
       ]);
     });
 
@@ -1009,13 +1010,14 @@ describe('Increment 15: Star Field Direction Setting', () => {
   });
 
   describe('SETTINGS_CONFIG — enemyIntelligence', () => {
-    it('defines enemyIntelligence with options reactive, predictive, and predictive-optimized', () => {
+    it('defines enemyIntelligence with options reactive, predictive, predictive-optimized, and neural', () => {
       const c = SETTINGS_CONFIG.enemyIntelligence;
       expect(c).toBeDefined();
       expect(c.options).toEqual([
         'reactive',
         'predictive',
         'predictive-optimized',
+        'neural',
       ]);
     });
 
@@ -1105,6 +1107,13 @@ describe('Increment 15: Star Field Direction Setting', () => {
       const loaded = loadSettings();
       expect(loaded.playerIntelligence).toBe('predictive');
     });
+
+    it('round-trip: save then load preserves neural playerIntelligence', () => {
+      const s = createSettings({ playerIntelligence: 'neural' });
+      saveSettings(s);
+      const loaded = loadSettings();
+      expect(loaded.playerIntelligence).toBe('neural');
+    });
   });
 
   describe('persistence — enemyIntelligence', () => {
@@ -1161,6 +1170,13 @@ describe('Increment 15: Star Field Direction Setting', () => {
       saveSettings(s);
       const loaded = loadSettings();
       expect(loaded.enemyIntelligence).toBe('reactive');
+    });
+
+    it('round-trip: save then load preserves neural enemyIntelligence', () => {
+      const s = createSettings({ enemyIntelligence: 'neural' });
+      saveSettings(s);
+      const loaded = loadSettings();
+      expect(loaded.enemyIntelligence).toBe('neural');
     });
   });
 
@@ -1227,7 +1243,7 @@ describe('Increment 15: Star Field Direction Setting', () => {
       expect(ui.selects.playerIntelligence).toBeDefined();
     });
 
-    it('playerIntelligence selector has 4 options', () => {
+    it('playerIntelligence selector has 5 options', () => {
       const ui = createSettingsUI(container, settings);
       const options = ui.selects.playerIntelligence.querySelectorAll('option');
       const values = Array.from(options).map((o) => o.value);
@@ -1236,6 +1252,7 @@ describe('Increment 15: Star Field Direction Setting', () => {
         'reactive',
         'predictive',
         'predictive-optimized',
+        'neural',
       ]);
     });
 
@@ -1279,7 +1296,7 @@ describe('Increment 15: Star Field Direction Setting', () => {
       expect(ui.selects.enemyIntelligence).toBeDefined();
     });
 
-    it('enemyIntelligence selector has 3 options', () => {
+    it('enemyIntelligence selector has 4 options', () => {
       const ui = createSettingsUI(container, settings);
       const options = ui.selects.enemyIntelligence.querySelectorAll('option');
       const values = Array.from(options).map((o) => o.value);
@@ -1287,6 +1304,7 @@ describe('Increment 15: Star Field Direction Setting', () => {
         'reactive',
         'predictive',
         'predictive-optimized',
+        'neural',
       ]);
     });
 

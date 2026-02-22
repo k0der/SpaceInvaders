@@ -18,6 +18,7 @@ import {
   updateReactiveAI,
 } from './ai-reactive.js';
 import './ai-predictive-optimized.js'; // Self-registers as 'predictive-optimized'
+import './ai-neural.js'; // Self-registers as 'neural'
 
 // ── Register strategies ──────────────────────────────────────────────
 registerStrategy('reactive', reactiveStrategy);
