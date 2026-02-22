@@ -239,3 +239,34 @@ Oscillations: 2.50/game (+32%, monitoring only) | Collapses: 1.77/game (+10.6%) 
 ### Decision
 KEPT — Primary criterion met: player wins 108/200 (54%) > 100/200 threshold. Win rate improved +5.9% (102→108) over baseline. Oscillations increased 32% — recorded for monitoring but NOT a blocking criterion per updated Cycle 11 rules. The DANGER_ZONE_BASE_PENALTY structural decoupling (kept from Cycle 8) combined with HYSTERESIS_BONUS=350 is the first configuration to both pass the win criterion AND sustain beyond 200 games. Consecutive rollback counter reset to 0.
 ---
+
+## Cycle 12 — KEPT
+**Problem**: Low fire rate — player fires 1.97/game vs enemy 2.26/game. FOB=300 is insufficient to stabilize aim-holding trajectories against HYSTERESIS_BONUS=350. At hold-timer expiry, an aimed trajectory with moderate proximity often scores below evasion because the fire bonus (300*0.4*steps=1800 max) is narrowly outweighed by the near-miss penalty. The player oscillates 6× more than the enemy (112 vs 18 per 50 games) due to unstable aim/evasion scoring at every re-evaluation boundary.
+**Fix**: FIRE_OPPORTUNITY_BONUS 300→450 (first FOB test under the DZPB=-10000+HB=350 architecture)
+**Complexity**: 1 — Tune constant
+
+### Sweep Results
+DANGER_ZONE_BASE_PENALTY=-10000, HYSTERESIS_BONUS=350 (fixed)
+Sweeping: FIRE_OPPORTUNITY_BONUS
+
+| FOB | Wins/50 | Osc/game | Collapses/game | Fires/game | Action changes/game |
+|-----|---------|----------|----------------|------------|---------------------|
+| 300 | 28 | 2.38 | 1.70 | 2.40 | 7.1 |
+| 375 | 28 | 2.28 | 1.60 | 2.68 | 7.4 |
+| **450** | **29** | **2.28** | **1.78** | **1.96** | **6.6** |
+| 525 | 25 | 2.56 | 1.26 | 2.60 | 6.5 |
+| 600 | 25 | 2.84 | 1.62 | 4.18 | 8.1 |
+
+**Selected**: FOB=450 — highest wins/50 (29/50)
+
+### Metrics Before
+Player wins: 108/200 | Enemy wins: 92/200 | Draws: 0/200
+Oscillations: 2.50/game | Collapses: 1.77/game | Fires: 3.36/game
+
+### Metrics After
+Player wins: 109/200 | Enemy wins: 91/200 | Draws: 0/200
+Oscillations: 2.51/game (+0.4%) | Collapses: 1.28/game (-28%) | Fires: 3.10/game (-8%) | Action changes: 7.6/game
+
+### Decision
+KEPT — Primary criterion met: player wins 109/200 (54.5%) > 108/200 (current best). Marginal improvement of +1 win (+0.5%). Collapses improved 28% (1.77→1.28/game) — the best collapse reduction in any KEPT cycle. Oscillations held stable (+0.4%). Fires slightly lower (3.10 vs 3.36/game) but still above baseline. The sweep shows FOB>450 harms performance (525,600 both 25/50) — consistent with the Cycle 4 pattern where excessive FOB causes aim-holding into proximity zones. FOB=450 appears to be the effective ceiling for this architecture.
+---

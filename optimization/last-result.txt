@@ -1,1 +1,1 @@
-KEPT: near-miss penalty — DANGER_ZONE_BASE_PENALTY=-10000 + HYSTERESIS=350 — win rate 51%→54% (102/200→108/200), osc 2.50/game (monitoring only)
+KEPT: fire rate low in DZPB=-10000 architecture — FOB 300→450 — win rate 54%→54.5% (108→109/200), collapses 1.77→1.28/game

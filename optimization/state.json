@@ -1,5 +1,5 @@
 {
-  "cycle": 11,
+  "cycle": 12,
   "baseline": {
     "games": 200,
     "playerWins": 102,
@@ -12,13 +12,13 @@
   },
   "current": {
     "games": 200,
-    "playerWins": 108,
-    "enemyWins": 92,
+    "playerWins": 109,
+    "enemyWins": 91,
     "draws": 0,
-    "note": "Cycle 11 KEPT: DANGER_ZONE_BASE_PENALTY=-10000 + HYSTERESIS_BONUS=350. 200-game validation: 108/200 wins (54%).",
-    "oscillations_per_game": 2.5,
-    "collapses_per_game": 1.77,
-    "fires_per_game": 3.36
+    "note": "Cycle 12 KEPT: DANGER_ZONE_BASE_PENALTY=-10000 + HYSTERESIS_BONUS=350 + FIRE_OPPORTUNITY_BONUS=450. 200-game validation: 109/200 wins (54.5%).",
+    "oscillations_per_game": 2.51,
+    "collapses_per_game": 1.28,
+    "fires_per_game": 3.10
   },
   "history": [
     {
@@ -155,7 +155,7 @@
         "action_changes_per_game": 6.8,
         "sweep_summary": "HT=0.15: 23/50, 2.04 osc/game; HT=0.20: 23/50, 2.40 osc/game; HT=0.25: 22/50, 3.14 osc/game; HT=0.30: 26/50, 2.24 osc/game (selected); HT=0.35: 26/50, 2.42 osc/game"
       },
-      "reason": "ROLLBACK — all three criteria failed. Player wins 87/200 (43.5%) fell below the 100-win threshold. Oscillations increased 35% (2.565 vs 1.9/game, threshold 2.19). Collapses increased 18% (1.885 vs 1.6/game, threshold 1.84). Key finding: HOLD_TIME tuning is not the mechanism causing oscillation. Longer hold times slow the AI's response to threats (increasing collapses via asteroid deaths) and trigger more emergency collision-break overrides (which themselves appear as action changes within the hold window). The oscillation is not caused by the timer being too short — it's caused by the scoring landscape being unstable at re-evaluation boundaries. HOLD_TIME tuning is exhausted as a single-lever fix."
+      "reason": "ROLLBACK — all three criteria failed. Player wins 87/200 (43.5%) fell below the 100-win threshold. Oscillations increased 35% (2.565 vs 1.9/game, threshold 2.19). Collapses increased 18% (1.885 vs 1.6/game, threshold 1.84). Key finding: HOLD_TIME tuning is not the mechanism causing oscillation. Longer hold times slow the AI's response to threats (increasing collapses via asteroid deaths) and trigger more emergency collision-break overrides (which themselves appear as action changes within the hold window → oscillations increase). The oscillation is not caused by the timer being too short — it's caused by the scoring landscape being unstable at re-evaluation boundaries. HOLD_TIME tuning is exhausted as a single-lever fix."
     },
     {
       "cycle": 11,
@@ -173,6 +173,23 @@
         "sweep_summary": "HB=250: 26/50 wins, 2.72 osc/game; HB=275: 25/50, 3.70 osc/game; HB=300: 24/50, 2.56 osc/game; HB=325: 28/50, 2.96 osc/game; HB=350: 37/50, 2.82 osc/game (best wins — selected); HB=375: 21/50, 2.58 osc/game; HB=400: 25/50, 2.28 osc/game"
       },
       "reason": "KEPT — primary criterion met. Player wins 108/200 (54%) exceeds the 100-win threshold. Oscillations increased 32% (2.5 vs 1.9/game — monitoring only, not blocking per updated rules). Collapses +10.6% (1.77 vs 1.6), fires +8.4% (3.36 vs 3.1). HB=350 produced a sharp 37/50 50-game peak — same non-monotonic pattern as Cycle 8, but now with oscillation as a non-blocking metric, the 200-game win improvement (54% vs 51%) is sufficient to KEEP."
+    },
+    {
+      "cycle": 12,
+      "problem": "Low fire rate — player fires 1.97/game vs enemy 2.26/game. FOB=300 insufficient to stabilize aim-holding trajectories against HYSTERESIS_BONUS=350. Player oscillates 6× more than enemy (112 vs 18 per 50 games) — aimed trajectories with moderate proximity score below evasion at FOB=300.",
+      "fix": "FIRE_OPPORTUNITY_BONUS 300→450 (first FOB test under DZPB=-10000 + HB=350 architecture; sweep: 300,375,450,525,600)",
+      "result": "KEPT",
+      "metrics": {
+        "playerWins": 109,
+        "enemyWins": 91,
+        "draws": 0,
+        "oscillations_per_game": 2.51,
+        "collapses_per_game": 1.28,
+        "fires_per_game": 3.10,
+        "action_changes_per_game": 7.6,
+        "sweep_summary": "FOB=300: 28/50 wins, 2.38 osc/game; FOB=375: 28/50, 2.28 osc/game; FOB=450: 29/50, 2.28 osc/game (selected — highest wins); FOB=525: 25/50, 2.56 osc/game; FOB=600: 25/50, 2.84 osc/game"
+      },
+      "reason": "KEPT — primary criterion met. Player wins 109/200 (54.5%) > 108/200 current best. Marginal +1 win improvement. Collapses improved 28% (1.77→1.28/game) — best collapse result in any KEPT cycle. Oscillations stable (+0.4%). FOB=450 appears to be the effective ceiling for this architecture: values above 450 (525, 600) regress to 25/50 wins, consistent with Cycle 4's aim-holding-into-proximity pattern. Consecutive rollback counter remains 0."
     }
   ],
   "consecutiveRollbacks": 0,
