@@ -1,5 +1,5 @@
 {
-  "cycle": 7,
+  "cycle": 10,
   "baseline": {
     "games": 200,
     "playerWins": 102,
@@ -105,8 +105,59 @@
         "action_changes_per_game": 7.5
       },
       "reason": "ROLLBACK — two criteria failed. Player wins 95/200 (47.5%) fell below the 100-win threshold. Oscillations increased 38.4% (2.63 vs 1.9/game), exceeding the 15% secondary metric limit. Collapses improved slightly (-2.5%, 1.56 vs 1.6/game). The oscillation pattern is consistent with Cycles 4 and 6: any reduction in near-miss penalty (whether via FOB increase, or direct DZPB reduction) makes aim-holding and evasion trajectories score more similarly in proximity zones, causing the AI to flip more frequently. DANGER_ZONE_BASE_PENALTY=-10000 also induced oscillation (38% increase) despite being a more conservative reduction than -5000 (63% increase, Cycle 6). This suggests the oscillation is structural: the HYSTERESIS_BONUS=250 is insufficient to absorb the increased score gap volatility in proximity zones regardless of the exact DZPB value. The DZPB decoupling approach is exhausted as a single-lever fix — a combination with HYSTERESIS_BONUS increase is likely required, or a fundamentally different scoring mechanism."
+    },
+    {
+      "cycle": 8,
+      "problem": "Multi-lever combination attempt: DANGER_ZONE_BASE_PENALTY=-10000 (reduces near-miss penalty depth) + HYSTERESIS_BONUS sweep (250–350) to find stabilizing value. Cycles 6–7 proved single-lever DZPB is exhausted; HYSTERESIS_BONUS alone is counterproductive (Cycle 3). Sweeping HB to find best combination.",
+      "fix": "DANGER_ZONE_BASE_PENALTY=-10000 (structural, same as Cycle 7) + HYSTERESIS_BONUS=325 (selected from 5-value sweep at 50 games each)",
+      "result": "ROLLBACK",
+      "metrics": {
+        "playerWins": 115,
+        "enemyWins": 85,
+        "draws": 0,
+        "oscillations_per_game": 2.74,
+        "collapses_per_game": 2.245,
+        "fires_per_game": 3.91,
+        "action_changes_per_game": 8.52,
+        "sweep_summary": "HB=250: 22/50 wins, 2.42 osc/game; HB=275: 22/50, 3.20 osc/game; HB=300: 17/50, 2.50 osc/game; HB=325: 32/50 wins, 1.50 osc/game (best 50-game); HB=350: 23/50, 2.92 osc/game"
+      },
+      "reason": "ROLLBACK — two secondary metrics exceeded 15% threshold despite improved wins. Player wins 115/200 (57.5%, +13% over baseline) exceeded the 100-win threshold. However, oscillations increased 44% (2.74 vs 1.9/game, threshold 2.19) and collapses increased 40% (2.245 vs 1.6/game, threshold 1.84). The 50-game sweep identified HB=325 as best candidate (32/50 wins, 1.5 osc/game), but the 200-game validation showed the 50-game result was a favorable random seed cluster, not a structural improvement. The combined fix generates more combat engagement (fires +26%, action changes +9%) but at the cost of behavioral instability at 200-game scale. Key finding: the DANGER_ZONE_BASE_PENALTY + HYSTERESIS_BONUS combination does not have a stable operating point in the 250–350 range. The 50-game sweep is an unreliable predictor for this parameter space — non-monotonic behavior (sharp 32/50 peak at HB=325 surrounded by 17-23/50 values) suggests strong random seed sensitivity."
+    },
+    {
+      "cycle": 9,
+      "problem": "Aim signal too weak relative to HYSTERESIS_BONUS — AIM_BONUS=400 produces a score gap of only ~218 points between aimed and off-aim trajectories at long range (aimProximityFactor=1.0), which is below HYSTERESIS_BONUS=250, creating oscillation-prone scoring near the hold-timer boundary.",
+      "fix": "Swept AIM_BONUS across 400, 600, 800, 1000, 1200. Selected AIM_BONUS=1000 (only value meeting osc ≤ 2.19 threshold in 50-game sweep at 2.04 osc/game, 27 wins). Validated at 200 games.",
+      "result": "ROLLBACK",
+      "metrics": {
+        "playerWins": 95,
+        "enemyWins": 105,
+        "draws": 0,
+        "oscillations_per_game": 2.225,
+        "collapses_per_game": 1.435,
+        "fires_per_game": 2.7,
+        "action_changes_per_game": 6.9,
+        "sweep_summary": "AB=400: 21/50, 3.24 osc/game; AB=600: 26/50, 2.46 osc/game; AB=800: 31/50, 2.84 osc/game; AB=1000: 27/50, 2.04 osc/game (selected — within threshold); AB=1200: 34/50, 2.36 osc/game (best wins, exceeded osc threshold)"
+      },
+      "reason": "ROLLBACK — two criteria failed. Player wins 95/200 (47.5%) fell below the 100-win threshold. Oscillations increased 17% (2.225 vs 1.9/game, threshold 2.19). Collapses improved 10% (1.435 vs 1.6). Fires decreased 13% (2.7 vs 3.1). Key finding: AIM_BONUS increases do reduce collapses (the AI holds aim trajectories longer, spending less time in pure evasion) but this trades off against oscillation as the aim signal competes with danger-zone penalty signals in proximity. AIM_BONUS=1000 was closest to all thresholds — oscillation just barely exceeded the threshold at 200-game scale. Notable: AIM_BONUS=1200 showed best 50-game wins (34/50) and lowest collapses (1.10) but osc exceeded threshold. AIM_BONUS single-lever tuning appears exhausted: lower values (400,600,800) have poor wins; higher values (800,1000,1200) reduce collapses but cause oscillation slightly above threshold."
+    },
+    {
+      "cycle": 10,
+      "problem": "Oscillation mechanism is structural — 9 consecutive rollbacks from constant tuning. Attempting direct mechanical constraint: increasing HOLD_TIME to limit maximum action-change frequency regardless of scoring landscape.",
+      "fix": "Swept HOLD_TIME across 0.15, 0.20, 0.25, 0.30, 0.35. Selected HOLD_TIME=0.30 (fallback criterion: best wins ≥ 25/50 with lowest oscillation). Validated at 200 games.",
+      "result": "ROLLBACK",
+      "metrics": {
+        "playerWins": 87,
+        "enemyWins": 113,
+        "draws": 0,
+        "oscillations_per_game": 2.565,
+        "collapses_per_game": 1.885,
+        "fires_per_game": 2.75,
+        "action_changes_per_game": 6.8,
+        "sweep_summary": "HT=0.15: 23/50, 2.04 osc/game; HT=0.20: 23/50, 2.40 osc/game; HT=0.25: 22/50, 3.14 osc/game; HT=0.30: 26/50, 2.24 osc/game (selected); HT=0.35: 26/50, 2.42 osc/game"
+      },
+      "reason": "ROLLBACK — all three criteria failed. Player wins 87/200 (43.5%) fell below the 100-win threshold. Oscillations increased 35% (2.565 vs 1.9/game, threshold 2.19). Collapses increased 18% (1.885 vs 1.6/game, threshold 1.84). Key finding: HOLD_TIME tuning is not the mechanism causing oscillation. Longer hold times slow the AI's response to threats (increasing collapses via asteroid deaths) and trigger more emergency collision-break overrides (which themselves appear as action changes within the hold window). The oscillation is not caused by the timer being too short — it's caused by the scoring landscape being unstable at re-evaluation boundaries. HOLD_TIME tuning is exhausted as a single-lever fix."
     }
   ],
-  "consecutiveRollbacks": 7,
+  "consecutiveRollbacks": 10,
   "status": "ready"
 }

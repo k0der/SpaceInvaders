@@ -1,1 +1,1 @@
-ROLLBACK: near-miss overwhelms strategic signals — DANGER_ZONE_BASE_PENALTY=-10000 — win rate 51%->47.5% (95/200) — oscillations +38% (1.9->2.63/game) exceeded 15% limit
+ROLLBACK: oscillation — HOLD_TIME 0.15→0.30 — win rate 51%→43.5% (87/200), osc +35% (2.565/game), collapses +18% (1.885/game). All three criteria failed: wins <100, osc >2.19, collapses >1.84. HOLD_TIME tuning exhausted — not the oscillation mechanism.
