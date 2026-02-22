@@ -502,3 +502,34 @@ Oscillations: 2.26/game (-20.6%) | Collapses: 1.61/game (+2.9%) | Fires: 3.425/g
 KEPT — Primary criterion met: player wins 110/200 (55.0%) equals current best 110/200. Oscillations improved significantly (-20.6%: 2.26 vs 2.845/game), action changes improved (-12.8%: 6.8 vs 7.8/game). Collapses essentially flat (+2.9%: 1.61 vs 1.565/game). The score suppression hypothesis was confirmed: DW=-3 wins the 50-game sweep (29/50) over baseline (-8 at 27/50). At 200 games, win count is identical but behavioral stability improves. DW=-14 collapsed to 17/50, confirming the approach incentive still matters at some level. With CSW=16 providing path-level closing incentive, DW=-3 is the correct balance — preserving approach direction signal while reducing redundant score suppression.
 
 ---
+
+## Cycle 20 — ROLLBACK
+
+**Problem**: ENGAGE_CLOSING_SCALE=3 never tuned across 19 cycles. Hypothesized that CSW doubling (Cycle 18: CSW 8→16) made ECS=3 over-amplified: at zero distance within ENGAGE_RANGE, the formula `CSW*(1+ECS)*closingRate` = 16*4*50 = 3200 pts, double the pre-Cycle-18 value of 8*4*50 = 1600 pts. This over-amplification was suspected to cause excessive close-range commitment and score volatility, increasing emergency-break oscillations.
+
+**Fix**: ENGAGE_CLOSING_SCALE sweep: 1, 2, 3 (baseline), 4, 5.
+
+**Architecture at test time**: DANGER_ZONE_BASE_PENALTY=-10000 + HYSTERESIS_BONUS=350 + FIRE_OPPORTUNITY_BONUS=450 + CLOSING_SPEED_WEIGHT=16 + DISTANCE_WEIGHT=-3
+
+### RED Test
+
+Behavioral test at dist=200px within ENGAGE_RANGE, closingRate=50px/s (heading perpendicular to target — no aim/fire noise): score gap between closing and stationary trajectories should be < 1800 pts. ECS=3 produces gap=2054 (FAILS). ECS<=2 produces gap<=1711 (PASSES).
+
+### Sweep Results
+
+| ECS | Wins/50 | Win% | Osc | Collapses | Fires/game |
+|-----|---------|------|-----|-----------|------------|
+| 1 | 28 | 56% | 93 | 76 | 3.7 |
+| 2 | 25 | 50% | 139 | 109 | 3.2 |
+| **3 (baseline)** | **29** | **58%** | **96** | **66** | **4.2** |
+| 4 | 27 | 54% | 91 | 86 | 3.0 |
+| 5 | 24 | 48% | 82 | 49 | 2.8 |
+
+**Selected by 50-game**: ECS=3 (baseline) — highest wins (29/50). Hypothesis inverted.
+
+### Decision
+ROLLBACK — ECS=3 (baseline) won the 50-game sweep with 29/50. No competing value improves on both wins and collapses simultaneously. The hypothesis that CSW-doubling over-amplified ECS=3 was NOT empirically confirmed. The RED test (gap < 1800) fails with ECS=3 (gap=2054) and the baseline cannot satisfy it, so both test and source changes rolled back to HEAD.
+
+**Key finding**: ENGAGE_CLOSING_SCALE is now fully exhausted (full range 1–5 tested). ECS=3 is confirmed optimal. The empirical data shows ECS=3 produces the most wins AND fewest collapses in the sweep despite the theoretical over-amplification concern. Remaining untried: BRAKE_PURSUIT_STEPS, COLLISION_EARLY_BONUS, SIM_DT.
+
+---

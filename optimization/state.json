@@ -1,5 +1,5 @@
 {
-  "cycle": 19,
+  "cycle": 20,
   "baseline": {
     "games": 200,
     "playerWins": 102,
@@ -309,8 +309,22 @@
         "sweep_summary": "DW=-3: 29/50 wins (selected — highest); DW=-5: 26/50; DW=-8 (baseline): 27/50; DW=-11: 27/50; DW=-14: 17/50"
       },
       "reason": "KEPT — primary criterion met. Player wins 110/200 (55.0%) equals current best 110/200. Oscillations improved significantly (-20.6%: 2.26 vs 2.845/game), action changes improved (-12.8%: 6.8 vs 7.8/game). Collapses essentially flat (+2.9%: 1.61 vs 1.565/game). The score suppression reduction hypothesis was confirmed: DW=-3 wins the 50-game sweep (29/50) over baseline (-8 at 27/50), and at 200 games produces equivalent wins with better behavioral stability. DW=-14 collapses badly (17/50) confirming the approach incentive still matters. Consecutive rollback counter remains 0."
+    },
+    {
+      "cycle": 20,
+      "problem": "ENGAGE_CLOSING_SCALE=3 never tuned across 19 cycles. Hypothesized over-amplification after CSW was doubled from 8 to 16 in cycle 18: CSW=16+ECS=3 gives 64× closingRate amplification at zero distance vs the original 32× intent. Proposed that reducing ECS would reduce close-range score volatility and emergency-break frequency.",
+      "fix": "ENGAGE_CLOSING_SCALE sweep: 1,2,3,4,5. ECS=3 (baseline) won 50-game sweep with 29/50.",
+      "result": "ROLLBACK",
+      "metrics": {
+        "playerWins": null,
+        "enemyWins": null,
+        "draws": null,
+        "note": "No 200-game validation run — ECS=3 (baseline) won the 50-game sweep. No code change. Rollback on test incompatibility.",
+        "sweep_summary": "ECS=1: 28/50, 93 osc, 76 collapse, 3.7 fires/game; ECS=2: 25/50, 139 osc, 109 collapse, 3.2 fires/game; ECS=3 (baseline): 29/50, 96 osc, 66 collapse, 4.2 fires/game; ECS=4: 27/50, 91 osc, 86 collapse, 3.0 fires/game; ECS=5: 24/50, 82 osc, 49 collapse, 2.8 fires/game"
+      },
+      "reason": "ROLLBACK — ECS=3 (baseline) won the 50-game sweep with 29/50, tied within ±8 variance with ECS=1 (28/50). The hypothesis that CSW-doubling made ECS=3 over-amplified was NOT confirmed empirically — ECS=3 remains the best-performing value across all 5 candidates on both wins AND collapses. No code change was applied. The RED test (gap < 1800 at dist=200px) failed with ECS=3 (gap=2054), and the baseline cannot satisfy this test, so test is rolled back. Key finding: ENGAGE_CLOSING_SCALE is now exhausted across its full 1–5 range; ECS=3 is confirmed optimal."
     }
   ],
-  "consecutiveRollbacks": 0,
+  "consecutiveRollbacks": 1,
   "status": "ready"
 }

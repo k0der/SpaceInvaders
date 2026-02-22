@@ -1,1 +1,1 @@
-KEPT: score suppression — DISTANCE_WEIGHT -8→-3 — win rate 55%→55% (110→110/200), oscillations -20.6% (2.845→2.26/game)
+ROLLBACK: ECS over-amplified after CSW doubling — ECS 3→3 (unchanged) — hypothesis inverted by sweep, ECS=3 remains optimal, no 200-game run (baseline unchanged at 110/200)
