@@ -288,10 +288,10 @@ export function scoreTrajectory(positions, target, asteroids, simDt) {
     score += CLOSING_SPEED_WEIGHT * closingScale * closingRate;
   }
 
-  // Fire opportunity bonus: count steps with a viable firing solution
-  // (aimed within FIRE_ANGLE and within MAX_FIRE_RANGE of predicted target).
-  // Scaled by proximity — closer shots are worth more, breaking orbits
-  // while not rewarding standing still at max range.
+  // Fire opportunity bonus: count steps with a viable lead-angle firing solution.
+  // Uses the same lead-angle logic as the fire decision — scores trajectories
+  // by whether shots would actually hit the predicted target position, not just
+  // aim at where the target currently is. Scaled by proximity.
   for (let i = 1; i < positions.length; i++) {
     const t = i * simDt;
     const predX = target.x + target.vx * t;
@@ -300,7 +300,16 @@ export function scoreTrajectory(positions, target, asteroids, simDt) {
     const fdy = predY - positions[i].y;
     const fDist = Math.sqrt(fdx * fdx + fdy * fdy);
     if (fDist > MAX_FIRE_RANGE) continue;
-    const fireAngle = Math.atan2(fdy, fdx);
+    // Lead-angle: where target will be when a bullet fired now arrives
+    const bulletTime = fDist / BULLET_SPEED;
+    const rvx = target.vx - positions[i].vx;
+    const rvy = target.vy - positions[i].vy;
+    const leadX = predX + rvx * bulletTime;
+    const leadY = predY + rvy * bulletTime;
+    const fireAngle = Math.atan2(
+      leadY - positions[i].y,
+      leadX - positions[i].x,
+    );
     let fireDiff = fireAngle - positions[i].heading;
     while (fireDiff > Math.PI) fireDiff -= 2 * Math.PI;
     while (fireDiff < -Math.PI) fireDiff += 2 * Math.PI;
