@@ -24,6 +24,7 @@ describe('Increment 26d: Headless Simulator', () => {
       expect(config.density).toBe(1.0);
       expect(config.speed).toBe(1.0);
       expect(config.thrust).toBe(2000);
+      expect(config.bridge).toBe(false);
     });
 
     it('parses --games', () => {

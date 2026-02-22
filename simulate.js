@@ -10,6 +10,7 @@
  *        [--density N] [--speed N] [--thrust N]
  */
 
+import { createInterface } from 'node:readline';
 import { spawnEnemyPosition } from './src/ai.js';
 import { getStrategy } from './src/ai-core.js';
 import { getLastDebugInfo, HOLD_TIME } from './src/ai-predictive.js';
@@ -31,6 +32,7 @@ import {
   updateExplosion,
   updateGameState,
 } from './src/game.js';
+import { GameEnv } from './src/game-env.js';
 import { createShip, SHIP_SIZE, updateShip } from './src/ship.js';
 import {
   computeSpawnBounds,
@@ -66,6 +68,7 @@ export function parseArgs(argv) {
     density: 1.0,
     speed: 1.0,
     thrust: 2000,
+    bridge: false,
   };
 
   for (let i = 0; i < argv.length; i++) {
@@ -102,6 +105,9 @@ export function parseArgs(argv) {
         break;
       case '--thrust':
         config.thrust = Number.parseInt(argv[++i], 10);
+        break;
+      case '--bridge':
+        config.bridge = true;
         break;
     }
   }
@@ -432,9 +438,7 @@ export function runGame(config) {
       bullets = collisionResult.bullets;
       if (collisionResult.playerHit) {
         playerShip.alive = false;
-        gameState.explosions.push(
-          createExplosion(playerShip.x, playerShip.y),
-        );
+        gameState.explosions.push(createExplosion(playerShip.x, playerShip.y));
         events.push({
           tick,
           elapsed,
@@ -444,9 +448,7 @@ export function runGame(config) {
       }
       if (collisionResult.enemyHit) {
         enemyShip.alive = false;
-        gameState.explosions.push(
-          createExplosion(enemyShip.x, enemyShip.y),
-        );
+        gameState.explosions.push(createExplosion(enemyShip.x, enemyShip.y));
         events.push({
           tick,
           elapsed,
@@ -456,11 +458,12 @@ export function runGame(config) {
       }
 
       // Ship-asteroid collisions
-      if (playerShip.alive && checkShipAsteroidCollision(playerShip, sim.asteroids)) {
+      if (
+        playerShip.alive &&
+        checkShipAsteroidCollision(playerShip, sim.asteroids)
+      ) {
         playerShip.alive = false;
-        gameState.explosions.push(
-          createExplosion(playerShip.x, playerShip.y),
-        );
+        gameState.explosions.push(createExplosion(playerShip.x, playerShip.y));
         events.push({
           tick,
           elapsed,
@@ -468,11 +471,12 @@ export function runGame(config) {
           data: { victim: 'player', killer: 'asteroid', cause: 'asteroid' },
         });
       }
-      if (enemyShip.alive && checkShipAsteroidCollision(enemyShip, sim.asteroids)) {
+      if (
+        enemyShip.alive &&
+        checkShipAsteroidCollision(enemyShip, sim.asteroids)
+      ) {
         enemyShip.alive = false;
-        gameState.explosions.push(
-          createExplosion(enemyShip.x, enemyShip.y),
-        );
+        gameState.explosions.push(createExplosion(enemyShip.x, enemyShip.y));
         events.push({
           tick,
           elapsed,
@@ -519,11 +523,12 @@ export function runGame(config) {
     stats: {
       ticks,
       actionCounts,
-      winner: gameState.phase === 'playerWin'
-        ? 'player'
-        : gameState.phase === 'playerDead'
-          ? 'enemy'
-          : null,
+      winner:
+        gameState.phase === 'playerWin'
+          ? 'player'
+          : gameState.phase === 'playerDead'
+            ? 'enemy'
+            : null,
     },
   };
 }
@@ -667,6 +672,98 @@ function printDetection(det) {
   }
 }
 
+// ── Bridge ───────────────────────────────────────────────────────────────
+
+/**
+ * Process a single JSON-lines command for the Python bridge.
+ * Pure function: takes current env (or null) and a raw JSON string,
+ * returns { response, shouldExit, env }.
+ *
+ * @param {GameEnv|null} env - current environment (null if not yet reset)
+ * @param {string} line - raw JSON string from stdin
+ * @returns {{ response: object, shouldExit: boolean, env: GameEnv|null }}
+ */
+export function processCommand(env, line) {
+  let parsed;
+  try {
+    parsed = JSON.parse(line);
+  } catch (err) {
+    return {
+      response: { error: `Invalid JSON: ${err.message}` },
+      shouldExit: false,
+      env,
+    };
+  }
+
+  switch (parsed.command) {
+    case 'reset': {
+      const newEnv = new GameEnv();
+      const obs = newEnv.reset(parsed.config || {});
+      return {
+        response: { observation: Array.from(obs) },
+        shouldExit: false,
+        env: newEnv,
+      };
+    }
+    case 'step': {
+      if (env === null) {
+        return {
+          response: { error: 'Environment not initialized. Call reset first.' },
+          shouldExit: false,
+          env,
+        };
+      }
+      try {
+        const result = env.step(parsed.action, parsed.fire ?? 0);
+        return {
+          response: {
+            observation: Array.from(result.observation),
+            reward: result.reward,
+            done: result.done,
+            info: result.info,
+          },
+          shouldExit: false,
+          env,
+        };
+      } catch (err) {
+        return {
+          response: { error: `Invalid action: ${err.message}` },
+          shouldExit: false,
+          env,
+        };
+      }
+    }
+    case 'close': {
+      return { response: { status: 'closed' }, shouldExit: true, env };
+    }
+    default: {
+      return {
+        response: { error: `Unknown command: ${parsed.command}` },
+        shouldExit: false,
+        env,
+      };
+    }
+  }
+}
+
+/**
+ * Run the bridge I/O loop: read JSON commands from stdin, write JSON responses to stdout.
+ */
+async function runBridge() {
+  let env = null;
+  const rl = createInterface({ input: process.stdin, terminal: false });
+  for await (const line of rl) {
+    const result = processCommand(env, line);
+    env = result.env;
+    process.stdout.write(`${JSON.stringify(result.response)}\n`);
+    if (result.shouldExit) {
+      rl.close();
+      process.exit(0);
+    }
+  }
+  process.exit(0);
+}
+
 // ── Main Entry Point ────────────────────────────────────────────────────
 
 const isMain =
@@ -676,35 +773,50 @@ const isMain =
     process.argv[1].endsWith('simulate'));
 
 if (isMain) {
-  const config = parseArgs(process.argv.slice(2));
+  const argv = process.argv.slice(2);
+  const config = parseArgs(argv);
 
-  let restoreRandom;
-  if (config.seed !== null) {
-    restoreRandom = installSeededRandom(config.seed);
+  if (config.bridge && argv.includes('--games')) {
+    process.stderr.write(
+      'Error: --bridge and --games are mutually exclusive\n',
+    );
+    process.exit(1);
   }
 
-  const allResults = [];
-  for (let i = 0; i < config.games; i++) {
-    const result = runGame(config);
-    allResults.push(result);
-
-    if (config.verbose) {
-      printVerboseGame(i, result);
+  if (config.bridge) {
+    runBridge().catch((err) => {
+      process.stderr.write(`Bridge error: ${err.message}\n`);
+      process.exit(1);
+    });
+  } else {
+    let restoreRandom;
+    if (config.seed !== null) {
+      restoreRandom = installSeededRandom(config.seed);
     }
-  }
 
-  const stats = computeAggregateStats(allResults, config);
-  const allDetections = printSummary(config, stats);
+    const allResults = [];
+    for (let i = 0; i < config.games; i++) {
+      const result = runGame(config);
+      allResults.push(result);
 
-  // Print verbose detection details
-  if (config.verbose && allDetections.length > 0) {
-    console.log('\n=== Detection Details ===');
-    for (const det of allDetections) {
-      printDetection(det);
+      if (config.verbose) {
+        printVerboseGame(i, result);
+      }
     }
+
+    const stats = computeAggregateStats(allResults, config);
+    const allDetections = printSummary(config, stats);
+
+    // Print verbose detection details
+    if (config.verbose && allDetections.length > 0) {
+      console.log('\n=== Detection Details ===');
+      for (const det of allDetections) {
+        printDetection(det);
+      }
+    }
+
+    if (restoreRandom) restoreRandom();
+
+    process.exit(allDetections.length > 0 ? 1 : 0);
   }
-
-  if (restoreRandom) restoreRandom();
-
-  process.exit(allDetections.length > 0 ? 1 : 0);
 }
