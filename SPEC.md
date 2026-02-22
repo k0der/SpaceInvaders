@@ -567,7 +567,7 @@ viewport AABB.
 - **Constants** (exported from `ai.js`):
   `ROTATION_DEADZONE`, `THRUST_ANGLE`, `BRAKE_SPEED`,
   `PREDICTION_SPEED`, `MAX_PREDICTION_TIME`,
-  `MIN_SPAWN_DISTANCE`, `MAX_SPAWN_DISTANCE`
+  `MIN_SPAWN_DISTANCE` (1000px), `MAX_SPAWN_DISTANCE` (1100px)
 
 ### 12.2 AI Combat
 
@@ -915,6 +915,7 @@ the algorithm evolves.
 - End screen overlay: semi-transparent black (60% opacity) drawn behind HUD text
 - During terminal phases: ships, trails, and bullets are hidden; asteroids remain visible through the overlay
 - Space key restarts: ships respawn, bullets cleared, spawn zones cleared of asteroids, phase resets to `'playing'`
+- Enemy spawns just off-screen (1000–1100px from player) with a random heading — both ships start on equal footing
 
 ### 13.8 AI-vs-AI Auto-Restart
 

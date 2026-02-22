@@ -1214,6 +1214,11 @@ Increments 31–37 add a third intelligence type — a neural network trained vi
 - [x] Minimum changed from 0.5 to 0.0
 - [x] Setting density to 0.0 immediately removes all asteroids (trim in main.js game loop)
 
+### Enemy Spawn
+- [x] Spawn distance tightened to 1000–1100px (just off-screen at 1920×1080)
+- [x] Enemy heading randomized (was facing away from player)
+- [x] Both initial spawn and restart use same logic
+
 ### Gitignore
 - [x] `training/logs/` added to `.gitignore`
 
