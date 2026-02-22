@@ -1,0 +1,1 @@
+ROLLBACK: emergency-break oscillation — circuit breaker LIMIT=5 — wins 80/200 (40%) below 110 threshold — 50-game sweep inversion (29/50 peak, 20/50 for unlimited)
