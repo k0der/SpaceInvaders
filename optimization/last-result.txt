@@ -1,1 +1,1 @@
-BASELINE: Player wins 35/50 (70%) — optimization loop initialized
+ROLLBACK: score gap (~285 pts) exceeds HYSTERESIS_BONUS=250, causing hold-boundary flips — HYSTERESIS_BONUS 250→500 — win rate 70%→48% (24/50), oscillations INCREASED 75% (98→171), action changes +71% (276→472) — win rate unchanged

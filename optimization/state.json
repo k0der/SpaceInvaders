@@ -1,5 +1,5 @@
 {
-  "cycle": 0,
+  "cycle": 3,
   "baseline": {
     "games": 50,
     "playerWins": 35,
@@ -28,7 +28,32 @@
     "proximityEvents": 546,
     "kills": 52
   },
-  "history": [],
-  "consecutiveRollbacks": 0,
+  "history": [
+    {
+      "cycle": 1,
+      "problem": "Score collapses cause defensive paralysis — DANGER_ZONE_FACTOR=3 creates 9x collision area danger zone, overwhelming strategic signals",
+      "fix": "Reduced DANGER_ZONE_FACTOR from 3 to 2, shrinking danger zone area by 56% (9x to 4x collision area)",
+      "result": "ROLLBACK",
+      "metrics": { "playerWins": 23, "enemyWins": 27, "draws": 0, "oscillations": 159, "collapses": 83 },
+      "reason": "Player wins dropped from 35 to 23 (34% regression). Although collapses fell 33% and fires increased 66%, the tighter danger zone caused more asteroid deaths — the player navigated closer to asteroids and died more frequently. Net combat gain did not compensate for increased asteroid mortality."
+    },
+    {
+      "cycle": 2,
+      "problem": "Fire-opportunity signal overwhelmed by danger-zone penalties — FIRE_OPPORTUNITY_BONUS=300 (max ~1800 at mid-range) beaten by proximity penalties (-2978 at proximity 0.386), causing AI to prefer evasion over aim-holding even when a shot is available",
+      "fix": "Increased FIRE_OPPORTUNITY_BONUS from 300 to 600, raising max fire signal to ~3600 at mid-range",
+      "result": "ROLLBACK",
+      "metrics": { "playerWins": 24, "enemyWins": 26, "draws": 0, "oscillations": 113, "collapses": 66 },
+      "reason": "Player wins 24/50 fell below baseline threshold of 35. Collapses improved significantly (66 vs 124, -47%) and fires slightly increased (132 vs 118). However, the 50-game win count (24) was below the hard threshold (35). Note: the 35 baseline is itself a positive 50-game variance artifact (true ~50%); the true signal of this change remains unclear without a 200-game run. Rolled back per hard threshold rule."
+    },
+    {
+      "cycle": 3,
+      "problem": "Oscillation during near-collapse — score gap between best and second-best actions (~285 pts) exceeds HYSTERESIS_BONUS=250, causing the AI to flip actions on every hold-timer boundary in high-speed approach scenarios",
+      "fix": "Increased HYSTERESIS_BONUS from 250 to 500, bridging the ~285-point gap so the previous braking action is held stable",
+      "result": "ROLLBACK",
+      "metrics": { "playerWins": 24, "enemyWins": 26, "draws": 0, "oscillations": 171, "collapses": 100 },
+      "reason": "Player wins 24/50 fell below baseline threshold of 35. Worse: oscillations INCREASED 75% (98→171) and action changes increased 71% (276→472), opposite of the intended effect. The higher hysteresis stabilizes some actions but makes the AI slower to adapt when the optimal action genuinely changes, creating larger commitment errors. Fires did increase significantly (118→206, +75%), suggesting more engagement — but these didn't convert to wins. The win rate signal is still within 50-game variance noise, but the oscillation regression is a genuine behavioral failure."
+    }
+  ],
+  "consecutiveRollbacks": 3,
   "status": "ready"
 }
