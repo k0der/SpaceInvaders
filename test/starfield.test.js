@@ -1166,8 +1166,8 @@ describe('Increment 15: Star Field Direction', () => {
 
 describe('Increment 22: Starfield Responds to Camera', () => {
   describe('CAMERA_PARALLAX_SCALE', () => {
-    it('is exported and equals 0.1', () => {
-      expect(CAMERA_PARALLAX_SCALE).toBe(0.1);
+    it('is exported and equals 0.3', () => {
+      expect(CAMERA_PARALLAX_SCALE).toBe(0.3);
     });
   });
 
@@ -1244,8 +1244,8 @@ describe('Increment 22: Starfield Responds to Camera', () => {
 
       updateStarLayersCamera(layers, 100, 0, 0, 800, 600);
 
-      // Expected shift: -100 * (30/30) * 0.1 = -10
-      expect(layers[0].stars[0].x).toBeCloseTo(390, 1);
+      // Expected shift: -100 * (30/30) * 0.3 = -30
+      expect(layers[0].stars[0].x).toBeCloseTo(370, 1);
     });
   });
 
@@ -1259,8 +1259,8 @@ describe('Increment 22: Starfield Responds to Camera', () => {
       // Rotate 90 degrees (PI/2)
       updateStarLayersCamera(layers, 0, 0, Math.PI / 2, 800, 600);
 
-      // For single layer, depth = 1.0 * 0.1 = 0.1
-      // rotAngle = -PI/2 * 0.1 = small angle
+      // For single layer, depth = 1.0 * 0.3 = 0.3
+      // rotAngle = -PI/2 * 0.3 = small angle
       // Star should have moved slightly from (500, 300)
       const star = layers[0].stars[0];
       const moved = Math.hypot(star.x - 500, star.y - 300);

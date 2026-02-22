@@ -300,7 +300,7 @@ export function redistributeStars(
  * Parallax scaling factor for camera-relative star movement.
  * Keeps star drift speeds comparable to directional scroll speeds.
  */
-export const CAMERA_PARALLAX_SCALE = 0.1;
+export const CAMERA_PARALLAX_SCALE = 0.3;
 
 /**
  * Update star layers based on camera movement deltas (screen-space).
