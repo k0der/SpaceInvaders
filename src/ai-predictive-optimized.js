@@ -39,6 +39,11 @@ export const COLLISION_BASE_PENALTY = -20000;
 /** Linear tiebreaker: later collisions are slightly less bad (more time to re-evaluate). */
 export const COLLISION_EARLY_BONUS = 50;
 
+/** Base penalty for near-miss danger zone — tuned independently of actual collision penalty.
+ *  Decoupling this from COLLISION_BASE_PENALTY lets us reduce proximity discouragement
+ *  without weakening actual collision deterrence. */
+export const DANGER_ZONE_BASE_PENALTY = -10000;
+
 /** Number of brake steps before pursuit in the brake-pursuit candidate. */
 export const BRAKE_PURSUIT_STEPS = 5;
 
@@ -52,19 +57,19 @@ const PURSUIT_THRUST_ANGLE = Math.PI / 3;
 const PURSUIT_BRAKE_SPEED = 50;
 
 /** Weight applied to distance-to-target (negative = closer is better). */
-export const DISTANCE_WEIGHT = -8;
+export const DISTANCE_WEIGHT = -3;
 
 /** Bonus for aiming toward target at closest approach. */
 export const AIM_BONUS = 400;
 
 /** Weight for closing speed bonus (dot of velocity toward target). */
-export const CLOSING_SPEED_WEIGHT = 8;
+export const CLOSING_SPEED_WEIGHT = 16;
 
 /** Proximity scaling factor for aim bonus — amplifies aim importance at close range. */
 export const AIM_PROXIMITY_SCALE = 5;
 
 /** Bonus per sim step where ship has a viable firing solution. */
-export const FIRE_OPPORTUNITY_BONUS = 300;
+export const FIRE_OPPORTUNITY_BONUS = 450;
 
 /** Distance below which current scoring balance applies (close-range combat zone). */
 export const ENGAGE_RANGE = 350;
@@ -76,7 +81,7 @@ export const HOLD_TIME = 0.15;
 export const COLLISION_BREAK_STEPS = 3;
 
 /** Score bonus for matching the previous frame's action (reduces oscillation). */
-export const HYSTERESIS_BONUS = 250;
+export const HYSTERESIS_BONUS = 350;
 
 /** Danger zone extends to this factor × collision distance. Near-misses within
  *  this zone receive a graduated penalty (quadratic ramp from 0 at edge to
@@ -217,7 +222,7 @@ export function scoreTrajectory(positions, target, asteroids, simDt) {
   }
 
   if (!collided && worstDanger > 0) {
-    score += COLLISION_BASE_PENALTY * worstDanger;
+    score += DANGER_ZONE_BASE_PENALTY * worstDanger;
   }
 
   // Compute initial distance to target (used for approach urgency and closing rate)

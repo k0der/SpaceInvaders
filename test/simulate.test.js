@@ -269,15 +269,16 @@ describe('Increment 26d: Headless Simulator', () => {
       expect(detections[0].type).toBe('passthrough');
     });
 
-    it('does not flag when ship is outside collisionRadius', () => {
+    it('does not flag when ship body is outside asteroid body (dist > radius + SHIP_SIZE)', () => {
       const events = [
         {
           tick: 50,
           elapsed: 0.83,
           type: 'PROXIMITY',
-          data: { owner: 'player', dist: 40, radius: 30 },
+          data: { owner: 'player', dist: 50, radius: 30 },
         },
       ];
+      // lethal threshold = 30 + 15 (SHIP_SIZE) = 45; dist=50 > 45 → no passthrough
       const detections = detectPassthrough(events);
       expect(detections.length).toBe(0);
     });

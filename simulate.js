@@ -211,8 +211,8 @@ export function detectOscillation(events) {
 }
 
 /**
- * Detect pass-through: ship overlaps asteroid collisionRadius without dying.
- * (Placeholder until ship-asteroid collision is implemented.)
+ * Detect pass-through: ship body overlaps asteroid body without dying.
+ * Fires when dist < asteroid.collisionRadius + SHIP_SIZE (actual lethal threshold).
  * @param {object[]} events - Event array from a game
  * @returns {object[]} detections
  */
@@ -221,7 +221,7 @@ export function detectPassthrough(events) {
   const detections = [];
 
   for (const event of proximities) {
-    if (event.data.dist < event.data.radius) {
+    if (event.data.dist < event.data.radius + SHIP_SIZE) {
       detections.push({
         type: 'passthrough',
         tick: event.tick,
