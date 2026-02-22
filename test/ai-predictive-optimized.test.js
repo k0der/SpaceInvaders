@@ -8,6 +8,7 @@ import {
   COLLISION_BREAK_STEPS,
   COLLISION_EARLY_BONUS,
   cloneShipForSim,
+  computeLeadAngle,
   DANGER_ZONE_FACTOR,
   DISTANCE_WEIGHT,
   defineCandidates,
@@ -1152,6 +1153,92 @@ describe('ai-predictive-optimized: predictiveOptimizedStrategy', () => {
     predictiveOptimizedStrategy.update(state, ship, target, [], 0.016);
 
     expect(ship.fire).toBe(false);
+  });
+});
+
+describe('ai-predictive-optimized: computeLeadAngle', () => {
+  it('returns direct angle for stationary target', () => {
+    const ship = { x: 0, y: 0, vx: 0, vy: 0 };
+    const target = { x: 300, y: 0, vx: 0, vy: 0 };
+    const result = computeLeadAngle(ship, target);
+    expect(result.angle).toBeCloseTo(0, 4);
+    expect(result.travelTime).toBeCloseTo(300 / 600, 4);
+  });
+
+  it('leads ahead of a laterally moving target', () => {
+    const ship = { x: 0, y: 0, vx: 0, vy: 0 };
+    // Target at 300px right, moving upward at 200px/s
+    const target = { x: 300, y: 0, vx: 0, vy: -200 };
+    const result = computeLeadAngle(ship, target);
+    // Lead angle should be negative (aiming above the target)
+    expect(result.angle).toBeLessThan(0);
+    // Should still be roughly aimed rightward
+    expect(result.angle).toBeGreaterThan(-Math.PI / 2);
+  });
+
+  it('accounts for ship velocity (bullets inherit momentum)', () => {
+    // Ship moving right at 100px/s, target stationary at 300px right
+    const ship = { x: 0, y: 0, vx: 100, vy: 0 };
+    const target = { x: 300, y: 0, vx: 0, vy: 0 };
+    const result = computeLeadAngle(ship, target);
+    // Target has relative velocity of -100 in x (moving away in ship frame)
+    // Lead should still be roughly 0 (target is ahead, relative motion is along axis)
+    expect(result.angle).toBeCloseTo(0, 1);
+  });
+
+  it('returns angle for very close targets', () => {
+    const ship = { x: 0, y: 0, vx: 0, vy: 0 };
+    const target = { x: 0.5, y: 0, vx: 0, vy: 0 };
+    const result = computeLeadAngle(ship, target);
+    expect(result.angle).toBeCloseTo(0, 2);
+    expect(result.travelTime).toBeCloseTo(0, 2);
+  });
+});
+
+describe('ai-predictive-optimized: lead-angle firing integration', () => {
+  it('fires at stationary target directly ahead (unchanged behavior)', () => {
+    const state = predictiveOptimizedStrategy.createState();
+    const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+    const target = createShip({ x: 300, y: 0, heading: 0, owner: 'player' });
+
+    predictiveOptimizedStrategy.update(state, ship, target, [], 0.016);
+    expect(ship.fire).toBe(true);
+  });
+
+  it('fires at lead position for laterally moving target', () => {
+    const state = predictiveOptimizedStrategy.createState();
+    const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+    // Target at 300px right, moving up at 200px/s
+    // Travel time ≈ 0.5s → lead offset ≈ 100px up
+    // Lead angle ≈ atan2(-100, 300) ≈ -0.32 rad
+    // Ship heading is 0, so headingDiff ≈ 0.32 > FIRE_ANGLE (0.15)
+    // Should NOT fire because lead angle is too far off heading
+    const target = createShip({ x: 300, y: 0, heading: 0, owner: 'player' });
+    target.vx = 0;
+    target.vy = -200;
+
+    predictiveOptimizedStrategy.update(state, ship, target, [], 0.016);
+    expect(ship.fire).toBe(false);
+  });
+
+  it('fires when heading matches lead angle for moving target', () => {
+    const state = predictiveOptimizedStrategy.createState();
+    // Target at 300px, moving up at 200px/s
+    // Travel time ≈ 0.5s → predicted pos ≈ (300, -100)
+    // Lead angle ≈ atan2(-100, 300) ≈ -0.32 rad
+    const leadAngle = Math.atan2(-100, 300);
+    const ship = createShip({
+      x: 0,
+      y: 0,
+      heading: leadAngle,
+      owner: 'enemy',
+    });
+    const target = createShip({ x: 300, y: 0, heading: 0, owner: 'player' });
+    target.vx = 0;
+    target.vy = -200;
+
+    predictiveOptimizedStrategy.update(state, ship, target, [], 0.016);
+    expect(ship.fire).toBe(true);
   });
 });
 
