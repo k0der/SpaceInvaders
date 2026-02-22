@@ -970,10 +970,11 @@ Increments 31–37 add a third intelligence type — a neural network trained vi
 ### Terminal Rewards
 - [ ] **Win**: `+weights.win` when `currentState.targetHP <= 0`
 - [ ] **Loss**: `weights.loss` (negative) when `currentState.shipHP <= 0`
+- [ ] **Draw**: `weights.draw` (negative) when both `currentState.shipHP <= 0` AND `currentState.targetHP <= 0` (stacks with win+loss)
 - [ ] **Timeout**: `weights.timeout` (negative) when `currentState.tick >= config.maxTicks`
 
 ### Defaults
-- [ ] `DEFAULT_REWARD_WEIGHTS` exported with values from SPEC §16.7: `{ survival: 0.001, aim: 0.01, closing: 0.01, hit: 1.0, gotHit: -1.0, nearMiss: -0.1, firePenalty: -0.002, win: 5.0, loss: -5.0, timeout: -1.0 }`
+- [ ] `DEFAULT_REWARD_WEIGHTS` exported with values from SPEC §16.7: `{ survival: 0.001, aim: 0.01, closing: 0.01, hit: 1.0, gotHit: -1.0, nearMiss: -0.1, firePenalty: -0.002, win: 5.0, loss: -5.0, draw: -2.0, timeout: -1.0 }`
 
 ### Quality
 - [ ] Pure function — no mutation, no side effects

@@ -1210,6 +1210,7 @@ orders of magnitude more episodes to learn basic behaviors.
 |-----------|-------|-----------|
 | Episode win | +5.0 | Opponent HP reaches 0 |
 | Episode loss | -5.0 | Agent HP reaches 0 |
+| Draw | -2.0 | Both agent HP ≤ 0 AND opponent HP ≤ 0 (stacks with win+loss) |
 | Episode timeout | -1.0 | maxTicks reached |
 
 All reward component weights are configurable via `rewardWeights` in the training
