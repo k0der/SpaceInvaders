@@ -1,5 +1,5 @@
 {
-  "cycle": 5,
+  "cycle": 6,
   "baseline": {
     "games": 200,
     "playerWins": 102,
@@ -73,8 +73,24 @@
         "note": "Rolled back before simulation — blocked by failing tests"
       },
       "reason": "ROLLBACK at test phase. Halving COLLISION_BASE_PENALTY from -20000 to -10000 broke the existing 'avoids asteroid when a clear path exists' test: with the halved penalty, T___ (thrust-straight into asteroid) scored -4131.8 while TL__ (turn-left to dodge) scored -9215.5, causing the AI to prefer crashing into the asteroid over evading it. Root cause: COLLISION_BASE_PENALTY controls both (a) actual collision score and (b) near-miss danger zone penalty. Halving the base affects both. With -10000, the collision penalty (-10000 + early_bonus + all_strategic_signals) is no longer sufficient to deter choosing trajectories that actually collide when the target is directly behind the asteroid. Lesson: COLLISION_BASE_PENALTY is a unified constant — it cannot be halved for 'near-miss penalty reduction' without also halving the 'actual collision deterrence'. These two effects cannot be separated without refactoring scoreTrajectory to use distinct constants for each case."
+    },
+    {
+      "cycle": 6,
+      "problem": "COLLISION_BASE_PENALTY dual-use makes near-miss penalty untunable — Cycle 5 proved it can't be reduced without breaking collision deterrence. Structural fix: add separate DANGER_ZONE_BASE_PENALTY=-5000 used only in the near-miss branch, keeping COLLISION_BASE_PENALTY=-20000 for actual collisions.",
+      "fix": "Added DANGER_ZONE_BASE_PENALTY=-5000 constant; changed near-miss branch from COLLISION_BASE_PENALTY*worstDanger to DANGER_ZONE_BASE_PENALTY*worstDanger",
+      "result": "ROLLBACK",
+      "metrics": {
+        "playerWins": 104,
+        "enemyWins": 96,
+        "draws": 0,
+        "oscillations_per_game": 3.1,
+        "collapses_per_game": 1.85,
+        "fires_per_game": 3.0,
+        "action_changes_per_game": 8.1
+      },
+      "reason": "ROLLBACK due to oscillation regression. Player wins 104/200 (52%) exceeded the 100-win threshold, but oscillations increased 63% (3.1 vs 1.9/game), well above the 15% secondary metric limit. The reduced near-miss penalty gradient creates a narrower scoring gap in proximity situations, causing the AI to flip more frequently between aim-holding and evasion trajectories. The structural fix (decoupling the constants) is correct in principle, but DANGER_ZONE_BASE_PENALTY=-5000 is still too large a reduction — the shallow gradient produces oscillation. Next attempt should use a less aggressive reduction (e.g., -8000 to -12000 instead of -5000) to find a value that reduces collapse without inducing oscillation. Alternatively, the oscillation may require a multi-lever fix: reduce DANGER_ZONE_BASE_PENALTY moderately AND increase HYSTERESIS_BONUS to compensate for the increased score gap volatility."
     }
   ],
-  "consecutiveRollbacks": 5,
+  "consecutiveRollbacks": 6,
   "status": "ready"
 }

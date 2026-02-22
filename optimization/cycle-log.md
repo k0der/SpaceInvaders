@@ -77,7 +77,21 @@ Player wins: 102/200 | Enemy wins: 98/200 | Draws: 0/200
 ### Metrics After
 Player wins: N/A | Enemy wins: N/A | Draws: N/A
 ### Decision
-ROLLBACK — Blocked at test phase, simulation not reached. With COLLISION_BASE_PENALTY=-10000, the existing test 'avoids asteroid when a clear path exists' failed: the AI preferred thrusting straight into an asteroid (score -4131.8) over turning to dodge (score -9215.5). Root cause: COLLISION_BASE_PENALTY controls both actual collision deterrence AND near-miss danger zone penalty via the same constant. Halving it weakened actual collision avoidance: T___ collision trajectory scored -4131.8 (penalty -10000 + early_bonus + all_strategic_signals), which beat turning candidates that accumulated danger zone proximity penalties during the turn maneuver (-9215.5). This is a structural limitation — the single constant cannot be reduced without breaking asteroid avoidance. A refactoring is required: split into COLLISION_PENALTY (actual collisions, keep -20000) and DANGER_ZONE_BASE_PENALTY (near-miss penalty, reduce to -5000 to -8000). See IMPROVEMENTS.md "Proposed Changes Outside Optimization Scope" for the detailed proposed refactoring.
+ROLLBACK — Blocked at test phase, simulation not reached. With COLLISION_BASE_PENALTY=-10000, the existing test 'avoids asteroid when a clear path exists' failed: the AI preferred thrusting straight into an asteroid (score -4131.8) over turning to dodge (score -9215.5). Root cause: COLLISION_BASE_PENALTY controls both actual collision deterrence AND near-miss danger zone penalty via the same constant. Halving it weakened actual collision avoidance: T___ collision trajectory scored -4131.8 (penalty -10000 + early_bonus + all_strategic_signals), which beat turning candidates that accumulated danger zone proximity penalties during the turn maneuver (-9215.5). This is a structural limitation — the single constant cannot be reduced without breaking asteroid avoidance. A refactoring is required: split into COLLISION_PENALTY (actual collisions, keep -20000) and DANGER_ZONE_BASE_PENALTY (near-miss penalty, reduce to -5000 to -8000).
+---
+
+## Cycle 6 — ROLLBACK
+**Problem**: COLLISION_BASE_PENALTY dual-use makes near-miss penalty untunable — Cycle 5 proved it can't be reduced without breaking collision deterrence. Structural fix: add DANGER_ZONE_BASE_PENALTY as a separate constant used only in the near-miss branch.
+**Fix**: Add separate DANGER_ZONE_BASE_PENALTY=-5000 constant; change near-miss branch from `COLLISION_BASE_PENALTY * worstDanger` to `DANGER_ZONE_BASE_PENALTY * worstDanger`. COLLISION_BASE_PENALTY=-20000 unchanged for actual collisions.
+**Complexity**: 3 — Add condition (new constant + split logic branch)
+### Metrics Before
+Player wins: 102/200 | Enemy wins: 98/200 | Draws: 0/200
+Oscillations: 1.9/game | Collapses: 1.6/game | Fires: 3.1/game
+### Metrics After
+Player wins: 104/200 | Enemy wins: 96/200 | Draws: 0/200
+Oscillations: 3.1/game (+63%) | Collapses: 1.85/game (+16%) | Fires: 3.0/game | Action changes: 8.1/game
+### Decision
+ROLLBACK — Player wins 104/200 (52%) exceeded the 100-win threshold but oscillations increased 63% (3.1 vs 1.9/game), well above the 15% secondary metric degradation limit. The structural decoupling of DANGER_ZONE_BASE_PENALTY is the correct approach — the constant value -5000 is too aggressive. At -5000, the near-miss gradient becomes too shallow: score differences between aim-holding and evasion trajectories in the 0.3-0.5 proximity zone become small enough that HYSTERESIS_BONUS=250 cannot prevent rapid oscillation. Root cause matches Cycle 4 (FOB=900): both changes that increase aim-holding tendency produce oscillation, because the AI alternates between the now-similar aim and evasion scores on every hold-timer boundary. Next attempt: DANGER_ZONE_BASE_PENALTY=-10000 (2× reduction instead of 4×) to find a value that reduces collapse without flattening the gradient enough to cause oscillation.
 ---
 
 ## Cycle 3 — ROLLBACK
