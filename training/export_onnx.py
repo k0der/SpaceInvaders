@@ -78,6 +78,8 @@ def export_onnx(checkpoint_path, output_path, validate=True):
     # Export to ONNX
     os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
 
+    # Force legacy TorchScript exporter (dynamo=False) for maximum
+    # compatibility with onnxruntime-web@1.17.0 WASM backend.
     torch.onnx.export(
         wrapper,
         dummy_input,
@@ -88,28 +90,16 @@ def export_onnx(checkpoint_path, output_path, validate=True):
             "observation": {0: "batch_size"},
             "logits": {0: "batch_size"},
         },
-        opset_version=18,
+        opset_version=17,
+        dynamo=False,
     )
+    print(f"ONNX model exported: {output_path}")
 
-    # Re-save with all weights embedded (no external .data file).
-    # PyTorch's dynamo exporter creates external data by default, but
-    # onnxruntime-web has trouble loading external data files in some
-    # browser environments (e.g. GitHub Pages).
-    import onnx
-    from onnx.external_data_helper import convert_model_to_external_data
-    model_proto = onnx.load(output_path, load_external_data=True)
-    model_proto = onnx.shape_inference.infer_shapes(model_proto)
-    # Clear external data references — embed everything in the protobuf
-    for tensor in model_proto.graph.initializer:
-        tensor.ClearField("external_data")
-        tensor.data_location = 0  # DEFAULT = embedded
-    onnx.save(model_proto, output_path)
-    # Remove leftover .data file
+    # Remove any leftover external .data file (legacy exporter embeds weights)
     data_path = output_path + ".data"
     if os.path.exists(data_path):
         os.remove(data_path)
         print(f"Removed external data file: {data_path}")
-    print(f"ONNX model exported (weights embedded): {output_path}")
 
     if validate:
         # Validate with onnx checker
