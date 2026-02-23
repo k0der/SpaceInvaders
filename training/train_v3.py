@@ -729,8 +729,8 @@ def main():
 
             if promoted:
                 print(f"\n  Promoted to stage {stage_num + 1}!")
-                # Export self-play snapshot when graduating to stage 9
-                if stage_num + 1 == 9:
+                # Export self-play snapshot when graduating to stage 10
+                if stage_num + 1 == 10:
                     snapshot_dir = os.path.join(
                         os.path.dirname(os.path.abspath(__file__)),
                         "checkpoints", "selfplay",

@@ -152,6 +152,10 @@ function loadOnnxRuntime() {
 async function initSession(state) {
   try {
     await loadOnnxRuntime();
+    // Force single-threaded WASM — multi-threading requires cross-origin
+    // isolation headers (COOP/COEP) that static hosts like GitHub Pages
+    // don't provide, causing SharedArrayBuffer to be unavailable.
+    window.ort.env.wasm.numThreads = 1;
     state.session = await window.ort.InferenceSession.create(MODEL_PATH);
     state.ready = true;
   } catch (err) {
