@@ -50,6 +50,11 @@ export const SETTINGS_CONFIG = {
     default: false,
     label: 'AI Debug Log',
   },
+  showDangerZones: {
+    type: 'boolean',
+    default: false,
+    label: 'Danger Zones',
+  },
 };
 
 const STORAGE_KEY = 'asteroidSettings';
@@ -73,6 +78,8 @@ export function createSettings(overrides = {}) {
     enemyIntelligence:
       overrides.enemyIntelligence ?? SETTINGS_CONFIG.enemyIntelligence.default,
     aiDebugLog: overrides.aiDebugLog ?? SETTINGS_CONFIG.aiDebugLog.default,
+    showDangerZones:
+      overrides.showDangerZones ?? SETTINGS_CONFIG.showDangerZones.default,
     panelOpen: false,
     gearVisible: true,
     gearHovered: false,
@@ -94,6 +101,7 @@ export function saveSettings(settings) {
     playerIntelligence: settings.playerIntelligence,
     enemyIntelligence: settings.enemyIntelligence,
     aiDebugLog: settings.aiDebugLog,
+    showDangerZones: settings.showDangerZones,
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
@@ -112,6 +120,7 @@ export function loadSettings() {
     playerIntelligence: SETTINGS_CONFIG.playerIntelligence.default,
     enemyIntelligence: SETTINGS_CONFIG.enemyIntelligence.default,
     aiDebugLog: SETTINGS_CONFIG.aiDebugLog.default,
+    showDangerZones: SETTINGS_CONFIG.showDangerZones.default,
   };
 
   try {

@@ -1344,7 +1344,25 @@ delimited).
   managed by the Python `SubprocVecEnv` wrapper)
 - The Python side wraps this in a Gymnasium-compatible `SpaceDogfightEnv` class
 
-### 16.12 File Structure Additions
+### 16.12 Danger Zone Overlay
+
+A debug visualization that renders the near-miss penalty field around each
+asteroid as a red radial gradient. Helps tune reward weights and diagnose
+agent behavior during training observation.
+
+**Setting**: `showDangerZones` (boolean, default `false`) — checkbox in the
+settings panel labeled "Danger Zones".
+
+**Visualization**:
+- Each asteroid gets a radial gradient from its surface (`collisionRadius`) to
+  the danger zone edge (`NEAR_MISS_RADIUS_FACTOR × collisionRadius = 3×`).
+- Inner edge: `rgba(255, 0, 0, 0.25)` — outer edge: fully transparent.
+- Composite operation `'lighter'` — overlapping zones stack additively,
+  so dense asteroid clusters glow brighter red, matching how the reward
+  system sums per-asteroid penalties.
+- Zero render cost when the setting is off.
+
+### 16.13 File Structure Additions
 
 ```
 SpaceInvaders/

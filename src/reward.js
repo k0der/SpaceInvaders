@@ -20,7 +20,7 @@ const AIM_DISTANCE_THRESHOLD = 600;
 const CLOSING_DISTANCE_NORM = 1000;
 
 /** Multiplier on asteroid collisionRadius for near-miss danger zone. */
-const NEAR_MISS_RADIUS_FACTOR = 3;
+export const NEAR_MISS_RADIUS_FACTOR = 3;
 
 function normalizeAngle(angle) {
   while (angle > Math.PI) angle -= 2 * Math.PI;

@@ -1466,4 +1466,141 @@ describe('Increment 15: Star Field Direction Setting', () => {
       expect(changes[0].value).toBe(true);
     });
   });
+
+  describe('SETTINGS_CONFIG — showDangerZones', () => {
+    it('defines showDangerZones as a boolean setting with default false', () => {
+      const c = SETTINGS_CONFIG.showDangerZones;
+      expect(c).toBeDefined();
+      expect(c.default).toBe(false);
+      expect(c.type).toBe('boolean');
+    });
+
+    it('showDangerZones has a label', () => {
+      expect(typeof SETTINGS_CONFIG.showDangerZones.label).toBe('string');
+    });
+  });
+
+  describe('createSettings — showDangerZones', () => {
+    it('defaults showDangerZones to false', () => {
+      const s = createSettings();
+      expect(s.showDangerZones).toBe(false);
+    });
+
+    it('accepts showDangerZones override', () => {
+      const s = createSettings({ showDangerZones: true });
+      expect(s.showDangerZones).toBe(true);
+    });
+  });
+
+  describe('persistence — showDangerZones', () => {
+    it('saveSettings persists showDangerZones', () => {
+      const s = createSettings({ showDangerZones: true });
+      saveSettings(s);
+      const stored = JSON.parse(localStorage.getItem('asteroidSettings'));
+      expect(stored.showDangerZones).toBe(true);
+    });
+
+    it('loadSettings restores showDangerZones', () => {
+      localStorage.setItem(
+        'asteroidSettings',
+        JSON.stringify({
+          asteroidDensity: 1.0,
+          speedMultiplier: 1.0,
+          starLayers: 3,
+          thrustPower: 2000,
+          starDirection: 'left',
+          playerIntelligence: 'human',
+          enemyIntelligence: 'predictive',
+          aiDebugLog: false,
+          showDangerZones: true,
+        }),
+      );
+      const loaded = loadSettings();
+      expect(loaded.showDangerZones).toBe(true);
+    });
+
+    it('loadSettings defaults showDangerZones when missing from storage', () => {
+      localStorage.setItem(
+        'asteroidSettings',
+        JSON.stringify({
+          asteroidDensity: 1.0,
+          speedMultiplier: 1.0,
+          starLayers: 3,
+          thrustPower: 2000,
+          starDirection: 'left',
+          playerIntelligence: 'human',
+          enemyIntelligence: 'predictive',
+          aiDebugLog: false,
+        }),
+      );
+      const loaded = loadSettings();
+      expect(loaded.showDangerZones).toBe(false);
+    });
+
+    it('loadSettings defaults showDangerZones when stored value is not boolean', () => {
+      localStorage.setItem(
+        'asteroidSettings',
+        JSON.stringify({
+          asteroidDensity: 1.0,
+          speedMultiplier: 1.0,
+          starLayers: 3,
+          thrustPower: 2000,
+          starDirection: 'left',
+          playerIntelligence: 'human',
+          enemyIntelligence: 'predictive',
+          aiDebugLog: false,
+          showDangerZones: 'yes',
+        }),
+      );
+      const loaded = loadSettings();
+      expect(loaded.showDangerZones).toBe(false);
+    });
+
+    it('round-trip: save then load preserves showDangerZones', () => {
+      const s = createSettings({ showDangerZones: true });
+      saveSettings(s);
+      const loaded = loadSettings();
+      expect(loaded.showDangerZones).toBe(true);
+    });
+  });
+
+  describe('createSettingsUI — showDangerZones checkbox', () => {
+    let container;
+    let settings;
+
+    beforeEach(() => {
+      container = document.createElement('div');
+      document.body.appendChild(container);
+      settings = createSettings();
+    });
+
+    it('creates a checkbox for showDangerZones in checkboxes map', () => {
+      const ui = createSettingsUI(container, settings);
+      expect(ui.checkboxes.showDangerZones).toBeDefined();
+    });
+
+    it('checkbox defaults to unchecked', () => {
+      const ui = createSettingsUI(container, settings);
+      expect(ui.checkboxes.showDangerZones.checked).toBe(false);
+    });
+
+    it('checkbox reflects non-default settings on creation', () => {
+      const s = createSettings({ showDangerZones: true });
+      const ui = createSettingsUI(container, s);
+      expect(ui.checkboxes.showDangerZones.checked).toBe(true);
+    });
+
+    it('changing checkbox fires onChange with name and boolean value', () => {
+      const ui = createSettingsUI(container, settings);
+      const changes = [];
+      ui.onChange = (name, value) => changes.push({ name, value });
+
+      ui.checkboxes.showDangerZones.checked = true;
+      ui.checkboxes.showDangerZones.dispatchEvent(new Event('change'));
+
+      expect(changes.length).toBe(1);
+      expect(changes[0].name).toBe('showDangerZones');
+      expect(changes[0].value).toBe(true);
+    });
+  });
 });

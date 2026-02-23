@@ -38,6 +38,7 @@ import {
   isRestartKey,
 } from './input.js';
 import { setupHiDPICanvas } from './renderer.js';
+import { NEAR_MISS_RADIUS_FACTOR } from './reward.js';
 import {
   createSettings,
   createSettingsUI,
@@ -597,6 +598,28 @@ export function startApp() {
 
     for (const asteroid of sim.asteroids) {
       drawAsteroid(ctx, asteroid);
+    }
+
+    if (settings.showDangerZones) {
+      ctx.globalCompositeOperation = 'lighter';
+      for (const asteroid of sim.asteroids) {
+        const dr = NEAR_MISS_RADIUS_FACTOR * asteroid.collisionRadius;
+        const grad = ctx.createRadialGradient(
+          asteroid.x,
+          asteroid.y,
+          asteroid.collisionRadius,
+          asteroid.x,
+          asteroid.y,
+          dr,
+        );
+        grad.addColorStop(0, 'rgba(255, 0, 0, 0.25)');
+        grad.addColorStop(1, 'rgba(255, 0, 0, 0.0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(asteroid.x, asteroid.y, dr, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalCompositeOperation = 'source-over';
     }
 
     if (gameState.phase === 'playing' || gameState.phase === 'ending') {

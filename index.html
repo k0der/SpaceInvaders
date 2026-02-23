@@ -3921,6 +3921,28 @@ function startApp() {
       drawAsteroid(ctx, asteroid);
     }
 
+    if (settings.showDangerZones) {
+      ctx.globalCompositeOperation = 'lighter';
+      for (const asteroid of sim.asteroids) {
+        const dr = NEAR_MISS_RADIUS_FACTOR * asteroid.collisionRadius;
+        const grad = ctx.createRadialGradient(
+          asteroid.x,
+          asteroid.y,
+          asteroid.collisionRadius,
+          asteroid.x,
+          asteroid.y,
+          dr,
+        );
+        grad.addColorStop(0, 'rgba(255, 0, 0, 0.25)');
+        grad.addColorStop(1, 'rgba(255, 0, 0, 0.0)');
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(asteroid.x, asteroid.y, dr, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalCompositeOperation = 'source-over';
+    }
+
     if (gameState.phase === 'playing' || gameState.phase === 'ending') {
       drawTrail(ctx, enemyTrail);
       drawShip(ctx, enemyShip);
@@ -4418,6 +4440,11 @@ const SETTINGS_CONFIG = {
     default: false,
     label: 'AI Debug Log',
   },
+  showDangerZones: {
+    type: 'boolean',
+    default: false,
+    label: 'Danger Zones',
+  },
 };
 
 const STORAGE_KEY = 'asteroidSettings';
@@ -4441,6 +4468,8 @@ function createSettings(overrides = {}) {
     enemyIntelligence:
       overrides.enemyIntelligence ?? SETTINGS_CONFIG.enemyIntelligence.default,
     aiDebugLog: overrides.aiDebugLog ?? SETTINGS_CONFIG.aiDebugLog.default,
+    showDangerZones:
+      overrides.showDangerZones ?? SETTINGS_CONFIG.showDangerZones.default,
     panelOpen: false,
     gearVisible: true,
     gearHovered: false,
@@ -4462,6 +4491,7 @@ function saveSettings(settings) {
     playerIntelligence: settings.playerIntelligence,
     enemyIntelligence: settings.enemyIntelligence,
     aiDebugLog: settings.aiDebugLog,
+    showDangerZones: settings.showDangerZones,
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
 }
@@ -4480,6 +4510,7 @@ function loadSettings() {
     playerIntelligence: SETTINGS_CONFIG.playerIntelligence.default,
     enemyIntelligence: SETTINGS_CONFIG.enemyIntelligence.default,
     aiDebugLog: SETTINGS_CONFIG.aiDebugLog.default,
+    showDangerZones: SETTINGS_CONFIG.showDangerZones.default,
   };
 
   try {

@@ -1308,3 +1308,33 @@ Increments 31–37 add a third intelligence type — a neural network trained vi
 
 ### Visible
 - [ ] **Visible**: Settings panel shows "neural" option in both Player and Enemy AI dropdowns. Selecting it loads the neural model (if available) or silently falls back to predictive. No errors in console when model is missing.
+
+## Increment 38: Asteroid Danger Zone Overlay
+
+**Goal**: Visualize the near-miss penalty field around asteroids as red transparent halos, helping tune reward weights and debug RL agent asteroid avoidance behavior.
+
+**Modify**: `src/reward.js`, `src/settings.js`, `src/main.js`, `test/settings.test.js`, `test/reward.test.js`
+
+**Acceptance Criteria**:
+
+### Reward Export
+- [ ] `NEAR_MISS_RADIUS_FACTOR` is exported from `src/reward.js` (value = 3)
+- [ ] Existing reward calculation still uses the same constant (no duplication)
+
+### Settings
+- [ ] `SETTINGS_CONFIG.showDangerZones` exists with `type: 'boolean'`, `default: false`, `label: 'Danger Zones'`
+- [ ] `createSettings()` includes `showDangerZones: false` by default
+- [ ] `saveSettings()` persists `showDangerZones` to localStorage
+- [ ] `loadSettings()` restores `showDangerZones` from localStorage (falls back to `false`)
+- [ ] Checkbox renders in settings panel
+
+### Overlay Rendering (`main.js`)
+- [ ] When `settings.showDangerZones` is true, draws red radial gradient around each asteroid
+- [ ] Gradient inner radius = `asteroid.collisionRadius`, outer radius = `NEAR_MISS_RADIUS_FACTOR × collisionRadius`
+- [ ] Gradient: `rgba(255, 0, 0, 0.25)` at inner edge → transparent at outer edge
+- [ ] Uses `'lighter'` composite operation so overlapping zones stack additively
+- [ ] Restores composite operation to `'source-over'` after drawing
+- [ ] When `settings.showDangerZones` is false, no overlay drawing code executes (zero cost)
+
+### Visible
+- [ ] **Visible**: Toggle "Danger Zones" checkbox in settings → red halos appear around all asteroids, fading from the asteroid surface outward. Overlapping zones glow brighter. Turning it off removes all halos instantly.

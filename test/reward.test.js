@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { computeReward, DEFAULT_REWARD_WEIGHTS } from '../src/reward.js';
+import {
+  computeReward,
+  DEFAULT_REWARD_WEIGHTS,
+  NEAR_MISS_RADIUS_FACTOR,
+} from '../src/reward.js';
 
 // --- Test helpers ---
 
@@ -628,6 +632,12 @@ describe('computeReward — custom weight overrides', () => {
     // aim: 0.01 * cos(0) = 0.01 (dist 300 < 600, heading 0, target at (300,0))
     // closing: 0 (same position both states)
     expect(result).toBeCloseTo(10.0 + 0.01, 4);
+  });
+});
+
+describe('NEAR_MISS_RADIUS_FACTOR export', () => {
+  it('is exported and equals 3', () => {
+    expect(NEAR_MISS_RADIUS_FACTOR).toBe(3);
   });
 });
 
