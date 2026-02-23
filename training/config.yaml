@@ -326,8 +326,8 @@ stages:
       proximity: 3.0
 
   13:
-    description: "Chase slow fleeing enemy through asteroid field"
-    shipHP: 1
+    description: "Chase slow fleeing enemy, extra HP for asteroid mistakes"
+    shipHP: 3
     maxTicks: 1200
     asteroidDensity: 0.5
     enemyPolicy: "fleeing"
@@ -354,7 +354,7 @@ stages:
       proximity: 3.0
 
   14:
-    description: "Chase medium-speed fleeing enemy through asteroid field"
+    description: "Chase medium-speed fleeing enemy, 1 HP"
     shipHP: 1
     maxTicks: 1200
     asteroidDensity: 0.5
@@ -365,7 +365,7 @@ stages:
     spawnFacing: false
     frameSkip: 2
     campCheckTicks: 0
-    promotionThreshold: 0.85
+    promotionThreshold: 0.50
     rewardWeights:
       survival: 0.0
       aim: 0.01
