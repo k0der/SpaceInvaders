@@ -656,6 +656,7 @@ export function startApp() {
     if (terminalPhase && settings.gameLog && !gameLogRecorded) {
       recordResult(gameLog, gameState.phase);
       gameLogRecorded = true;
+      console.log('[Game Log]', formatGameLog(gameLog));
     }
 
     const gameLogText =
