@@ -296,7 +296,7 @@ stages:
       draw: -3.5
       timeout: -5.0
       engagePenalty: 0.0
-      proximity: 1.0
+      proximity: 5.0
 
   12:
     description: "Self-play, far spawn, short timeout"
@@ -324,7 +324,7 @@ stages:
       draw: -3.5
       timeout: -5.0
       engagePenalty: 0.0
-      proximity: 1.0
+      proximity: 5.0
 
   13:
     description: "Self-play round 2, far spawn, short timeout"
@@ -352,6 +352,6 @@ stages:
       draw: -3.5
       timeout: -5.0
       engagePenalty: 0.0
-      proximity: 1.0
+      proximity: 5.0
 
 
