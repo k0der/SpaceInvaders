@@ -90,9 +90,27 @@ class WinRateCallback(BaseCallback):
         self.print_every_seconds = float(print_every_seconds)
 
         self.outcomes: list[int] = []  # 1 = agent win, 0 = agent loss
+        self.outcome_details: list[str] = []  # 'win', 'loss', 'draw_mutual', 'timeout'
+        self.agent_asteroid_deaths: int = 0
+        self.opponent_asteroid_deaths: int = 0
         self.should_promote: bool = False
 
         self._last_print_time: float = 0.0
+
+    def _outcome_breakdown(self, window: Optional[int] = None) -> dict[str, float]:
+        """Return outcome percentages over the last `window` episodes."""
+        details = self.outcome_details
+        if not details:
+            return {"win": 0.0, "loss": 0.0, "draw_mutual": 0.0, "timeout": 0.0}
+        n = len(details)
+        w = min(window, n) if window else n
+        recent = details[-w:]
+        total = len(recent)
+        counts: dict[str, int] = {"win": 0, "loss": 0, "draw_mutual": 0, "timeout": 0}
+        for o in recent:
+            if o in counts:
+                counts[o] += 1
+        return {k: round(v / total, 4) for k, v in counts.items()}
 
     def _rolling_win_rate(self) -> Optional[float]:
         n = len(self.outcomes)
@@ -127,6 +145,12 @@ class WinRateCallback(BaseCallback):
         print(
             f"  [{status}] steps={steps}  episodes={n}  win_rate(last {w})={wr:.1%}  threshold={self.promotion_threshold:.0%}  min_episodes_remaining={remaining}"
         )
+        breakdown = self._outcome_breakdown(self.window_size)
+        print(
+            f"    breakdown: win={breakdown['win']:.0%} loss={breakdown['loss']:.0%}"
+            f" draw={breakdown['draw_mutual']:.0%} timeout={breakdown['timeout']:.0%}"
+            f"  ast_deaths={self.agent_asteroid_deaths}"
+        )
 
     def _on_step(self) -> bool:
         dones = self.locals.get("dones", None)
@@ -144,6 +168,24 @@ class WinRateCallback(BaseCallback):
 
                 self.outcomes.append(1 if winner == "agent" else 0)
 
+                # Structured outcome tracking
+                if winner == "agent":
+                    self.outcome_details.append("win")
+                elif winner == "draw_mutual":
+                    self.outcome_details.append("draw_mutual")
+                elif winner == "timeout":
+                    self.outcome_details.append("timeout")
+                else:
+                    self.outcome_details.append("loss")
+
+                # Track asteroid deaths
+                agent_cause = terminal_info.get("agentDeathCause", None)
+                opponent_cause = terminal_info.get("opponentDeathCause", None)
+                if agent_cause == "asteroid":
+                    self.agent_asteroid_deaths += 1
+                if opponent_cause == "asteroid":
+                    self.opponent_asteroid_deaths += 1
+
         n = len(self.outcomes)
         if n >= max(self.window_size, self.min_episodes):
             recent = self.outcomes[-self.window_size :]
@@ -152,6 +194,71 @@ class WinRateCallback(BaseCallback):
                 self.should_promote = True
 
         self._maybe_print_progress()
+        return True
+
+
+class ConfigReloadCallback(BaseCallback):
+    """
+    Hot-reloads config.yaml when the file changes on disk.
+
+    Checks file mtime every `check_every_seconds`. On change, reloads and updates:
+    - WinRateCallback.promotion_threshold (from current stage config)
+    - model.learning_rate (from ppo config)
+    """
+
+    def __init__(
+        self,
+        config_path: str,
+        stage_num: int,
+        win_cb: "WinRateCallback",
+        check_every_seconds: float = 30.0,
+    ):
+        super().__init__(verbose=0)
+        self.config_path = config_path
+        self.stage_num = stage_num
+        self.win_cb = win_cb
+        self.check_every_seconds = check_every_seconds
+        self._last_check_time: float = 0.0
+        self._last_mtime: float = os.path.getmtime(config_path)
+
+    def _on_step(self) -> bool:
+        now = time.time()
+        if now - self._last_check_time < self.check_every_seconds:
+            return True
+        self._last_check_time = now
+
+        try:
+            mtime = os.path.getmtime(self.config_path)
+        except OSError:
+            return True
+
+        if mtime <= self._last_mtime:
+            return True
+        self._last_mtime = mtime
+
+        try:
+            config = load_config(self.config_path)
+            changes = []
+
+            stage_cfg = config.get("stages", {}).get(self.stage_num, {})
+            new_threshold = float(stage_cfg.get("promotionThreshold", self.win_cb.promotion_threshold))
+            if new_threshold != self.win_cb.promotion_threshold:
+                old = self.win_cb.promotion_threshold
+                self.win_cb.promotion_threshold = new_threshold
+                changes.append(f"promotionThreshold: {old:.0%} → {new_threshold:.0%}")
+
+            ppo_cfg = config.get("ppo", {})
+            new_lr = float(ppo_cfg.get("learning_rate", self.model.learning_rate))
+            if new_lr != self.model.learning_rate:
+                old_lr = self.model.learning_rate
+                self.model.learning_rate = new_lr
+                changes.append(f"learning_rate: {old_lr} → {new_lr}")
+
+            if changes:
+                print(f"  [CONFIG RELOAD] {', '.join(changes)}")
+        except Exception as e:
+            print(f"  [CONFIG RELOAD] Failed to reload: {e}")
+
         return True
 
 
@@ -318,6 +425,8 @@ class JsonLogCallback(BaseCallback):
         else:
             mean_reward = 0.0
 
+        breakdown = self.win_cb._outcome_breakdown(self.win_cb.window_size)
+
         entry = {
             "ts": now,
             "step": int(self.num_timesteps),
@@ -326,6 +435,10 @@ class JsonLogCallback(BaseCallback):
             "mean_reward": round(mean_reward, 4),
             "best_wr": round(self._get_best_wr(), 4),
             "stage": self.stage_num,
+            "threshold": round(self.win_cb.promotion_threshold, 4),
+            "outcome_breakdown": breakdown,
+            "agent_asteroid_deaths": self.win_cb.agent_asteroid_deaths,
+            "opponent_asteroid_deaths": self.win_cb.opponent_asteroid_deaths,
         }
         self._entries.append(entry)
 
@@ -396,6 +509,7 @@ def train_stage(
     min_episodes_before_promote: int,
     progress_print_seconds: float,
     window_size: int = 200,
+    config_path: Optional[str] = None,
 ) -> tuple[str, bool]:
     stage_cfg = get_stage_config(config, stage_num)
     ppo_cfg = config.get("ppo", {})
@@ -484,6 +598,8 @@ def train_stage(
     )
 
     callbacks: list[BaseCallback] = [win_cb, metrics_cb, best_cb, json_log_cb]
+    if config_path:
+        callbacks.append(ConfigReloadCallback(config_path, stage_num, win_cb))
     if early_stop:
         callbacks.append(StopOnPromotionCallback(win_cb))
 
@@ -587,7 +703,7 @@ def main():
 
     if args.auto_promote:
         checkpoint = args.checkpoint
-        for stage_num in range(args.stage, 7):
+        for stage_num in range(args.stage, 8):
             checkpoint_dir = os.path.join(
                 os.path.dirname(os.path.abspath(__file__)),
                 "checkpoints",
@@ -606,6 +722,7 @@ def main():
                 min_episodes_before_promote=args.min_episodes_before_promote,
                 progress_print_seconds=args.progress_print_seconds,
                 window_size=args.window_size,
+                config_path=config_path,
             )
             checkpoint = final_path
 
@@ -635,6 +752,7 @@ def main():
             min_episodes_before_promote=args.min_episodes_before_promote,
             progress_print_seconds=args.progress_print_seconds,
             window_size=args.window_size,
+            config_path=config_path,
         )
 
 

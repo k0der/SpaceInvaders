@@ -1174,8 +1174,13 @@ A gym-style wrapper around the headless game simulation, exposing `reset()` and
 - **HP system**: Ships track hit points (configurable, default 1 for the real game).
   Each bullet or asteroid hit decrements HP by 1. Ship dies when HP reaches 0.
   Higher HP during training provides more gradient signal per episode.
-- **Episode termination**: Agent death, opponent death, or `maxTicks` reached.
-- **Info dict**: `{ winner, ticksElapsed, hitsLanded, hitsTaken, asteroidsHit }`
+- **Episode termination**: Agent death, opponent death, mutual kill, or `maxTicks` reached.
+- **Winner values**: `'agent'`, `'opponent'`, `'draw_mutual'` (both die same tick), `'timeout'`
+- **Death cause tracking**: Each ship records its cause of death — `'bullet'` or
+  `'asteroid'` — at the moment HP reaches 0. The `=== null` guard ensures only the
+  first lethal source is recorded (bullets are processed before asteroids). Causes
+  remain `null` for surviving ships and on timeout.
+- **Info dict**: `{ winner, ticksElapsed, hitsLanded, hitsTaken, asteroidsHit, agentDeathCause, opponentDeathCause }`
 
 ### 16.6 Training-Mode Configuration
 

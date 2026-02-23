@@ -142,6 +142,10 @@ export class GameEnv {
     // Bullets
     this._bullets = [];
 
+    // Death cause tracking
+    this._agentDeathCause = null;
+    this._opponentDeathCause = null;
+
     // Counters
     this._tick = 0;
     this._hitsLanded = 0;
@@ -259,10 +263,16 @@ export class GameEnv {
       if (playerHit) {
         this._agentHP -= 1;
         this._hitsTaken += 1;
+        if (this._agentHP <= 0 && this._agentDeathCause === null) {
+          this._agentDeathCause = 'bullet';
+        }
       }
       if (enemyHit) {
         this._opponentHP -= 1;
         this._hitsLanded += 1;
+        if (this._opponentHP <= 0 && this._opponentDeathCause === null) {
+          this._opponentDeathCause = 'bullet';
+        }
       }
 
       // 10. Ship-asteroid collisions → decrement HP (NOT alive yet)
@@ -274,6 +284,9 @@ export class GameEnv {
         if (agentAsteroid) {
           this._agentHP -= 1;
           this._asteroidsHit += 1;
+          if (this._agentHP <= 0 && this._agentDeathCause === null) {
+            this._agentDeathCause = 'asteroid';
+          }
         }
       }
       if (this._opponent.alive) {
@@ -283,6 +296,9 @@ export class GameEnv {
         );
         if (opponentAsteroid) {
           this._opponentHP -= 1;
+          if (this._opponentHP <= 0 && this._opponentDeathCause === null) {
+            this._opponentDeathCause = 'asteroid';
+          }
         }
       }
 
@@ -312,7 +328,10 @@ export class GameEnv {
       this._tick += 1;
 
       // 16. Determine done/winner
-      if (this._agentHP <= 0) {
+      if (this._agentHP <= 0 && this._opponentHP <= 0) {
+        done = true;
+        winner = 'draw_mutual';
+      } else if (this._agentHP <= 0) {
         done = true;
         winner = 'opponent';
       } else if (this._opponentHP <= 0) {
@@ -342,6 +361,8 @@ export class GameEnv {
       hitsLanded: this._hitsLanded,
       hitsTaken: this._hitsTaken,
       asteroidsHit: this._asteroidsHit,
+      agentDeathCause: this._agentDeathCause,
+      opponentDeathCause: this._opponentDeathCause,
     };
 
     return { observation, reward: totalReward, done, info };

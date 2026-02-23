@@ -1362,3 +1362,50 @@ Increments 31–37 add a third intelligence type — a neural network trained vi
 - [x] `DANGER_RADIUS_BASE` export test: value equals 40
 - [x] Near-miss tests updated with correct expected values for new formula
 - [x] All existing reward tests pass
+
+---
+
+## Increment 38c: Death Cause Observability
+
+**Goal**: Track how ships die (bullet, asteroid, or timeout) and distinguish mutual kills. Pure instrumentation — no observation/reward/model changes.
+
+**Modify**: `src/game-env.js`, `test/game-env.test.js`, `training/train_v3.py`, `training/dashboard.html`, `SPEC.md`
+
+**Acceptance Criteria**:
+
+### Death Cause Tracking (`src/game-env.js`)
+- [x] `_agentDeathCause` and `_opponentDeathCause` fields initialized to `null` in `reset()`
+- [x] Cause set to `'bullet'` when HP reaches 0 from bullet hit (guard: `=== null`)
+- [x] Cause set to `'asteroid'` when HP reaches 0 from asteroid hit (guard: `=== null`)
+- [x] First lethal source wins (bullets processed before asteroids)
+- [x] Causes remain `null` for surviving ships and on timeout
+
+### Mutual Kill (`src/game-env.js`)
+- [x] Both HP ≤ 0 same tick → `winner = 'draw_mutual'` (replaces old agent-death-priority behavior)
+- [x] `draw_mutual` maps to `terminated=True` in Python env (correct — it's not a timeout)
+
+### Info Dict (`src/game-env.js`)
+- [x] `info` object includes `agentDeathCause` and `opponentDeathCause` fields
+
+### Tests (`test/game-env.test.js`)
+- [x] `agentDeathCause` is `'bullet'` when killed by bullet
+- [x] `agentDeathCause` is `'asteroid'` when killed by asteroid
+- [x] `opponentDeathCause` is `'bullet'` / `'asteroid'` (mirror tests)
+- [x] Death causes are `null` mid-episode
+- [x] Death causes are `null` on timeout
+- [x] First lethal hit wins with multi-HP
+- [x] Both dying same tick → `winner = 'draw_mutual'`
+- [x] Both death causes set on mutual kill
+- [x] Mixed causes: asteroid kills agent + bullet kills opponent
+
+### Training Script (`training/train_v3.py`)
+- [x] `WinRateCallback` tracks `outcome_details` list (`'win'`/`'loss'`/`'draw_mutual'`/`'timeout'`)
+- [x] `WinRateCallback` tracks `agent_asteroid_deaths` and `opponent_asteroid_deaths` counters
+- [x] `_outcome_breakdown(window)` helper returns rolling percentages
+- [x] Progress prints include outcome breakdown and asteroid death count
+- [x] JSONL entries include `outcome_breakdown`, `agent_asteroid_deaths`, `opponent_asteroid_deaths`
+
+### Dashboard (`training/dashboard.html`)
+- [x] New stat cards: "Draw %" and "Ast Deaths"
+- [x] Third chart: outcome breakdown over time (win/loss/draw/timeout lines)
+- [x] Backward compat: old entries without new fields show `—`

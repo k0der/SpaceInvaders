@@ -17,9 +17,6 @@ export const FIRE_ANGLE = 0.15;
 /** Max distance (px) at which AI will fire — duplicated from ai-reactive for decoupling. */
 export const MAX_FIRE_RANGE = 500;
 
-/** Bullet speed (px/s) — duplicated from bullet.js for decoupling. */
-export const BULLET_SPEED = 600;
-
 /** Last debug info captured by selectBestAction. */
 let _lastDebugInfo = null;
 
@@ -42,11 +39,6 @@ export const COLLISION_BASE_PENALTY = -20000;
 /** Linear tiebreaker: later collisions are slightly less bad (more time to re-evaluate). */
 export const COLLISION_EARLY_BONUS = 50;
 
-/** Base penalty for near-miss danger zone — tuned independently of actual collision penalty.
- *  Decoupling this from COLLISION_BASE_PENALTY lets us reduce proximity discouragement
- *  without weakening actual collision deterrence. */
-export const DANGER_ZONE_BASE_PENALTY = -10000;
-
 /** Number of brake steps before pursuit in the brake-pursuit candidate. */
 export const BRAKE_PURSUIT_STEPS = 5;
 
@@ -60,19 +52,19 @@ const PURSUIT_THRUST_ANGLE = Math.PI / 3;
 const PURSUIT_BRAKE_SPEED = 50;
 
 /** Weight applied to distance-to-target (negative = closer is better). */
-export const DISTANCE_WEIGHT = -3;
+export const DISTANCE_WEIGHT = -8;
 
 /** Bonus for aiming toward target at closest approach. */
 export const AIM_BONUS = 400;
 
 /** Weight for closing speed bonus (dot of velocity toward target). */
-export const CLOSING_SPEED_WEIGHT = 16;
+export const CLOSING_SPEED_WEIGHT = 8;
 
 /** Proximity scaling factor for aim bonus — amplifies aim importance at close range. */
 export const AIM_PROXIMITY_SCALE = 5;
 
 /** Bonus per sim step where ship has a viable firing solution. */
-export const FIRE_OPPORTUNITY_BONUS = 450;
+export const FIRE_OPPORTUNITY_BONUS = 300;
 
 /** Distance below which current scoring balance applies (close-range combat zone). */
 export const ENGAGE_RANGE = 350;
@@ -84,7 +76,7 @@ export const HOLD_TIME = 0.15;
 export const COLLISION_BREAK_STEPS = 3;
 
 /** Score bonus for matching the previous frame's action (reduces oscillation). */
-export const HYSTERESIS_BONUS = 350;
+export const HYSTERESIS_BONUS = 250;
 
 /** Danger zone extends to this factor × collision distance. Near-misses within
  *  this zone receive a graduated penalty (quadratic ramp from 0 at edge to
@@ -225,7 +217,7 @@ export function scoreTrajectory(positions, target, asteroids, simDt) {
   }
 
   if (!collided && worstDanger > 0) {
-    score += DANGER_ZONE_BASE_PENALTY * worstDanger;
+    score += COLLISION_BASE_PENALTY * worstDanger;
   }
 
   // Compute initial distance to target (used for approach urgency and closing rate)
@@ -296,10 +288,10 @@ export function scoreTrajectory(positions, target, asteroids, simDt) {
     score += CLOSING_SPEED_WEIGHT * closingScale * closingRate;
   }
 
-  // Fire opportunity bonus: count steps with a viable lead-angle firing solution.
-  // Uses the same lead-angle logic as the fire decision — scores trajectories
-  // by whether shots would actually hit the predicted target position, not just
-  // aim at where the target currently is. Scaled by proximity.
+  // Fire opportunity bonus: count steps with a viable firing solution
+  // (aimed within FIRE_ANGLE and within MAX_FIRE_RANGE of predicted target).
+  // Scaled by proximity — closer shots are worth more, breaking orbits
+  // while not rewarding standing still at max range.
   for (let i = 1; i < positions.length; i++) {
     const t = i * simDt;
     const predX = target.x + target.vx * t;
@@ -308,16 +300,7 @@ export function scoreTrajectory(positions, target, asteroids, simDt) {
     const fdy = predY - positions[i].y;
     const fDist = Math.sqrt(fdx * fdx + fdy * fdy);
     if (fDist > MAX_FIRE_RANGE) continue;
-    // Lead-angle: where target will be when a bullet fired now arrives
-    const bulletTime = fDist / BULLET_SPEED;
-    const rvx = target.vx - positions[i].vx;
-    const rvy = target.vy - positions[i].vy;
-    const leadX = predX + rvx * bulletTime;
-    const leadY = predY + rvy * bulletTime;
-    const fireAngle = Math.atan2(
-      leadY - positions[i].y,
-      leadX - positions[i].x,
-    );
+    const fireAngle = Math.atan2(fdy, fdx);
     let fireDiff = fireAngle - positions[i].heading;
     while (fireDiff > Math.PI) fireDiff -= 2 * Math.PI;
     while (fireDiff < -Math.PI) fireDiff += 2 * Math.PI;
@@ -544,38 +527,6 @@ export function selectBestAction(
 }
 
 /**
- * Compute the lead angle for firing at a moving target.
- * Returns the world-space angle to aim at so the bullet intercepts the target,
- * or null if no solution exists (target outrunning bullet).
- *
- * @param {object} ship - { x, y, vx, vy }
- * @param {object} target - { x, y, vx, vy }
- * @returns {{ angle: number, travelTime: number } | null}
- */
-export function computeLeadAngle(ship, target) {
-  const dx = target.x - ship.x;
-  const dy = target.y - ship.y;
-  const dist = Math.sqrt(dx * dx + dy * dy);
-  if (dist < 1) return { angle: Math.atan2(dy, dx), travelTime: 0 };
-
-  // Relative velocity of target w.r.t. ship (bullet inherits ship velocity)
-  const rvx = target.vx - ship.vx;
-  const rvy = target.vy - ship.vy;
-
-  // Estimate travel time: dist / BULLET_SPEED (first-order approximation)
-  const travelTime = dist / BULLET_SPEED;
-
-  // Predict target position at intercept time
-  const predX = target.x + rvx * travelTime;
-  const predY = target.y + rvy * travelTime;
-
-  return {
-    angle: Math.atan2(predY - ship.y, predX - ship.x),
-    travelTime,
-  };
-}
-
-/**
  * Normalize an angle to [-PI, PI].
  */
 function normalizeAngle(angle) {
@@ -635,18 +586,14 @@ function updatePredictiveOptimizedAI(state, ship, target, asteroids, _dt) {
   ship.rotatingRight = state.prevAction.rotatingRight;
   ship.braking = state.prevAction.braking;
 
-  // Fire decision: lead-angle check — aim where the target will be
+  // Fire decision: snap check based on current aim geometry
   const dx = target.x - ship.x;
   const dy = target.y - ship.y;
   const dist = Math.sqrt(dx * dx + dy * dy);
+  const angleToTarget = Math.atan2(dy, dx);
+  const headingDiff = Math.abs(normalizeAngle(angleToTarget - ship.heading));
 
-  if (dist < MAX_FIRE_RANGE) {
-    const lead = computeLeadAngle(ship, target);
-    const headingDiff = Math.abs(normalizeAngle(lead.angle - ship.heading));
-    ship.fire = headingDiff < FIRE_ANGLE;
-  } else {
-    ship.fire = false;
-  }
+  ship.fire = headingDiff < FIRE_ANGLE && dist < MAX_FIRE_RANGE;
 }
 
 /**

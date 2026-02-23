@@ -211,6 +211,8 @@ describe('GameEnv.step() shape', () => {
     expect(info).toHaveProperty('hitsLanded');
     expect(info).toHaveProperty('hitsTaken');
     expect(info).toHaveProperty('asteroidsHit');
+    expect(info).toHaveProperty('agentDeathCause');
+    expect(info).toHaveProperty('opponentDeathCause');
   });
 });
 
@@ -396,7 +398,7 @@ describe('Episode termination', () => {
     expect(result.info.winner).toBe('timeout');
   });
 
-  it('mutual kill → winner is opponent (agent death priority)', () => {
+  it('mutual kill → winner is draw_mutual', () => {
     env.reset({ shipHP: 1, enemyPolicy: 'static', asteroidDensity: 0 });
 
     // Both ships get hit simultaneously
@@ -409,7 +411,7 @@ describe('Episode termination', () => {
 
     const result = env.step(3, 0);
     expect(result.done).toBe(true);
-    expect(result.info.winner).toBe('opponent');
+    expect(result.info.winner).toBe('draw_mutual');
   });
 });
 
@@ -642,6 +644,184 @@ describe('GameEnv headless asteroids', () => {
     const env = new GameEnv();
     env.reset({ enemyPolicy: 'static' });
     expect(env._sim.headless).toBe(true);
+  });
+});
+
+// ── Death cause tracking ─────────────────────────────────────────────
+describe('Death cause tracking', () => {
+  let env;
+  beforeEach(() => {
+    env = new GameEnv();
+  });
+
+  it('agentDeathCause is bullet when killed by bullet', () => {
+    env.reset({ shipHP: 1, enemyPolicy: 'static', asteroidDensity: 0 });
+    env._bullets.push(
+      createBullet(env._agent.x, env._agent.y, 0, 0, 0, 'enemy'),
+    );
+    const result = env.step(3, 0);
+    expect(result.done).toBe(true);
+    expect(result.info.agentDeathCause).toBe('bullet');
+  });
+
+  it('agentDeathCause is asteroid when killed by asteroid', () => {
+    env.reset({ shipHP: 1, enemyPolicy: 'static', asteroidDensity: 0 });
+    env._sim.asteroids.push(
+      createAsteroid({
+        x: env._agent.x,
+        y: env._agent.y,
+        vx: 0,
+        vy: 0,
+        radius: 20,
+      }),
+    );
+    const result = env.step(3, 0);
+    expect(result.done).toBe(true);
+    expect(result.info.agentDeathCause).toBe('asteroid');
+  });
+
+  it('opponentDeathCause is bullet when killed by bullet', () => {
+    env.reset({ shipHP: 1, enemyPolicy: 'static', asteroidDensity: 0 });
+    env._bullets.push(
+      createBullet(env._opponent.x, env._opponent.y, 0, 0, 0, 'player'),
+    );
+    const result = env.step(3, 0);
+    expect(result.done).toBe(true);
+    expect(result.info.opponentDeathCause).toBe('bullet');
+  });
+
+  it('opponentDeathCause is asteroid when killed by asteroid', () => {
+    env.reset({ shipHP: 1, enemyPolicy: 'static', asteroidDensity: 0 });
+    env._sim.asteroids.push(
+      createAsteroid({
+        x: env._opponent.x,
+        y: env._opponent.y,
+        vx: 0,
+        vy: 0,
+        radius: 20,
+      }),
+    );
+    const result = env.step(3, 0);
+    expect(result.done).toBe(true);
+    expect(result.info.opponentDeathCause).toBe('asteroid');
+  });
+
+  it('death causes are null mid-episode', () => {
+    env.reset({ shipHP: 5, enemyPolicy: 'static', asteroidDensity: 0 });
+    const result = env.step(3, 0);
+    expect(result.done).toBe(false);
+    expect(result.info.agentDeathCause).toBeNull();
+    expect(result.info.opponentDeathCause).toBeNull();
+  });
+
+  it('death causes are null on timeout', () => {
+    env.reset({
+      shipHP: 5,
+      maxTicks: 2,
+      enemyPolicy: 'static',
+      asteroidDensity: 0,
+    });
+    env.step(3, 0);
+    const result = env.step(3, 0);
+    expect(result.done).toBe(true);
+    expect(result.info.winner).toBe('timeout');
+    expect(result.info.agentDeathCause).toBeNull();
+    expect(result.info.opponentDeathCause).toBeNull();
+  });
+
+  it('death causes reset across episodes', () => {
+    env.reset({ shipHP: 1, enemyPolicy: 'static', asteroidDensity: 0 });
+    env._bullets.push(
+      createBullet(env._agent.x, env._agent.y, 0, 0, 0, 'enemy'),
+    );
+    const r1 = env.step(3, 0);
+    expect(r1.info.agentDeathCause).toBe('bullet');
+
+    // Reset and verify causes are null again
+    env.reset({ shipHP: 5, enemyPolicy: 'static', asteroidDensity: 0 });
+    const r2 = env.step(3, 0);
+    expect(r2.info.agentDeathCause).toBeNull();
+    expect(r2.info.opponentDeathCause).toBeNull();
+  });
+
+  it('first lethal hit wins with multi-HP (bullet then asteroid same tick)', () => {
+    env.reset({ shipHP: 2, enemyPolicy: 'static', asteroidDensity: 0 });
+    // First hit: bullet drops HP from 2 to 1
+    env._bullets.push(
+      createBullet(env._agent.x, env._agent.y, 0, 0, 0, 'enemy'),
+    );
+    env.step(3, 0); // HP now 1, cause still null (not dead yet)
+
+    // Second hit: asteroid drops HP from 1 to 0
+    env._sim.asteroids.push(
+      createAsteroid({
+        x: env._agent.x,
+        y: env._agent.y,
+        vx: 0,
+        vy: 0,
+        radius: 20,
+      }),
+    );
+    const result = env.step(3, 0);
+    expect(result.done).toBe(true);
+    expect(result.info.agentDeathCause).toBe('asteroid');
+  });
+});
+
+// ── Mutual kill (draw_mutual) ────────────────────────────────────────
+describe('Mutual kill (draw_mutual)', () => {
+  let env;
+  beforeEach(() => {
+    env = new GameEnv();
+  });
+
+  it('both dying same tick → winner is draw_mutual', () => {
+    env.reset({ shipHP: 1, enemyPolicy: 'static', asteroidDensity: 0 });
+    env._bullets.push(
+      createBullet(env._agent.x, env._agent.y, 0, 0, 0, 'enemy'),
+    );
+    env._bullets.push(
+      createBullet(env._opponent.x, env._opponent.y, 0, 0, 0, 'player'),
+    );
+    const result = env.step(3, 0);
+    expect(result.done).toBe(true);
+    expect(result.info.winner).toBe('draw_mutual');
+  });
+
+  it('both death causes are set on mutual kill', () => {
+    env.reset({ shipHP: 1, enemyPolicy: 'static', asteroidDensity: 0 });
+    env._bullets.push(
+      createBullet(env._agent.x, env._agent.y, 0, 0, 0, 'enemy'),
+    );
+    env._bullets.push(
+      createBullet(env._opponent.x, env._opponent.y, 0, 0, 0, 'player'),
+    );
+    const result = env.step(3, 0);
+    expect(result.info.agentDeathCause).toBe('bullet');
+    expect(result.info.opponentDeathCause).toBe('bullet');
+  });
+
+  it('mixed causes: asteroid kills agent + bullet kills opponent', () => {
+    env.reset({ shipHP: 1, enemyPolicy: 'static', asteroidDensity: 0 });
+    // Bullet kills opponent
+    env._bullets.push(
+      createBullet(env._opponent.x, env._opponent.y, 0, 0, 0, 'player'),
+    );
+    // Asteroid kills agent
+    env._sim.asteroids.push(
+      createAsteroid({
+        x: env._agent.x,
+        y: env._agent.y,
+        vx: 0,
+        vy: 0,
+        radius: 20,
+      }),
+    );
+    const result = env.step(3, 0);
+    expect(result.done).toBe(true);
+    expect(result.info.winner).toBe('draw_mutual');
+    expect(result.info.agentDeathCause).toBe('asteroid');
+    expect(result.info.opponentDeathCause).toBe('bullet');
   });
 });
 

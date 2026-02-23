@@ -91,6 +91,8 @@
     <div class="stat"><div class="stat-value" id="s-steps">—</div><div class="stat-label">Steps</div></div>
     <div class="stat"><div class="stat-value" id="s-wr">—</div><div class="stat-label">Win Rate</div></div>
     <div class="stat"><div class="stat-value" id="s-best">—</div><div class="stat-label">Best WR</div></div>
+    <div class="stat"><div class="stat-value" id="s-draw">—</div><div class="stat-label">Draw %</div></div>
+    <div class="stat"><div class="stat-value" id="s-ast">—</div><div class="stat-label">Ast Deaths</div></div>
   </div>
 
   <div class="charts" id="charts-area">
@@ -101,6 +103,10 @@
     <div class="chart-container">
       <h2>Mean Reward</h2>
       <canvas id="chart-reward"></canvas>
+    </div>
+    <div class="chart-container" style="grid-column: 1 / -1">
+      <h2>Outcome Breakdown</h2>
+      <canvas id="chart-outcomes"></canvas>
     </div>
   </div>
   <div class="no-data" id="no-data" style="display:none">
@@ -113,6 +119,7 @@
     var DASHBOARD_DATA = [];
     var wrChart = null;
     var rewardChart = null;
+    var outcomesChart = null;
 
     function loadData(cb) {
       var s = document.createElement('script');
@@ -153,6 +160,11 @@
       var bestWr = 0;
       data.forEach(function (d) { if (d.best_wr > bestWr) bestWr = d.best_wr; });
       document.getElementById('s-best').textContent = (bestWr * 100).toFixed(1) + '%';
+
+      // Draw % and Ast Deaths stat cards
+      var ob = last.outcome_breakdown;
+      document.getElementById('s-draw').textContent = ob ? (ob.draw_mutual * 100).toFixed(1) + '%' : '—';
+      document.getElementById('s-ast').textContent = last.agent_asteroid_deaths != null ? formatNum(last.agent_asteroid_deaths) : '—';
 
       var labels = data.map(function (d) { return d.episodes; });
       var wrValues = data.map(function (d) { return d.win_rate != null ? d.win_rate * 100 : null; });
@@ -205,8 +217,8 @@
                 fill: false
               },
               {
-                label: '80% Threshold',
-                data: labels.map(function () { return 80; }),
+                label: 'Threshold',
+                data: data.map(function (d) { return (d.threshold != null ? d.threshold : 0.8) * 100; }),
                 borderColor: '#ef4444',
                 borderDash: [4, 4],
                 pointRadius: 0,
@@ -225,7 +237,7 @@
         wrChart.data.labels = labels;
         wrChart.data.datasets[0].data = wrValues;
         wrChart.data.datasets[1].data = bestValues;
-        wrChart.data.datasets[2].data = labels.map(function () { return 80; });
+        wrChart.data.datasets[2].data = data.map(function (d) { return (d.threshold != null ? d.threshold : 0.8) * 100; });
         wrChart.update();
       }
 
@@ -251,6 +263,39 @@
         rewardChart.data.labels = labels;
         rewardChart.data.datasets[0].data = rewardValues;
         rewardChart.update();
+      }
+
+      // Outcome breakdown chart
+      var winPct = data.map(function (d) { return d.outcome_breakdown ? d.outcome_breakdown.win * 100 : null; });
+      var lossPct = data.map(function (d) { return d.outcome_breakdown ? d.outcome_breakdown.loss * 100 : null; });
+      var drawPct = data.map(function (d) { return d.outcome_breakdown ? d.outcome_breakdown.draw_mutual * 100 : null; });
+      var timeoutPct = data.map(function (d) { return d.outcome_breakdown ? d.outcome_breakdown.timeout * 100 : null; });
+
+      if (!outcomesChart) {
+        outcomesChart = new Chart(document.getElementById('chart-outcomes'), {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [
+              { label: 'Win %', data: winPct, borderColor: '#3b82f6', borderWidth: 2, pointRadius: 0, tension: 0.3, fill: false },
+              { label: 'Loss %', data: lossPct, borderColor: '#ef4444', borderWidth: 2, pointRadius: 0, tension: 0.3, fill: false },
+              { label: 'Draw %', data: drawPct, borderColor: '#f59e0b', borderWidth: 2, pointRadius: 0, tension: 0.3, fill: false },
+              { label: 'Timeout %', data: timeoutPct, borderColor: '#6b7280', borderWidth: 2, pointRadius: 0, tension: 0.3, fill: false }
+            ]
+          },
+          options: Object.assign({}, chartOpts, {
+            scales: Object.assign({}, chartOpts.scales, {
+              y: Object.assign({}, chartOpts.scales.y, { min: 0, max: 100 })
+            })
+          })
+        });
+      } else {
+        outcomesChart.data.labels = labels;
+        outcomesChart.data.datasets[0].data = winPct;
+        outcomesChart.data.datasets[1].data = lossPct;
+        outcomesChart.data.datasets[2].data = drawPct;
+        outcomesChart.data.datasets[3].data = timeoutPct;
+        outcomesChart.update();
       }
     }
 
