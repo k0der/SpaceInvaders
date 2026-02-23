@@ -59,6 +59,7 @@ import {
   drawShip,
   drawTrail,
   ENEMY_TRAIL_COLOR,
+  MAX_SPEED,
   PLAYER_TRAIL_COLOR,
   SHIP_SIZE,
   updateShip,
@@ -312,6 +313,9 @@ export function startApp() {
       owner: 'enemy',
     });
     enemyShip.thrustPower = settings.thrustPower;
+    if (settings.enemyIntelligence === 'fleeing') {
+      enemyShip.maxSpeed = MAX_SPEED * 0.5;
+    }
 
     bullets = [];
     playerTrail = createTrail();

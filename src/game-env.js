@@ -15,7 +15,7 @@ import {
 } from './game.js';
 import { buildObservation } from './observation.js';
 import { computeReward, DEFAULT_REWARD_WEIGHTS } from './reward.js';
-import { createShip, SHIP_SIZE, updateShip } from './ship.js';
+import { createShip, MAX_SPEED, SHIP_SIZE, updateShip } from './ship.js';
 import { createSimulation, updateSimulation } from './simulation.js';
 
 const DT = 1 / 60;
@@ -95,6 +95,11 @@ export class GameEnv {
       heading: Math.random() * 2 * Math.PI,
       owner: 'enemy',
     });
+
+    // Per-episode speed cap override for opponent (e.g., slow fleeing enemy)
+    if (c.aiMaxSpeedFactor != null) {
+      this._opponent.maxSpeed = MAX_SPEED * c.aiMaxSpeedFactor;
+    }
 
     // If spawnFacing: both ships face each other
     if (c.spawnFacing) {
@@ -374,7 +379,10 @@ export class GameEnv {
           winner = 'timeout';
           // Apply timeout reward here — computeReward runs before tick
           // increment, so its tick check never fires. Apply directly.
-          const w = { ...DEFAULT_REWARD_WEIGHTS, ...(this._config.rewardWeights || {}) };
+          const w = {
+            ...DEFAULT_REWARD_WEIGHTS,
+            ...(this._config.rewardWeights || {}),
+          };
           if (w.timeout !== 0) {
             totalReward += w.timeout;
             this._rewardBreakdown.timeout += w.timeout;

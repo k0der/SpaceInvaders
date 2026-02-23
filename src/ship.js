@@ -122,11 +122,12 @@ export function updateShip(ship, dt) {
   ship.vx *= 1 - DRAG * dt;
   ship.vy *= 1 - DRAG * dt;
 
-  // 6. Speed cap
+  // 6. Speed cap (per-ship override follows same pattern as thrustPower)
+  const maxSpeed = ship.maxSpeed ?? MAX_SPEED;
   const currentSpeed = Math.sqrt(ship.vx * ship.vx + ship.vy * ship.vy);
-  if (currentSpeed > MAX_SPEED) {
-    ship.vx = (ship.vx / currentSpeed) * MAX_SPEED;
-    ship.vy = (ship.vy / currentSpeed) * MAX_SPEED;
+  if (currentSpeed > maxSpeed) {
+    ship.vx = (ship.vx / currentSpeed) * maxSpeed;
+    ship.vy = (ship.vy / currentSpeed) * maxSpeed;
   }
 
   // 7. Position update

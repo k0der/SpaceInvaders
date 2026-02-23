@@ -552,6 +552,7 @@ def train_stage(
             "frameSkip",
             "aiHoldTime",
             "aiSimSteps",
+            "aiMaxSpeedFactor",
             "selfPlayModelPath",
             "campCheckTicks",
             "campMinClosing",

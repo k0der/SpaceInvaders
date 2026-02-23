@@ -170,6 +170,16 @@ describe('GameEnv.reset()', () => {
     env.reset({ spawnFacing: false });
     expect(env._agent.heading).toBeCloseTo(-Math.PI / 2, 5);
   });
+
+  it('aiMaxSpeedFactor caps opponent max speed', () => {
+    env.reset({ aiMaxSpeedFactor: 0.5 });
+    expect(env._opponent.maxSpeed).toBeCloseTo(400 * 0.5, 5);
+  });
+
+  it('opponent has no maxSpeed override when aiMaxSpeedFactor not set', () => {
+    env.reset({});
+    expect(env._opponent.maxSpeed).toBeUndefined();
+  });
 });
 
 // ── step() shape ────────────────────────────────────────────────────
@@ -459,9 +469,19 @@ describe('Episode termination', () => {
       enemyPolicy: 'static',
       asteroidDensity: 0,
       rewardWeights: {
-        survival: 0, aim: 0, closing: 0, hit: 0, gotHit: 0,
-        nearMiss: 0, firePenalty: 0, win: 0, loss: 0, draw: 0,
-        engagePenalty: 0, proximity: 0, timeout: timeoutWeight,
+        survival: 0,
+        aim: 0,
+        closing: 0,
+        hit: 0,
+        gotHit: 0,
+        nearMiss: 0,
+        firePenalty: 0,
+        win: 0,
+        loss: 0,
+        draw: 0,
+        engagePenalty: 0,
+        proximity: 0,
+        timeout: timeoutWeight,
       },
     });
 

@@ -595,6 +595,33 @@ describe('Increment 19: Ship Thrusts and Drifts', () => {
       expect(ship.vx).toBeCloseTo(ship.vy, 3);
       expect(ship.vx).toBeGreaterThan(0);
     });
+
+    it('uses ship.maxSpeed when set (per-ship override)', () => {
+      const ship = createShip({ x: 0, y: 0, heading: 0 });
+      ship.maxSpeed = MAX_SPEED * 0.5;
+      ship.vx = MAX_SPEED; // exceeds the override
+      updateShip(ship, 0.016);
+      const speed = Math.sqrt(ship.vx * ship.vx + ship.vy * ship.vy);
+      expect(speed).toBeLessThanOrEqual(MAX_SPEED * 0.5 + 0.001);
+    });
+
+    it('falls back to MAX_SPEED when ship.maxSpeed is not set', () => {
+      const ship = createShip({ x: 0, y: 0, heading: 0 });
+      ship.vx = MAX_SPEED * 2;
+      updateShip(ship, 0.016);
+      const speed = Math.sqrt(ship.vx * ship.vx + ship.vy * ship.vy);
+      expect(speed).toBeLessThanOrEqual(MAX_SPEED + 0.001);
+    });
+
+    it('per-ship maxSpeed allows lower cap than default', () => {
+      const ship = createShip({ x: 0, y: 0, heading: 0 });
+      ship.maxSpeed = 100;
+      ship.thrust = true;
+      for (let i = 0; i < 500; i++) updateShip(ship, 0.016);
+      const speed = Math.sqrt(ship.vx * ship.vx + ship.vy * ship.vy);
+      expect(speed).toBeLessThanOrEqual(100 + 0.001);
+      expect(speed).toBeGreaterThan(50); // actually reached the cap
+    });
   });
 
   describe('dt=0', () => {

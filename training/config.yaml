@@ -416,6 +416,7 @@ stages:
     asteroidDensity: 0.5
     enemyPolicy: "fleeing"
     enemyShoots: false
+    aiMaxSpeedFactor: 0.5
     spawnDistance: [500, 1000]
     spawnFacing: false
     frameSkip: 2
