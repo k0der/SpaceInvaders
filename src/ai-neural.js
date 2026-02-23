@@ -97,7 +97,11 @@ async function initSession(state) {
     // isolation headers (COOP/COEP) that static hosts like GitHub Pages
     // don't provide, causing SharedArrayBuffer to be unavailable.
     window.ort.env.wasm.numThreads = 1;
-    state.session = await window.ort.InferenceSession.create(MODEL_PATH);
+    // Disable proxy worker — it also requires cross-origin isolation.
+    window.ort.env.wasm.proxy = false;
+    state.session = await window.ort.InferenceSession.create(MODEL_PATH, {
+      executionProviders: ['wasm'],
+    });
     state.ready = true;
   } catch (err) {
     console.warn('Neural AI: model load failed, using fallback.', err);
