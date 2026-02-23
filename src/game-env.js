@@ -154,10 +154,9 @@ export class GameEnv {
     this._hitsTaken = 0;
     this._asteroidsHit = 0;
 
-    // Camp detection: record initial distance for early termination
-    const sdx = this._opponent.x - this._agent.x;
-    const sdy = this._opponent.y - this._agent.y;
-    this._spawnDistance = Math.sqrt(sdx * sdx + sdy * sdy);
+    // Camp detection: record agent spawn position for early termination
+    this._agentSpawnX = this._agent.x;
+    this._agentSpawnY = this._agent.y;
     this._campChecked = false;
 
     // Initial reward state snapshot
@@ -354,7 +353,7 @@ export class GameEnv {
         }
       }
 
-      // Camp check: if agent hasn't closed distance by deadline, terminate as loss
+      // Camp check: if agent hasn't moved from spawn by deadline, terminate as loss
       const campTicks = this._config.campCheckTicks;
       if (
         campTicks > 0 &&
@@ -363,11 +362,11 @@ export class GameEnv {
         !done
       ) {
         this._campChecked = true;
-        const cdx = this._opponent.x - this._agent.x;
-        const cdy = this._opponent.y - this._agent.y;
-        const currentDist = Math.sqrt(cdx * cdx + cdy * cdy);
+        const mdx = this._agent.x - this._agentSpawnX;
+        const mdy = this._agent.y - this._agentSpawnY;
+        const displacement = Math.sqrt(mdx * mdx + mdy * mdy);
         const minClosing = this._config.campMinClosing || 100;
-        if (this._spawnDistance - currentDist < minClosing) {
+        if (displacement < minClosing) {
           done = true;
           winner = 'opponent';
         }
