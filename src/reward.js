@@ -41,15 +41,22 @@ function normalizeAngle(angle) {
 
 /**
  * Compute a scalar reward from two consecutive game states.
- * Pure function — no mutation, no side effects.
+ * Pure function — no mutation of states, no side effects.
  *
  * @param {Object} prevState  - { ship, target, asteroids, shipHP, targetHP, tick }
  * @param {Object} currentState - same shape as prevState
  * @param {Object} action - { moveAction, fireAction }
  * @param {Object} config - { rewardWeights?, maxTicks, shipHP }
+ * @param {Object|null} [breakdown=null] - if provided, each component's value is accumulated into the corresponding key
  * @returns {number} scalar reward (0.0 if agent is dead)
  */
-export function computeReward(prevState, currentState, action, config) {
+export function computeReward(
+  prevState,
+  currentState,
+  action,
+  config,
+  breakdown = null,
+) {
   // No posthumous rewards
   if (!currentState.ship.alive) {
     return 0.0;
@@ -60,6 +67,7 @@ export function computeReward(prevState, currentState, action, config) {
 
   // 1. Survival
   reward += w.survival;
+  if (breakdown) breakdown.survival += w.survival;
 
   // 2. Aim alignment
   const ship = currentState.ship;
@@ -71,7 +79,9 @@ export function computeReward(prevState, currentState, action, config) {
   if (dist < AIM_DISTANCE_THRESHOLD && dist > 0) {
     const angleToTarget = Math.atan2(dy, dx);
     const bearing = normalizeAngle(angleToTarget - ship.heading);
-    reward += w.aim * Math.cos(bearing);
+    const aimReward = w.aim * Math.cos(bearing);
+    reward += aimReward;
+    if (breakdown) breakdown.aim += aimReward;
   }
 
   // 3. Closing distance
@@ -83,17 +93,21 @@ export function computeReward(prevState, currentState, action, config) {
   const distanceDelta = prevDist - dist;
 
   if (distanceDelta > 0) {
-    reward += (w.closing * distanceDelta) / CLOSING_DISTANCE_NORM;
+    const closingReward = (w.closing * distanceDelta) / CLOSING_DISTANCE_NORM;
+    reward += closingReward;
+    if (breakdown) breakdown.closing += closingReward;
   }
 
   // 4. Hit landed
   if (currentState.targetHP < prevState.targetHP) {
     reward += w.hit;
+    if (breakdown) breakdown.hit += w.hit;
   }
 
   // 5. Got hit
   if (currentState.shipHP < prevState.shipHP) {
     reward += w.gotHit;
+    if (breakdown) breakdown.gotHit += w.gotHit;
   }
 
   // 6. Near-miss
@@ -108,19 +122,24 @@ export function computeReward(prevState, currentState, action, config) {
 
     if (aDist < dangerRadius) {
       const ratio = 1 - aDist / dangerRadius;
-      reward += w.nearMiss * ratio * ratio;
+      const nearMissReward = w.nearMiss * ratio * ratio;
+      reward += nearMissReward;
+      if (breakdown) breakdown.nearMiss += nearMissReward;
     }
   }
 
   // 7. Fire discipline
   if (action.fireAction === 1) {
     reward += w.firePenalty;
+    if (breakdown) breakdown.firePenalty += w.firePenalty;
   }
 
   // 8. Engage penalty — continuous cost for staying far from the enemy
   if (w.engagePenalty !== 0 && dist > ENGAGE_DISTANCE) {
-    reward +=
+    const engageReward =
       (w.engagePenalty * (dist - ENGAGE_DISTANCE)) / ENGAGE_DISTANCE_NORM;
+    reward += engageReward;
+    if (breakdown) breakdown.engagePenalty += engageReward;
   }
 
   // 9. Proximity — action-dependent closing reward scaled by inverse distance
@@ -130,28 +149,34 @@ export function computeReward(prevState, currentState, action, config) {
     const hypotheticalDist = Math.sqrt(hypDx * hypDx + hypDy * hypDy);
     const agentClosing = prevDist - hypotheticalDist;
     if (agentClosing > 0 && prevDist > 0) {
-      reward += (w.proximity * agentClosing) / prevDist;
+      const proximityReward = (w.proximity * agentClosing) / prevDist;
+      reward += proximityReward;
+      if (breakdown) breakdown.proximity += proximityReward;
     }
   }
 
   // 10. Win (terminal)
   if (currentState.targetHP <= 0) {
     reward += w.win;
+    if (breakdown) breakdown.win += w.win;
   }
 
   // 11. Loss (terminal) — agent is alive (checked above), but shipHP may indicate loss
   if (currentState.shipHP <= 0) {
     reward += w.loss;
+    if (breakdown) breakdown.loss += w.loss;
   }
 
   // 12. Draw (terminal) — both HP <= 0
   if (currentState.shipHP <= 0 && currentState.targetHP <= 0) {
     reward += w.draw;
+    if (breakdown) breakdown.draw += w.draw;
   }
 
   // 13. Timeout (terminal)
   if (currentState.tick >= config.maxTicks) {
     reward += w.timeout;
+    if (breakdown) breakdown.timeout += w.timeout;
   }
 
   return reward;

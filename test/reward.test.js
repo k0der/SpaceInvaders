@@ -982,3 +982,159 @@ describe('computeReward — edge cases', () => {
     expect(Number.isNaN(result)).toBe(false);
   });
 });
+
+describe('computeReward — breakdown accumulator', () => {
+  /** Create a zeroed breakdown object with all 13 keys. */
+  function makeBreakdown() {
+    return {
+      survival: 0,
+      aim: 0,
+      closing: 0,
+      hit: 0,
+      gotHit: 0,
+      nearMiss: 0,
+      firePenalty: 0,
+      engagePenalty: 0,
+      proximity: 0,
+      win: 0,
+      loss: 0,
+      draw: 0,
+      timeout: 0,
+    };
+  }
+
+  it('accumulates survival into breakdown when provided', () => {
+    const prev = makeState();
+    const curr = makeState();
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ survival: 1.0 }),
+    });
+    const breakdown = makeBreakdown();
+    computeReward(prev, curr, action, config, breakdown);
+    expect(breakdown.survival).toBeCloseTo(1.0, 5);
+  });
+
+  it('does not require breakdown (backward compatible with null/undefined)', () => {
+    const prev = makeState();
+    const curr = makeState();
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig();
+    // No 5th argument — should work fine
+    const result = computeReward(prev, curr, action, config);
+    expect(Number.isFinite(result)).toBe(true);
+    // Explicit null
+    const result2 = computeReward(prev, curr, action, config, null);
+    expect(Number.isFinite(result2)).toBe(true);
+  });
+
+  it('accumulates across multiple calls', () => {
+    const prev = makeState();
+    const curr = makeState();
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ survival: 1.0 }),
+    });
+    const breakdown = makeBreakdown();
+    computeReward(prev, curr, action, config, breakdown);
+    computeReward(prev, curr, action, config, breakdown);
+    computeReward(prev, curr, action, config, breakdown);
+    expect(breakdown.survival).toBeCloseTo(3.0, 5);
+  });
+
+  it('dead agent does not add to breakdown', () => {
+    const prev = makeState({ shipHP: 1 });
+    const curr = makeState({ ship: { alive: false }, shipHP: 0, targetHP: 0 });
+    const action = { moveAction: 0, fireAction: 1 };
+    const config = makeConfig();
+    const breakdown = makeBreakdown();
+    computeReward(prev, curr, action, config, breakdown);
+    // All keys should remain zero
+    for (const key of Object.keys(breakdown)) {
+      expect(breakdown[key]).toBe(0);
+    }
+  });
+
+  it('accumulates all 13 components correctly in a single call', () => {
+    // Set up a state that triggers many components at once
+    const prev = makeState({
+      ship: { x: -50, y: 0, heading: 0 },
+      target: { x: 300, y: 0 },
+      shipHP: 5,
+      targetHP: 5,
+    });
+    const asteroid = { x: 30, y: 0, collisionRadius: 20 };
+    const curr = makeState({
+      ship: { x: 0, y: 0, heading: 0 },
+      target: { x: 300, y: 0 },
+      asteroids: [asteroid],
+      shipHP: 4,
+      targetHP: 4,
+    });
+    const action = { moveAction: 0, fireAction: 1 };
+    const config = makeConfig();
+    const breakdown = makeBreakdown();
+    const totalReward = computeReward(prev, curr, action, config, breakdown);
+
+    // Verify individual components are non-zero where expected
+    expect(breakdown.survival).toBeCloseTo(0.001, 5);
+    expect(breakdown.aim).toBeGreaterThan(0); // facing target at dist 300
+    expect(breakdown.closing).toBeGreaterThan(0); // moved closer
+    expect(breakdown.hit).toBeCloseTo(1.0, 5); // targetHP decreased
+    expect(breakdown.gotHit).toBeCloseTo(-1.0, 5); // shipHP decreased
+    expect(breakdown.nearMiss).toBeLessThan(0); // asteroid nearby
+    expect(breakdown.firePenalty).toBeCloseTo(-0.002, 5); // fired
+
+    // Sum of all breakdown values should equal the total reward
+    const breakdownSum = Object.values(breakdown).reduce((a, b) => a + b, 0);
+    expect(breakdownSum).toBeCloseTo(totalReward, 4);
+  });
+
+  it('accumulates terminal win component', () => {
+    const prev = makeState({ targetHP: 1 });
+    const curr = makeState({ targetHP: 0 });
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ win: 5.0 }),
+    });
+    const breakdown = makeBreakdown();
+    computeReward(prev, curr, action, config, breakdown);
+    expect(breakdown.win).toBeCloseTo(5.0, 5);
+  });
+
+  it('accumulates engage penalty component', () => {
+    const prev = makeState({
+      ship: { x: 0, y: 0 },
+      target: { x: 600, y: 0 },
+    });
+    const curr = makeState({
+      ship: { x: 0, y: 0 },
+      target: { x: 600, y: 0 },
+    });
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ engagePenalty: -1.0 }),
+    });
+    const breakdown = makeBreakdown();
+    computeReward(prev, curr, action, config, breakdown);
+    expect(breakdown.engagePenalty).toBeCloseTo(-0.2, 5);
+  });
+
+  it('accumulates proximity component', () => {
+    const prev = makeState({
+      ship: { x: 0, y: 0 },
+      target: { x: 500, y: 0 },
+    });
+    const curr = makeState({
+      ship: { x: 10, y: 0 },
+      target: { x: 500, y: 0 },
+    });
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ proximity: 1.0 }),
+    });
+    const breakdown = makeBreakdown();
+    computeReward(prev, curr, action, config, breakdown);
+    expect(breakdown.proximity).toBeCloseTo(0.02, 5);
+  });
+});

@@ -93,6 +93,7 @@ class WinRateCallback(BaseCallback):
         self.outcome_details: list[str] = []  # 'win', 'loss', 'draw_mutual', 'timeout'
         self.agent_asteroid_deaths: int = 0
         self.opponent_asteroid_deaths: int = 0
+        self.reward_breakdowns: list[dict] = []
         self.should_promote: bool = False
 
         self._last_print_time: float = 0.0
@@ -111,6 +112,20 @@ class WinRateCallback(BaseCallback):
             if o in counts:
                 counts[o] += 1
         return {k: round(v / total, 4) for k, v in counts.items()}
+
+    def _rolling_reward_breakdown(self, window: Optional[int] = None) -> Optional[dict[str, float]]:
+        """Return average per-component reward over the last `window` episodes."""
+        if not self.reward_breakdowns:
+            return None
+        n = len(self.reward_breakdowns)
+        w = min(window, n) if window else n
+        recent = self.reward_breakdowns[-w:]
+        keys = recent[0].keys()
+        avg: dict[str, float] = {}
+        for k in keys:
+            total = sum(float(ep.get(k, 0)) for ep in recent)
+            avg[k] = round(total / len(recent), 6)
+        return avg
 
     def _rolling_win_rate(self) -> Optional[float]:
         n = len(self.outcomes)
@@ -177,6 +192,11 @@ class WinRateCallback(BaseCallback):
                     self.outcome_details.append("timeout")
                 else:
                     self.outcome_details.append("loss")
+
+                # Track reward breakdown
+                rb = terminal_info.get("rewardBreakdown", None)
+                if rb is not None and isinstance(rb, dict):
+                    self.reward_breakdowns.append(rb)
 
                 # Track asteroid deaths
                 agent_cause = terminal_info.get("agentDeathCause", None)
@@ -427,6 +447,8 @@ class JsonLogCallback(BaseCallback):
 
         breakdown = self.win_cb._outcome_breakdown(self.win_cb.window_size)
 
+        reward_breakdown = self.win_cb._rolling_reward_breakdown(self.win_cb.window_size)
+
         entry = {
             "ts": now,
             "step": int(self.num_timesteps),
@@ -439,6 +461,7 @@ class JsonLogCallback(BaseCallback):
             "outcome_breakdown": breakdown,
             "agent_asteroid_deaths": self.win_cb.agent_asteroid_deaths,
             "opponent_asteroid_deaths": self.win_cb.opponent_asteroid_deaths,
+            "reward_breakdown": reward_breakdown,
         }
         self._entries.append(entry)
 

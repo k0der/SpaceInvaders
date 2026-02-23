@@ -154,6 +154,23 @@ export class GameEnv {
     this._hitsTaken = 0;
     this._asteroidsHit = 0;
 
+    // Per-episode reward breakdown accumulator
+    this._rewardBreakdown = {
+      survival: 0,
+      aim: 0,
+      closing: 0,
+      hit: 0,
+      gotHit: 0,
+      nearMiss: 0,
+      firePenalty: 0,
+      engagePenalty: 0,
+      proximity: 0,
+      win: 0,
+      loss: 0,
+      draw: 0,
+      timeout: 0,
+    };
+
     // Camp detection: track agent position for periodic movement checks
     this._campCheckX = this._agent.x;
     this._campCheckY = this._agent.y;
@@ -318,6 +335,7 @@ export class GameEnv {
         currentRewardState,
         { moveAction, fireAction },
         this._config,
+        this._rewardBreakdown,
       );
 
       // 13. Set alive=false for ships with HP <= 0 (AFTER reward snapshot)
@@ -388,6 +406,7 @@ export class GameEnv {
       asteroidsHit: this._asteroidsHit,
       agentDeathCause: this._agentDeathCause,
       opponentDeathCause: this._opponentDeathCause,
+      rewardBreakdown: done ? this._rewardBreakdown : undefined,
     };
 
     return { observation, reward: totalReward, done, info };

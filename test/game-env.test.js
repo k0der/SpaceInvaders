@@ -413,6 +413,56 @@ describe('Episode termination', () => {
     expect(result.done).toBe(true);
     expect(result.info.winner).toBe('draw_mutual');
   });
+
+  it('terminal info includes rewardBreakdown with all 13 keys', () => {
+    env.reset({
+      shipHP: 5,
+      maxTicks: 2,
+      enemyPolicy: 'static',
+      asteroidDensity: 0,
+    });
+
+    env.step(3, 0); // tick 1 — not done
+    const result = env.step(3, 0); // tick 2 = maxTicks — done
+    expect(result.done).toBe(true);
+    expect(result.info.rewardBreakdown).toBeDefined();
+    const rb = result.info.rewardBreakdown;
+    const expectedKeys = [
+      'survival',
+      'aim',
+      'closing',
+      'hit',
+      'gotHit',
+      'nearMiss',
+      'firePenalty',
+      'engagePenalty',
+      'proximity',
+      'win',
+      'loss',
+      'draw',
+      'timeout',
+    ];
+    expect(Object.keys(rb).sort()).toEqual(expectedKeys.sort());
+    // All values should be finite numbers
+    for (const key of expectedKeys) {
+      expect(Number.isFinite(rb[key])).toBe(true);
+    }
+    // Survival should have accumulated (2 ticks alive)
+    expect(rb.survival).toBeGreaterThan(0);
+  });
+
+  it('non-terminal step does not include rewardBreakdown', () => {
+    env.reset({
+      shipHP: 5,
+      maxTicks: 100,
+      enemyPolicy: 'static',
+      asteroidDensity: 0,
+    });
+
+    const result = env.step(3, 0);
+    expect(result.done).toBe(false);
+    expect(result.info.rewardBreakdown).toBeUndefined();
+  });
 });
 
 // ── Opponent behavior ───────────────────────────────────────────────

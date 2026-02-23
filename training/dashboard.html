@@ -112,6 +112,10 @@
       <h2>Outcome Breakdown</h2>
       <canvas id="chart-outcomes"></canvas>
     </div>
+    <div class="chart-container" style="grid-column: 1 / -1">
+      <h2>Reward Breakdown (per-episode average)</h2>
+      <canvas id="chart-reward-breakdown"></canvas>
+    </div>
   </div>
   <div class="no-data" id="no-data" style="display:none">
     Waiting for training data&hellip;<br>
@@ -125,6 +129,7 @@
     var rewardChart = null;
     var astChart = null;
     var outcomesChart = null;
+    var rewardBreakdownChart = null;
 
     function loadData(cb) {
       var s = document.createElement('script');
@@ -355,6 +360,50 @@
         outcomesChart.data.datasets[2].data = drawPct;
         outcomesChart.data.datasets[3].data = timeoutPct;
         outcomesChart.update();
+      }
+
+      // Reward breakdown chart — one line per reward component
+      var rbKeys = [
+        'survival', 'aim', 'closing', 'hit', 'gotHit', 'nearMiss',
+        'firePenalty', 'engagePenalty', 'proximity', 'win', 'loss', 'draw', 'timeout'
+      ];
+      var rbColors = [
+        '#22d3ee', '#3b82f6', '#6366f1', '#10b981', '#ef4444', '#f59e0b',
+        '#a855f7', '#ec4899', '#14b8a6', '#84cc16', '#dc2626', '#f97316', '#6b7280'
+      ];
+
+      var rbDatasets = rbKeys.map(function (key, i) {
+        return {
+          label: key,
+          data: data.map(function (d) { return d.reward_breakdown ? d.reward_breakdown[key] : null; }),
+          borderColor: rbColors[i],
+          borderWidth: 1.5,
+          pointRadius: 0,
+          tension: 0.3,
+          fill: false
+        };
+      });
+
+      if (!rewardBreakdownChart) {
+        rewardBreakdownChart = new Chart(document.getElementById('chart-reward-breakdown'), {
+          type: 'line',
+          data: { labels: labels, datasets: rbDatasets },
+          options: Object.assign({}, chartOpts, {
+            plugins: {
+              legend: {
+                labels: { color: '#94a3b8', usePointStyle: true, boxWidth: 8 }
+              }
+            }
+          })
+        });
+      } else {
+        rewardBreakdownChart.data.labels = labels;
+        for (var ri = 0; ri < rbKeys.length; ri++) {
+          rewardBreakdownChart.data.datasets[ri].data = data.map(function (d) {
+            return d.reward_breakdown ? d.reward_breakdown[rbKeys[ri]] : null;
+          });
+        }
+        rewardBreakdownChart.update();
       }
     }
 
