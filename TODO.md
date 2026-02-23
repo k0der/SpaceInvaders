@@ -1516,13 +1516,14 @@ Increments 31–37 add a third intelligence type — a neural network trained vi
 **Modules**: `src/game-log.js` (new), `src/settings.js`, `src/game.js`, `src/main.js`
 
 **Acceptance Criteria**:
-- [ ] `gameLog` boolean setting (default: false) with "Game Log" label appears as checkbox in settings panel
-- [ ] Setting is persisted to localStorage and restored on reload
-- [ ] `createGameLog()` returns a log object with wins, losses, and draws (all zero)
-- [ ] `recordResult(log, phase)` increments the correct counter for `playerWin`, `playerDead`, and `draw`
-- [ ] `resetGameLog(log)` sets all counters back to zero
-- [ ] `formatGameLog(log)` returns a stats string with counts and percentages (e.g., `W:5 (50.0%)  L:3 (30.0%)  D:2 (20.0%)  N=10`)
-- [ ] `formatGameLog` handles zero total matches without division-by-zero
-- [ ] When enabled, the end screen HUD displays the formatted stats line below the "PRESS SPACE" text
-- [ ] Stats accumulate across auto-restarts in AI-vs-AI mode
-- [ ] Log resets to zero when the checkbox is toggled off
+- [x] `gameLog` boolean setting (default: false) with "Game Log" label appears as checkbox in settings panel
+- [x] Setting is persisted to localStorage and restored on reload
+- [x] `createGameLog()` returns a log object with wins, losses, and draws (all zero)
+- [x] `recordResult(log, phase)` increments the correct counter for `playerWin`, `playerDead`, and `draw`
+- [x] `resetGameLog(log)` sets all counters back to zero
+- [x] `formatGameLog(log)` returns a stats string with counts and percentages (e.g., `W:5 (50.0%)  L:3 (30.0%)  D:2 (20.0%)  N=10`)
+- [x] `formatGameLog` handles zero total matches without division-by-zero
+- [x] When enabled, the end screen HUD displays the formatted stats line below the "PRESS SPACE" text
+- [x] When enabled, each match result is logged to the browser console as `[Game Log] W:N (X%)  L:N (X%)  D:N (X%)  N=total`
+- [x] Stats accumulate across auto-restarts in AI-vs-AI mode
+- [x] Log resets to zero when the checkbox is toggled off

@@ -298,6 +298,7 @@ rather than a fixed direction:
 | Player Intelligence  | Select   | human / reactive / predictive     | human      | —  |
 | Enemy Intelligence   | Select   | reactive / predictive             | predictive | —  |
 | AI Debug Log         | Checkbox | on / off                          | off        | —  |
+| Game Log             | Checkbox | on / off                          | off        | —  |
 
 - Each slider shows its **current value** as a label
 - Changes are applied **immediately** (live preview)
@@ -399,6 +400,7 @@ SpaceInvaders/
     ai-neural.js    ← neural AI: ONNX inference, control flag mapping
     debug.js        ← AI debug logging (console telemetry, rate-limited)
     game.js         ← game state: phases, bullet-ship collisions, explosions
+    game-log.js     ← game log: W/L/D match statistics tracking
     observation.js  ← shared observation builder (ego-centric vectors)
     reward.js       ← configurable dense reward function for training
     game-env.js     ← GameEnv class: gym-style reset/step interface
@@ -923,6 +925,40 @@ the algorithm evolves.
 
 - When `settings.playerIntelligence !== 'human'`, the game auto-restarts 2 seconds after a terminal phase is reached
 - No user input needed — allows continuous AI-vs-AI observation
+
+### 13.9 Game Log (W/L/D Statistics)
+
+Toggleable match statistics for comparing real gameplay with training metrics.
+Designed for long AI-vs-AI sessions at high speed.
+
+**Setting**: `gameLog` (boolean, default `false`) — checkbox in the settings panel
+labeled "Game Log".
+
+**Tracking**:
+- A log object (`{ wins, losses, draws }`) accumulates results across matches
+- Each terminal phase (`playerWin`, `playerDead`, `draw`) increments the
+  corresponding counter exactly once per match (guarded by a per-match flag)
+- The flag resets on `restartGame()`, so stats accumulate across AI-vs-AI
+  auto-restarts
+- Toggling the checkbox off resets all counters to zero
+
+**Display**:
+- On the end screen (terminal phases), a formatted stats line is rendered below
+  the "PRESS SPACE" text at scale 2, 60% opacity
+- Format: `W:5 (50.0%)  L:3 (30.0%)  D:2 (20.0%)  N=10`
+- Handles zero total matches without division-by-zero (shows `0.0%` for all)
+
+**Console output**:
+- Each match result is logged to the browser console:
+  `[Game Log] W:5 (50.0%)  L:3 (30.0%)  D:2 (20.0%)  N=10`
+- Enables real-time monitoring during long AI-vs-AI sessions without needing
+  to read the end screen overlay
+
+**Module**: `src/game-log.js` — pure functions:
+- `createGameLog()` → `{ wins: 0, losses: 0, draws: 0 }`
+- `recordResult(log, phase)` — increments the correct counter
+- `resetGameLog(log)` — zeroes all counters
+- `formatGameLog(log)` — returns the formatted stats string
 
 ---
 
