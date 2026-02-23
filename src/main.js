@@ -38,7 +38,7 @@ import {
   isRestartKey,
 } from './input.js';
 import { setupHiDPICanvas } from './renderer.js';
-import { NEAR_MISS_RADIUS_FACTOR } from './reward.js';
+import { DANGER_RADIUS_BASE, NEAR_MISS_RADIUS_FACTOR } from './reward.js';
 import {
   createSettings,
   createSettingsUI,
@@ -603,7 +603,9 @@ export function startApp() {
     if (settings.showDangerZones) {
       ctx.globalCompositeOperation = 'lighter';
       for (const asteroid of sim.asteroids) {
-        const dr = NEAR_MISS_RADIUS_FACTOR * asteroid.collisionRadius;
+        const dr =
+          NEAR_MISS_RADIUS_FACTOR * asteroid.collisionRadius +
+          DANGER_RADIUS_BASE;
         const grad = ctx.createRadialGradient(
           asteroid.x,
           asteroid.y,

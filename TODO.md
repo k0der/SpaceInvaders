@@ -1338,3 +1338,27 @@ Increments 31–37 add a third intelligence type — a neural network trained vi
 
 ### Visible
 - [ ] **Visible**: Toggle "Danger Zones" checkbox in settings → red halos appear around all asteroids, fading from the asteroid surface outward. Overlapping zones glow brighter. Turning it off removes all halos instantly.
+
+---
+
+## Increment 38b: Add Base Radius to Danger Zone Formula
+
+**Goal**: Small asteroids (radius 10-24px) have tiny danger zones that the ship flies through too fast for the penalty to matter. Adding a constant base radius ensures every asteroid has a practical minimum avoidance buffer.
+
+**Modify**: `src/reward.js`, `src/main.js`, `test/reward.test.js`, `SPEC.md`
+
+**Acceptance Criteria**:
+
+### Reward (`src/reward.js`)
+- [x] `DANGER_RADIUS_BASE` constant exported with value 40
+- [x] Danger radius formula: `NEAR_MISS_RADIUS_FACTOR × collisionRadius + DANGER_RADIUS_BASE`
+- [x] `NEAR_MISS_RADIUS_FACTOR` export unchanged (still 3)
+
+### Overlay (`src/main.js`)
+- [x] `DANGER_RADIUS_BASE` imported from `reward.js`
+- [x] Overlay uses same formula as reward: `NEAR_MISS_RADIUS_FACTOR × collisionRadius + DANGER_RADIUS_BASE`
+
+### Tests (`test/reward.test.js`)
+- [x] `DANGER_RADIUS_BASE` export test: value equals 40
+- [x] Near-miss tests updated with correct expected values for new formula
+- [x] All existing reward tests pass

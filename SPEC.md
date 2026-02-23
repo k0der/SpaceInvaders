@@ -1210,7 +1210,7 @@ orders of magnitude more episodes to learn basic behaviors.
 | Closing distance | +0.01 × Δdistance / max_distance | When closing (positive Δ) |
 | Hit landed | +1.0 | Bullet hits opponent |
 | Got hit | -1.0 | Bullet or asteroid hits agent |
-| Near-miss penalty | -0.1 × (1 - dist/danger_radius)² | When within 3× asteroid collisionRadius |
+| Near-miss penalty | -0.1 × (1 - dist/danger_radius)² | danger_radius = 3× collisionRadius + 40px base |
 | Fire discipline | -0.002 | When fire action is true |
 
 **Terminal rewards**:
@@ -1355,7 +1355,7 @@ settings panel labeled "Danger Zones".
 
 **Visualization**:
 - Each asteroid gets a radial gradient from its surface (`collisionRadius`) to
-  the danger zone edge (`NEAR_MISS_RADIUS_FACTOR × collisionRadius = 3×`).
+  the danger zone edge (`NEAR_MISS_RADIUS_FACTOR × collisionRadius + DANGER_RADIUS_BASE`).
 - Inner edge: `rgba(255, 0, 0, 0.25)` — outer edge: fully transparent.
 - Composite operation `'lighter'` — overlapping zones stack additively,
   so dense asteroid clusters glow brighter red, matching how the reward

@@ -22,6 +22,9 @@ const CLOSING_DISTANCE_NORM = 1000;
 /** Multiplier on asteroid collisionRadius for near-miss danger zone. */
 export const NEAR_MISS_RADIUS_FACTOR = 3;
 
+/** Base radius (px) added to every danger zone for a practical minimum buffer. */
+export const DANGER_RADIUS_BASE = 40;
+
 function normalizeAngle(angle) {
   while (angle > Math.PI) angle -= 2 * Math.PI;
   while (angle < -Math.PI) angle += 2 * Math.PI;
@@ -92,7 +95,8 @@ export function computeReward(prevState, currentState, action, config) {
     const adx = a.x - ship.x;
     const ady = a.y - ship.y;
     const aDist = Math.sqrt(adx * adx + ady * ady);
-    const dangerRadius = NEAR_MISS_RADIUS_FACTOR * a.collisionRadius;
+    const dangerRadius =
+      NEAR_MISS_RADIUS_FACTOR * a.collisionRadius + DANGER_RADIUS_BASE;
 
     if (aDist < dangerRadius) {
       const ratio = 1 - aDist / dangerRadius;

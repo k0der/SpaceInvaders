@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   computeReward,
+  DANGER_RADIUS_BASE,
   DEFAULT_REWARD_WEIGHTS,
   NEAR_MISS_RADIUS_FACTOR,
 } from '../src/reward.js';
@@ -310,11 +311,11 @@ describe('computeReward — got hit', () => {
 });
 
 describe('computeReward — near-miss', () => {
-  it('applies penalty for asteroid within 3× collisionRadius', () => {
+  it('applies penalty for asteroid within danger radius', () => {
     const nearMissWeight = -1.0;
     // Ship at origin, asteroid at (30, 0) with collisionRadius 20
-    // dangerRadius = 3 * 20 = 60, dist = 30
-    // penalty = -1.0 * (1 - 30/60)^2 = -1.0 * 0.25
+    // dangerRadius = 3 * 20 + 40 = 100, dist = 30
+    // penalty = -1.0 * (1 - 30/100)^2 = -1.0 * 0.49
     const asteroid = { x: 30, y: 0, collisionRadius: 20 };
     const prev = makeState();
     const curr = makeState({ asteroids: [asteroid] });
@@ -322,14 +323,14 @@ describe('computeReward — near-miss', () => {
     const config = makeConfig({
       rewardWeights: zeroWeights({ nearMiss: nearMissWeight }),
     });
-    expect(computeReward(prev, curr, action, config)).toBeCloseTo(-0.25, 5);
+    expect(computeReward(prev, curr, action, config)).toBeCloseTo(-0.49, 5);
   });
 
-  it('applies no penalty when asteroid beyond 3× collisionRadius', () => {
+  it('applies no penalty when asteroid beyond danger radius', () => {
     const nearMissWeight = -1.0;
-    // Ship at origin, asteroid at (100, 0) with collisionRadius 20
-    // dangerRadius = 60, dist = 100 > 60 → no penalty
-    const asteroid = { x: 100, y: 0, collisionRadius: 20 };
+    // Ship at origin, asteroid at (150, 0) with collisionRadius 20
+    // dangerRadius = 3 * 20 + 40 = 100, dist = 150 > 100 → no penalty
+    const asteroid = { x: 150, y: 0, collisionRadius: 20 };
     const prev = makeState();
     const curr = makeState({ asteroids: [asteroid] });
     const action = { moveAction: 0, fireAction: 0 };
@@ -350,8 +351,9 @@ describe('computeReward — near-miss', () => {
     const config = makeConfig({
       rewardWeights: zeroWeights({ nearMiss: nearMissWeight }),
     });
-    // Each: -1.0 * (1 - 30/60)^2 = -0.25; total = -0.5
-    expect(computeReward(prev, curr, action, config)).toBeCloseTo(-0.5, 5);
+    // dangerRadius = 3 * 20 + 40 = 100
+    // Each: -1.0 * (1 - 30/100)^2 = -0.49; total = -0.98
+    expect(computeReward(prev, curr, action, config)).toBeCloseTo(-0.98, 5);
   });
 
   it('applies no penalty when no asteroids', () => {
@@ -368,7 +370,7 @@ describe('computeReward — near-miss', () => {
   it('applies maximum penalty when asteroid at zero distance', () => {
     const nearMissWeight = -1.0;
     // Asteroid at ship position: dist = 0
-    // penalty = -1.0 * (1 - 0/60)^2 = -1.0
+    // dangerRadius = 3 * 20 + 40 = 100, penalty = -1.0 * (1 - 0/100)^2 = -1.0
     const asteroid = { x: 0, y: 0, collisionRadius: 20 };
     const prev = makeState();
     const curr = makeState({ asteroids: [asteroid] });
@@ -379,10 +381,11 @@ describe('computeReward — near-miss', () => {
     expect(computeReward(prev, curr, action, config)).toBeCloseTo(-1.0, 5);
   });
 
-  it('applies penalty at exactly 3× boundary edge (just inside)', () => {
+  it('applies penalty at danger radius boundary edge (just inside)', () => {
     const nearMissWeight = -1.0;
     // Asteroid at exactly dangerRadius minus epsilon
-    const asteroid = { x: 59.9, y: 0, collisionRadius: 20 };
+    // dangerRadius = 3 * 20 + 40 = 100
+    const asteroid = { x: 99.9, y: 0, collisionRadius: 20 };
     const prev = makeState();
     const curr = makeState({ asteroids: [asteroid] });
     const action = { moveAction: 0, fireAction: 0 };
@@ -611,10 +614,10 @@ describe('computeReward — combined', () => {
     // closing: 0.01 * 50/1000 = 0.0005 (prevDist=350, currDist=300, delta=50)
     // hit: +1.0
     // gotHit: -1.0
-    // nearMiss: -0.1 * (1 - 30/60)^2 = -0.025
+    // nearMiss: -0.1 * (1 - 30/100)^2 = -0.049 (dangerRadius = 3*20+40 = 100)
     // firePenalty: -0.002
     // No terminal (HP > 0)
-    const expected = 0.001 + 0.01 + 0.0005 + 1.0 + -1.0 + -0.025 + -0.002;
+    const expected = 0.001 + 0.01 + 0.0005 + 1.0 + -1.0 + -0.049 + -0.002;
     expect(result).toBeCloseTo(expected, 4);
   });
 });
@@ -638,6 +641,12 @@ describe('computeReward — custom weight overrides', () => {
 describe('NEAR_MISS_RADIUS_FACTOR export', () => {
   it('is exported and equals 3', () => {
     expect(NEAR_MISS_RADIUS_FACTOR).toBe(3);
+  });
+});
+
+describe('DANGER_RADIUS_BASE export', () => {
+  it('is exported and equals 40', () => {
+    expect(DANGER_RADIUS_BASE).toBe(40);
   });
 });
 
