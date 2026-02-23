@@ -730,7 +730,8 @@ def main():
 
     if args.auto_promote:
         checkpoint = args.checkpoint
-        for stage_num in range(args.stage, 14):
+        max_stage = max(config["stages"].keys())
+        for stage_num in range(args.stage, max_stage + 1):
             checkpoint_dir = os.path.join(
                 os.path.dirname(os.path.abspath(__file__)),
                 "checkpoints",
