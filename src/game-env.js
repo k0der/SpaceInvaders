@@ -154,10 +154,10 @@ export class GameEnv {
     this._hitsTaken = 0;
     this._asteroidsHit = 0;
 
-    // Camp detection: record agent spawn position for early termination
-    this._agentSpawnX = this._agent.x;
-    this._agentSpawnY = this._agent.y;
-    this._campChecked = false;
+    // Camp detection: track agent position for periodic movement checks
+    this._campCheckX = this._agent.x;
+    this._campCheckY = this._agent.y;
+    this._nextCampCheck = this._config.campCheckTicks || 0;
 
     // Initial reward state snapshot
     this._prevRewardState = this._buildRewardState();
@@ -353,22 +353,21 @@ export class GameEnv {
         }
       }
 
-      // Camp check: if agent hasn't moved from spawn by deadline, terminate as loss
+      // Camp check: agent must move campMinClosing px every campCheckTicks
       const campTicks = this._config.campCheckTicks;
-      if (
-        campTicks > 0 &&
-        !this._campChecked &&
-        this._tick >= campTicks &&
-        !done
-      ) {
-        this._campChecked = true;
-        const mdx = this._agent.x - this._agentSpawnX;
-        const mdy = this._agent.y - this._agentSpawnY;
+      if (campTicks > 0 && this._tick >= this._nextCampCheck && !done) {
+        const mdx = this._agent.x - this._campCheckX;
+        const mdy = this._agent.y - this._campCheckY;
         const displacement = Math.sqrt(mdx * mdx + mdy * mdy);
         const minClosing = this._config.campMinClosing || 100;
         if (displacement < minClosing) {
           done = true;
           winner = 'opponent';
+        } else {
+          // Passed — reset checkpoint for next interval
+          this._campCheckX = this._agent.x;
+          this._campCheckY = this._agent.y;
+          this._nextCampCheck = this._tick + campTicks;
         }
       }
 

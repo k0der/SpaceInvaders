@@ -898,7 +898,7 @@ describe('AI tuning overrides (aiHoldTime, aiSimSteps)', () => {
 
 // ── Camp Check Early Termination ─────────────────────────────────────
 describe('GameEnv camp check', () => {
-  it('terminates as loss when agent does not close distance by campCheckTicks', () => {
+  it('terminates as loss when agent does not move by first campCheckTicks', () => {
     const env = new GameEnv();
     env.reset({
       shipHP: 10,
@@ -913,7 +913,6 @@ describe('GameEnv camp check', () => {
       campMinClosing: 100,
     });
 
-    // Do nothing (no-op action 9) for 10 ticks — should trigger camp termination
     let result;
     for (let i = 0; i < 20; i++) {
       result = env.step(9, 0);
@@ -924,7 +923,7 @@ describe('GameEnv camp check', () => {
     expect(result.info.winner).toBe('opponent');
   });
 
-  it('does not terminate when agent closes distance', () => {
+  it('does not terminate when agent keeps moving', () => {
     const env = new GameEnv();
     env.reset({
       shipHP: 10,
@@ -939,15 +938,47 @@ describe('GameEnv camp check', () => {
       campMinClosing: 10,
     });
 
-    // Thrust toward enemy (action 0 = thrust-straight, ships face each other)
+    // Thrust continuously — passes every periodic check
     let result;
-    for (let i = 0; i < 65; i++) {
+    for (let i = 0; i < 200; i++) {
       result = env.step(0, 0);
       if (result.done) break;
     }
 
-    // Should still be playing — agent closed distance by thrusting
     expect(result.done).toBe(false);
+  });
+
+  it('terminates on second check if agent stops after passing first', () => {
+    const env = new GameEnv();
+    env.reset({
+      shipHP: 10,
+      maxTicks: 3600,
+      asteroidDensity: 0,
+      enemyPolicy: 'static',
+      enemyShoots: false,
+      spawnDistance: 500,
+      spawnFacing: true,
+      frameSkip: 1,
+      campCheckTicks: 30,
+      campMinClosing: 100,
+    });
+
+    // Thrust for 35 ticks to pass the first check at tick 30
+    let result;
+    for (let i = 0; i < 35; i++) {
+      result = env.step(0, 0);
+      if (result.done) break;
+    }
+    expect(result.done).toBe(false);
+
+    // Now brake until stopped, then idle — should fail a later check
+    for (let i = 0; i < 300; i++) {
+      result = env.step(6, 0); // brake-straight (decelerates then sits)
+      if (result.done) break;
+    }
+
+    expect(result.done).toBe(true);
+    expect(result.info.winner).toBe('opponent');
   });
 
   it('does not trigger camp check when campCheckTicks is 0 (disabled)', () => {
@@ -965,7 +996,6 @@ describe('GameEnv camp check', () => {
       campMinClosing: 100,
     });
 
-    // Do nothing for 200 ticks — should NOT terminate
     let result;
     for (let i = 0; i < 200; i++) {
       result = env.step(9, 0);
