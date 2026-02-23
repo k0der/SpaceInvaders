@@ -60,28 +60,28 @@ describe('ai-predictive-optimized: Constants', () => {
     expect(COLLISION_BREAK_STEPS).toBe(3);
   });
 
-  it('exports HYSTERESIS_BONUS as 250', () => {
-    expect(HYSTERESIS_BONUS).toBe(250);
+  it('exports HYSTERESIS_BONUS as 350', () => {
+    expect(HYSTERESIS_BONUS).toBe(350);
   });
 
-  it('exports DISTANCE_WEIGHT as -8', () => {
-    expect(DISTANCE_WEIGHT).toBe(-8);
+  it('exports DISTANCE_WEIGHT as -3', () => {
+    expect(DISTANCE_WEIGHT).toBe(-3);
   });
 
   it('exports AIM_BONUS as 400', () => {
     expect(AIM_BONUS).toBe(400);
   });
 
-  it('exports CLOSING_SPEED_WEIGHT as 8', () => {
-    expect(CLOSING_SPEED_WEIGHT).toBe(8);
+  it('exports CLOSING_SPEED_WEIGHT as 16', () => {
+    expect(CLOSING_SPEED_WEIGHT).toBe(16);
   });
 
   it('exports AIM_PROXIMITY_SCALE as 5', () => {
     expect(AIM_PROXIMITY_SCALE).toBe(5);
   });
 
-  it('exports FIRE_OPPORTUNITY_BONUS as 300', () => {
-    expect(FIRE_OPPORTUNITY_BONUS).toBe(300);
+  it('exports FIRE_OPPORTUNITY_BONUS as 450', () => {
+    expect(FIRE_OPPORTUNITY_BONUS).toBe(450);
   });
 });
 
@@ -391,11 +391,11 @@ describe('ai-predictive-optimized: scoreTrajectory — distance-scaled approach 
     const sEngage = scoreTrajectory(atEngage, target, [], 0.1);
     const sDouble = scoreTrajectory(atDouble, target, [], 0.1);
 
-    // At ENGAGE_RANGE: scale=1.0, dist component = -8 * 350 = -2800
-    // At 2*ENGAGE_RANGE: scale=2.0, dist component = -8 * 2 * 700 = -11200
-    // Without scaling: diff = 8*(700-350) = 2800
-    // With scaling: diff = 11200-2800 = 8400 (3x the unscaled diff)
-    const unscaledDiff = Math.abs(DISTANCE_WEIGHT) * ENGAGE_RANGE; // 2800
+    // At ENGAGE_RANGE: scale=1.0, dist component = -3 * 350 = -1050
+    // At 2*ENGAGE_RANGE: scale=2.0, dist component = -3 * 2 * 700 = -4200
+    // Without scaling: diff = 3*(700-350) = 1050
+    // With scaling: diff = 4200-1050 = 3150 (3x the unscaled diff)
+    const unscaledDiff = Math.abs(DISTANCE_WEIGHT) * ENGAGE_RANGE; // 1050
     const actualDiff = sEngage - sDouble;
     expect(actualDiff).toBeGreaterThan(unscaledDiff * 2);
   });
@@ -584,14 +584,14 @@ describe('ai-predictive-optimized: scoreTrajectory — closing velocity bonus', 
     // Both end at x=100 with same heading, so distance and aim are identical.
     // The only difference is the retreat penalty on the away trajectory.
     expect(awayScore).toBeLessThan(stationaryScore);
-    // The penalty should be significant: CLOSING_SPEED_WEIGHT * 200 = 1600
+    // The penalty should be significant: CLOSING_SPEED_WEIGHT * 200 = 3200
     expect(stationaryScore - awayScore).toBeGreaterThan(1000);
   });
 
   it('closing velocity bonus scales with CLOSING_SPEED_WEIGHT', () => {
-    expect(CLOSING_SPEED_WEIGHT).toBe(8);
-    // At MAX_SPEED=400 toward target, bonus = 8 * 400 = 3200
-    expect(CLOSING_SPEED_WEIGHT * 400).toBe(3200);
+    expect(CLOSING_SPEED_WEIGHT).toBe(16);
+    // At MAX_SPEED=400 toward target, bonus = 16 * 400 = 6400
+    expect(CLOSING_SPEED_WEIGHT * 400).toBe(6400);
   });
 
   it('handles zero distance to target without error', () => {
@@ -884,9 +884,11 @@ describe('ai-predictive-optimized: scoreTrajectory — proximity-scaled aim', ()
         scoreTrajectory(farBad, target, [], 0.1),
     );
 
-    // At zero distance, aim gap should be ~(1 + AIM_PROXIMITY_SCALE) times the unscaled gap
+    // At zero distance, aim gap should be ~(1 + AIM_PROXIMITY_SCALE) times the unscaled gap.
+    // Fire opportunity bonus also contributes more at close range, so allow ±1.0 tolerance.
     const expectedRatio = 1 + AIM_PROXIMITY_SCALE;
-    expect(onTopGap / farGap).toBeCloseTo(expectedRatio, 0);
+    expect(onTopGap / farGap).toBeGreaterThan(expectedRatio - 1);
+    expect(onTopGap / farGap).toBeLessThan(expectedRatio + 1);
   });
 });
 
