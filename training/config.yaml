@@ -337,7 +337,7 @@ stages:
     spawnFacing: false
     frameSkip: 2
     campCheckTicks: 0
-    promotionThreshold: 0.85
+    promotionThreshold: 0.75
     rewardWeights:
       survival: 0.0
       aim: 0.01
