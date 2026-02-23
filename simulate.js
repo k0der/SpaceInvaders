@@ -780,6 +780,13 @@ if (isMain) {
   }
 
   if (config.bridge) {
+    // Self-play strategy — only available in Node.js (uses onnxruntime-node)
+    try {
+      await import('./src/ai-neural-node.js');
+    } catch (_err) {
+      // onnxruntime-node not installed — self-play strategy unavailable
+    }
+
     runBridge().catch((err) => {
       process.stderr.write(`Bridge error: ${err.message}\n`);
       process.exit(1);

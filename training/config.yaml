@@ -2,7 +2,7 @@
 # See SPEC.md §16.8 for curriculum design rationale.
 
 ppo:
-  learning_rate: 1.0e-4
+  learning_rate: 5.0e-5
   n_steps: 2048
   batch_size: 256
   n_epochs: 10
@@ -119,10 +119,10 @@ stages:
       timeout: -1.0
 
   5:
-    description: "Fight predictive enemy in sparse asteroid field"
-    shipHP: 3
+    description: "Intro to asteroids: very sparse field, more HP for mistakes"
+    shipHP: 5
     maxTicks: 3600
-    asteroidDensity: 0.3
+    asteroidDensity: 0.1
     enemyPolicy: "predictive"
     enemyShoots: true
     spawnDistance: 500
@@ -130,7 +130,7 @@ stages:
     frameSkip: 2
     aiHoldTime: 0.25
     aiSimSteps: 10
-    promotionThreshold: 0.8
+    promotionThreshold: 0.7
     rewardWeights:
       survival: 0.001
       aim: 0.01
@@ -145,6 +145,32 @@ stages:
       timeout: -1.0
 
   6:
+    description: "Fight predictive enemy in sparse asteroid field"
+    shipHP: 3
+    maxTicks: 3600
+    asteroidDensity: 0.3
+    enemyPolicy: "predictive"
+    enemyShoots: true
+    spawnDistance: 500
+    spawnFacing: true
+    frameSkip: 2
+    aiHoldTime: 0.25
+    aiSimSteps: 10
+    promotionThreshold: 0.7
+    rewardWeights:
+      survival: 0.001
+      aim: 0.01
+      closing: 0.01
+      hit: 1.0
+      gotHit: -1.0
+      nearMiss: -0.3
+      firePenalty: -0.002
+      win: 5.0
+      loss: -5.0
+      draw: -2.0
+      timeout: -1.0
+
+  7:
     description: "Full game conditions with normal asteroid density"
     shipHP: 1
     maxTicks: 3600
@@ -156,14 +182,65 @@ stages:
     frameSkip: 2
     aiHoldTime: 0.25
     aiSimSteps: 10
-    promotionThreshold: 0.8
+    promotionThreshold: 0.85
     rewardWeights:
       survival: 0.001
       aim: 0.01
       closing: 0.01
       hit: 1.0
       gotHit: -1.0
-      nearMiss: -0.1
+      nearMiss: -0.5
+      firePenalty: -0.002
+      win: 5.0
+      loss: -5.0
+      draw: -2.0
+      timeout: -1.0
+
+  8:
+    description: "Full game against optimized predictive enemy (lead-angle firing)"
+    shipHP: 1
+    maxTicks: 3600
+    asteroidDensity: 1.0
+    enemyPolicy: "predictive-optimized"
+    enemyShoots: true
+    spawnDistance: 500
+    spawnFacing: true
+    frameSkip: 2
+    aiHoldTime: 0.25
+    aiSimSteps: 10
+    promotionThreshold: 0.85
+    rewardWeights:
+      survival: 0.001
+      aim: 0.01
+      closing: 0.01
+      hit: 1.0
+      gotHit: -1.0
+      nearMiss: -0.5
+      firePenalty: -0.002
+      win: 5.0
+      loss: -5.0
+      draw: -2.0
+      timeout: -1.0
+
+  9:
+    description: "Self-play: fight frozen snapshot of own neural policy"
+    shipHP: 1
+    maxTicks: 3600
+    asteroidDensity: 1.0
+    enemyPolicy: "self-play"
+    enemyShoots: true
+    spawnDistance: 500
+    spawnFacing: true
+    frameSkip: 2
+    selfPlayModelPath: "training/checkpoints/selfplay/opponent_snapshot.onnx"
+    promotionThreshold: 0.60
+    rewardWeights:
+      survival: 0.001
+      aim: 0.01
+      closing: 0.01
+      hit: 1.0
+      gotHit: -1.0
+      nearMiss: -0.5
       firePenalty: -0.002
       win: 5.0
       loss: -5.0

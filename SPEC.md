@@ -1259,23 +1259,41 @@ requires it to simultaneously learn movement, aiming, evasion, and navigation.
 Curriculum decomposition lets each skill build on the previous one, dramatically
 reducing total training time.
 
-### 16.9 Self-Play (Deferred)
+### 16.9 Self-Play (Stage 9)
 
-**Status**: Deferred pending bridge protocol extension. Stage 6 currently uses
-the predictive AI as a strong fixed opponent.
+The agent fights a **frozen snapshot** of its own neural network policy. This
+tests generalization beyond scripted AI behaviors and creates training signal
+for strategies that exploit NN weaknesses.
 
-When implemented, self-play will prevent the agent from overfitting to a fixed
-opponent's weaknesses:
+#### Architecture
 
-- Maintain a **policy pool** of historical snapshots (frozen model weights)
-- Every N training episodes, snapshot the current policy and add it to the pool
-- Each episode's opponent is **sampled from the pool**, weighted toward recent
-  snapshots (so the agent primarily trains against near-current skill levels)
-- Prevents **strategy collapse** — the agent must generalize across opponent
-  behaviors, not memorize exploits against one fixed policy
-- Pool size capped at ~20 snapshots; oldest evicted when full
-- Requires a two-agent bridge protocol or loading frozen ONNX models on the
-  Node.js side — out of scope for the initial training scaffold
+- **`src/ai-neural-node.js`**: Node.js-only strategy using `onnxruntime-node`
+  for ONNX inference. Mirrors the browser `ai-neural.js` async pattern
+  (fire-and-forget inference, cached action, synchronous `update()`).
+- Registered as `'self-play'` in the strategy registry.
+- Falls back to `predictive-optimized` while the model loads or if load fails.
+- Only imported in bridge mode (`simulate.js --bridge`).
+
+#### Snapshot Lifecycle
+
+1. Agent graduates stage 8 (≥85% WR vs predictive-optimized)
+2. `train_v3.py` exports stage 8 `final.zip` → ONNX snapshot at
+   `training/checkpoints/selfplay/opponent_snapshot.onnx`
+3. Stage 9 starts, bridge workers load the snapshot via `selfPlayModelPath`
+4. Agent trains against the frozen snapshot
+
+#### Stage 9 Config
+
+- `enemyPolicy: "self-play"`, `promotionThreshold: 0.60` (lower than scripted
+  stages because the opponent is a trained NN — 60% WR against yourself is strong)
+- `selfPlayModelPath`: relative path to the ONNX snapshot
+- All other settings match stage 8 (1 HP, full asteroids, frameSkip 2)
+
+#### Future Enhancement
+
+Periodic snapshot refresh — re-export current model every N episodes so the
+opponent evolves. Enables a **policy pool** approach to prevent strategy collapse.
+Deferred to keep the initial self-play implementation focused.
 
 ### 16.10 Training Tooling
 
@@ -1372,7 +1390,8 @@ settings panel labeled "Danger Zones".
 ```
 SpaceInvaders/
   src/
-    ai-neural.js       ← neural strategy: ONNX inference, control flag mapping
+    ai-neural.js       ← neural strategy: ONNX inference (browser, onnxruntime-web)
+    ai-neural-node.js  ← self-play strategy: ONNX inference (Node.js, onnxruntime-node)
     observation.js      ← shared observation builder (ego-centric vectors)
     reward.js           ← configurable dense reward function
     game-env.js         ← GameEnv class: gym-style reset/step interface

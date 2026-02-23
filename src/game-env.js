@@ -133,7 +133,7 @@ export class GameEnv {
       this._strategyState = null;
     } else {
       this._strategy = getStrategy(c.enemyPolicy);
-      this._strategyState = this._strategy.createState();
+      this._strategyState = this._strategy.createState(this._config);
       // Apply per-episode AI tuning overrides (training speed optimization)
       if (c.aiHoldTime != null) this._strategyState.holdTime = c.aiHoldTime;
       if (c.aiSimSteps != null) this._strategyState.simSteps = c.aiSimSteps;

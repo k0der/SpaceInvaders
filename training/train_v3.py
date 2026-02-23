@@ -529,6 +529,7 @@ def train_stage(
             "frameSkip",
             "aiHoldTime",
             "aiSimSteps",
+            "selfPlayModelPath",
         )
         if k in stage_cfg
     }
@@ -703,7 +704,7 @@ def main():
 
     if args.auto_promote:
         checkpoint = args.checkpoint
-        for stage_num in range(args.stage, 8):
+        for stage_num in range(args.stage, 10):
             checkpoint_dir = os.path.join(
                 os.path.dirname(os.path.abspath(__file__)),
                 "checkpoints",
@@ -728,6 +729,17 @@ def main():
 
             if promoted:
                 print(f"\n  Promoted to stage {stage_num + 1}!")
+                # Export self-play snapshot when graduating to stage 9
+                if stage_num + 1 == 9:
+                    snapshot_dir = os.path.join(
+                        os.path.dirname(os.path.abspath(__file__)),
+                        "checkpoints", "selfplay",
+                    )
+                    os.makedirs(snapshot_dir, exist_ok=True)
+                    snapshot_path = os.path.join(snapshot_dir, "opponent_snapshot.onnx")
+                    from export_onnx import export_onnx
+                    export_onnx(final_path, snapshot_path, validate=False)
+                    print(f"  Self-play snapshot exported: {snapshot_path}")
             else:
                 print(f"\n  Stage {stage_num}: promotion threshold not reached.")
                 if not args.continue_all_stages:

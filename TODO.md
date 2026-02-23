@@ -1409,3 +1409,65 @@ Increments 31–37 add a third intelligence type — a neural network trained vi
 - [x] New stat cards: "Draw %" and "Ast Deaths"
 - [x] Third chart: outcome breakdown over time (win/loss/draw/timeout lines)
 - [x] Backward compat: old entries without new fields show `—`
+
+---
+
+## Increment 39: Self-Play Opponent (Stage 9)
+
+**Goal**: Add a self-play training stage where the agent fights a frozen ONNX snapshot of its own neural policy. Uses `onnxruntime-node` for inference in the Node.js bridge process.
+
+**New modules**: `src/ai-neural-node.js`, `test/ai-neural-node.test.js`
+**Modify**: `src/game-env.js`, `simulate.js`, `training/config.yaml`, `training/train_v3.py`, `training/export_onnx.py`, `package.json`, `SPEC.md`
+
+**Acceptance Criteria**:
+
+### Node.js Neural Strategy (`src/ai-neural-node.js`)
+- [x] `selfPlayStrategy = { createState, update }` exported — follows pluggable strategy interface
+- [x] Registered as `'self-play'` in the strategy registry
+- [x] `createState(config)` extracts `config.selfPlayModelPath`, fires async model load
+- [x] `createState()` works with no config (fallback mode, `modelPath` is null)
+- [x] State has all expected fields: `modelPath`, `session`, `inputBuffer`, `ready`, `loadAttempted`, `pendingInference`, `cachedAction`, `fallbackStrategy`, `fallbackState`
+- [x] `inputBuffer` is `Float32Array` of size `OBSERVATION_SIZE`
+- [x] Falls back to `predictive-optimized` while model loads or if load fails
+- [x] Uses `argmax`, `decodeActions`, `applyMoveAction` from `ai-neural.js` (no duplication)
+- [x] Uses `buildObservation` from `observation.js`
+- [x] Uses dynamic `import('onnxruntime-node')` — only loaded in Node.js context
+- [x] Async inference: fire-and-forget pattern, caches result, applies on next update call
+
+### GameEnv Config Passthrough (`src/game-env.js`)
+- [x] `createState(config)` receives the full episode config (1-line change)
+- [x] Backward-compatible: existing strategies ignore the config parameter
+
+### Bridge Integration (`simulate.js`)
+- [x] `ai-neural-node.js` dynamically imported in bridge mode only
+- [x] Import wrapped in try-catch (graceful when `onnxruntime-node` not installed)
+
+### Training Config (`training/config.yaml`)
+- [x] Stage 9 added with `enemyPolicy: "self-play"`, `promotionThreshold: 0.60`
+- [x] `selfPlayModelPath` points to `training/checkpoints/selfplay/opponent_snapshot.onnx`
+
+### Training Script (`training/train_v3.py`)
+- [x] `selfPlayModelPath` included in `env_config` key list
+- [x] Auto-promote loop extended to include stage 9 (`range(args.stage, 10)`)
+- [x] Snapshot export on promotion to stage 9: exports ONNX from stage 8 final checkpoint
+
+### Export Script (`training/export_onnx.py`)
+- [x] `export_onnx()` accepts optional `validate=True` parameter
+- [x] When `validate=False`, skips onnx checker and onnxruntime validation (faster for snapshot export)
+
+### Dependencies (`package.json`)
+- [x] `onnxruntime-node` added as production dependency
+
+### Tests (`test/ai-neural-node.test.js`)
+- [x] Strategy interface: has `createState` and `update` methods
+- [x] Registered as `'self-play'` via `getStrategy`
+- [x] `createState(config)` returns all expected fields
+- [x] `createState({})` works with no model path (fallback mode)
+- [x] `createState()` works with no config argument
+- [x] Extracts `selfPlayModelPath` from config
+- [x] Falls back when `ready=false`
+- [x] Falls back when `ready=true` but `cachedAction=null`
+- [x] Applies cached action correctly for all 10 movement indices
+- [x] Applies fire decision from cached action
+- [x] Kicks off inference when ready and not pending
+- [x] Does not kick off inference when already pending

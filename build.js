@@ -5,8 +5,11 @@ const srcDir = './src';
 const devHtml = fs.readFileSync('./dev.html', 'utf-8');
 
 // Ordered list of source modules to inline
+// Node.js-only modules excluded from browser build
+const NODE_ONLY = new Set(['ai-neural-node.js']);
+
 const modules = fs.readdirSync(srcDir)
-  .filter(f => f.endsWith('.js'))
+  .filter(f => f.endsWith('.js') && !NODE_ONLY.has(f))
   .sort();
 
 let combinedJs = '';

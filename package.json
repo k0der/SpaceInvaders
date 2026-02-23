@@ -8,7 +8,8 @@
     "test:watch": "vitest",
     "lint": "biome check --write src/ test/",
     "lint:check": "biome check src/ test/",
-    "build": "node build.js"
+    "build": "node build.js",
+    "export": "node training/run-python.js training/export_onnx.py --checkpoint"
   },
   "repository": {
     "type": "git",
@@ -17,6 +18,9 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "dependencies": {
+    "onnxruntime-node": "^1.17.0"
+  },
   "devDependencies": {
     "@biomejs/biome": "2.4.3",
     "happy-dom": "^20.6.3",

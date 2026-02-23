@@ -51,7 +51,7 @@ class PolicyWrapper(nn.Module):
         return logits
 
 
-def export_onnx(checkpoint_path, output_path):
+def export_onnx(checkpoint_path, output_path, validate=True):
     """Load an SB3 PPO model and export its policy to ONNX."""
     from stable_baselines3 import PPO
 
@@ -92,31 +92,32 @@ def export_onnx(checkpoint_path, output_path):
     )
     print(f"ONNX model exported: {output_path}")
 
-    # Validate with onnx checker
-    import onnx
+    if validate:
+        # Validate with onnx checker
+        import onnx
 
-    onnx_model = onnx.load(output_path)
-    onnx.checker.check_model(onnx_model)
-    print("ONNX checker: model is valid")
+        onnx_model = onnx.load(output_path)
+        onnx.checker.check_model(onnx_model)
+        print("ONNX checker: model is valid")
 
-    # Validate with onnxruntime inference
-    import onnxruntime as ort
+        # Validate with onnxruntime inference
+        import onnxruntime as ort
 
-    session = ort.InferenceSession(output_path)
-    input_name = session.get_inputs()[0].name
-    sample_obs = np.random.uniform(-1, 1, (1, OBSERVATION_SIZE)).astype(np.float32)
-    outputs = session.run(None, {input_name: sample_obs})
-    logits = outputs[0]
+        session = ort.InferenceSession(output_path)
+        input_name = session.get_inputs()[0].name
+        sample_obs = np.random.uniform(-1, 1, (1, OBSERVATION_SIZE)).astype(np.float32)
+        outputs = session.run(None, {input_name: sample_obs})
+        logits = outputs[0]
 
-    print(f"ORT inference output shape: {logits.shape}")
-    print(f"Sample logits: {logits[0][:5]}... (first 5 of {logits.shape[1]})")
+        print(f"ORT inference output shape: {logits.shape}")
+        print(f"Sample logits: {logits[0][:5]}... (first 5 of {logits.shape[1]})")
 
-    # Demonstrate action selection
-    move_logits = logits[0][:10]
-    fire_logits = logits[0][10:12]
-    move_action = int(np.argmax(move_logits))
-    fire_action = int(np.argmax(fire_logits))
-    print(f"Sample action: move={move_action}, fire={fire_action}")
+        # Demonstrate action selection
+        move_logits = logits[0][:10]
+        fire_logits = logits[0][10:12]
+        move_action = int(np.argmax(move_logits))
+        fire_action = int(np.argmax(fire_logits))
+        print(f"Sample action: move={move_action}, fire={fire_action}")
 
     file_size = os.path.getsize(output_path)
     print(f"File size: {file_size / 1024:.1f} KB")
