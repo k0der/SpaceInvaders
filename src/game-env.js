@@ -83,8 +83,12 @@ export class GameEnv {
 
     // Opponent at spawnDistance in random direction
     const spawnAngle = Math.random() * 2 * Math.PI;
-    const opponentX = centerX + Math.cos(spawnAngle) * c.spawnDistance;
-    const opponentY = centerY + Math.sin(spawnAngle) * c.spawnDistance;
+    const dist = Array.isArray(c.spawnDistance)
+      ? c.spawnDistance[0] +
+        Math.random() * (c.spawnDistance[1] - c.spawnDistance[0])
+      : c.spawnDistance;
+    const opponentX = centerX + Math.cos(spawnAngle) * dist;
+    const opponentY = centerY + Math.sin(spawnAngle) * dist;
     this._opponent = createShip({
       x: opponentX,
       y: opponentY,

@@ -92,6 +92,7 @@
     <div class="stat"><div class="stat-value" id="s-wr">—</div><div class="stat-label">Win Rate</div></div>
     <div class="stat"><div class="stat-value" id="s-best">—</div><div class="stat-label">Best WR</div></div>
     <div class="stat"><div class="stat-value" id="s-draw">—</div><div class="stat-label">Draw %</div></div>
+    <div class="stat"><div class="stat-value" id="s-timeout">—</div><div class="stat-label">Timeout %</div></div>
     <div class="stat"><div class="stat-value" id="s-ast">—</div><div class="stat-label">Ast Deaths</div></div>
   </div>
 
@@ -171,9 +172,10 @@
       data.forEach(function (d) { if (d.best_wr > bestWr) bestWr = d.best_wr; });
       document.getElementById('s-best').textContent = (bestWr * 100).toFixed(1) + '%';
 
-      // Draw % and Ast Deaths stat cards
+      // Draw %, Timeout %, and Ast Deaths stat cards
       var ob = last.outcome_breakdown;
       document.getElementById('s-draw').textContent = ob ? (ob.draw_mutual * 100).toFixed(1) + '%' : '—';
+      document.getElementById('s-timeout').textContent = ob ? (ob.timeout * 100).toFixed(1) + '%' : '—';
       document.getElementById('s-ast').textContent = last.agent_asteroid_deaths != null ? formatNum(last.agent_asteroid_deaths) : '—';
 
       var labels = data.map(function (d) { return d.episodes; });
