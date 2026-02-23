@@ -530,6 +530,8 @@ def train_stage(
             "aiHoldTime",
             "aiSimSteps",
             "selfPlayModelPath",
+            "campCheckTicks",
+            "campMinClosing",
         )
         if k in stage_cfg
     }

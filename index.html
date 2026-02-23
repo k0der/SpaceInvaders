@@ -2786,6 +2786,8 @@ function getDefaultConfig() {
     spawnFacing: true,
     frameSkip: 1,
     rewardWeights: DEFAULT_REWARD_WEIGHTS,
+    campCheckTicks: 0,
+    campMinClosing: 100,
   };
 }
 
@@ -2889,6 +2891,12 @@ class GameEnv {
     this._hitsLanded = 0;
     this._hitsTaken = 0;
     this._asteroidsHit = 0;
+
+    // Camp detection: record initial distance for early termination
+    const sdx = this._opponent.x - this._agent.x;
+    const sdy = this._opponent.y - this._agent.y;
+    this._spawnDistance = Math.sqrt(sdx * sdx + sdy * sdy);
+    this._campChecked = false;
 
     // Initial reward state snapshot
     this._prevRewardState = this._buildRewardState();
@@ -3081,6 +3089,25 @@ class GameEnv {
         done = true;
         if (winner === null) {
           winner = 'timeout';
+        }
+      }
+
+      // Camp check: if agent hasn't closed distance by deadline, terminate as loss
+      const campTicks = this._config.campCheckTicks;
+      if (
+        campTicks > 0 &&
+        !this._campChecked &&
+        this._tick >= campTicks &&
+        !done
+      ) {
+        this._campChecked = true;
+        const cdx = this._opponent.x - this._agent.x;
+        const cdy = this._opponent.y - this._agent.y;
+        const currentDist = Math.sqrt(cdx * cdx + cdy * cdy);
+        const minClosing = this._config.campMinClosing || 100;
+        if (this._spawnDistance - currentDist < minClosing) {
+          done = true;
+          winner = 'opponent';
         }
       }
 

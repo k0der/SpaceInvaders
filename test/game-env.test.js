@@ -895,3 +895,83 @@ describe('AI tuning overrides (aiHoldTime, aiSimSteps)', () => {
     expect(fastChanges).toBeGreaterThanOrEqual(slowChanges);
   });
 });
+
+// ── Camp Check Early Termination ─────────────────────────────────────
+describe('GameEnv camp check', () => {
+  it('terminates as loss when agent does not close distance by campCheckTicks', () => {
+    const env = new GameEnv();
+    env.reset({
+      shipHP: 10,
+      maxTicks: 3600,
+      asteroidDensity: 0,
+      enemyPolicy: 'static',
+      enemyShoots: false,
+      spawnDistance: 500,
+      spawnFacing: true,
+      frameSkip: 1,
+      campCheckTicks: 10,
+      campMinClosing: 100,
+    });
+
+    // Do nothing (no-op action 9) for 10 ticks — should trigger camp termination
+    let result;
+    for (let i = 0; i < 20; i++) {
+      result = env.step(9, 0);
+      if (result.done) break;
+    }
+
+    expect(result.done).toBe(true);
+    expect(result.info.winner).toBe('opponent');
+  });
+
+  it('does not terminate when agent closes distance', () => {
+    const env = new GameEnv();
+    env.reset({
+      shipHP: 10,
+      maxTicks: 3600,
+      asteroidDensity: 0,
+      enemyPolicy: 'static',
+      enemyShoots: false,
+      spawnDistance: 500,
+      spawnFacing: true,
+      frameSkip: 1,
+      campCheckTicks: 60,
+      campMinClosing: 10,
+    });
+
+    // Thrust toward enemy (action 0 = thrust-straight, ships face each other)
+    let result;
+    for (let i = 0; i < 65; i++) {
+      result = env.step(0, 0);
+      if (result.done) break;
+    }
+
+    // Should still be playing — agent closed distance by thrusting
+    expect(result.done).toBe(false);
+  });
+
+  it('does not trigger camp check when campCheckTicks is 0 (disabled)', () => {
+    const env = new GameEnv();
+    env.reset({
+      shipHP: 10,
+      maxTicks: 3600,
+      asteroidDensity: 0,
+      enemyPolicy: 'static',
+      enemyShoots: false,
+      spawnDistance: 500,
+      spawnFacing: true,
+      frameSkip: 1,
+      campCheckTicks: 0,
+      campMinClosing: 100,
+    });
+
+    // Do nothing for 200 ticks — should NOT terminate
+    let result;
+    for (let i = 0; i < 200; i++) {
+      result = env.step(9, 0);
+      if (result.done) break;
+    }
+
+    expect(result.done).toBe(false);
+  });
+});

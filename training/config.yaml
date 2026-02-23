@@ -281,6 +281,8 @@ stages:
     spawnDistance: 500
     spawnFacing: true
     frameSkip: 2
+    campCheckTicks: 120
+    campMinClosing: 100
     promotionThreshold: 0.85
     rewardWeights:
       survival: 0.0
@@ -306,8 +308,10 @@ stages:
     spawnDistance: 500
     spawnFacing: true
     frameSkip: 2
+    campCheckTicks: 120
+    campMinClosing: 100
     selfPlayModelPath: "training/checkpoints/selfplay/opponent_snapshot.onnx"
-    promotionThreshold: 0.60
+    promotionThreshold: 0.80
     rewardWeights:
       survival: 0.0
       aim: 0.01
@@ -332,8 +336,10 @@ stages:
     spawnDistance: 500
     spawnFacing: true
     frameSkip: 2
+    campCheckTicks: 120
+    campMinClosing: 100
     selfPlayModelPath: "training/checkpoints/selfplay/opponent_snapshot.onnx"
-    promotionThreshold: 0.60
+    promotionThreshold: 0.80
     rewardWeights:
       survival: 0.0
       aim: 0.01
