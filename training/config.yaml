@@ -326,22 +326,22 @@ stages:
       proximity: 3.0
 
   13:
-    description: "Navigate asteroid field and engage unarmed self-play camper"
+    description: "Chase slow fleeing enemy through asteroid field"
     shipHP: 1
     maxTicks: 1200
-    asteroidDensity: 1.0
-    enemyPolicy: "self-play"
+    asteroidDensity: 0.5
+    enemyPolicy: "fleeing"
     enemyShoots: false
-    spawnDistance: [1000, 2000]
+    aiMaxSpeedFactor: 0.3
+    spawnDistance: [500, 1000]
     spawnFacing: false
     frameSkip: 2
     campCheckTicks: 0
-    selfPlayModelPath: "training/checkpoints/selfplay/opponent_snapshot.onnx"
-    promotionThreshold: 0.70
+    promotionThreshold: 0.85
     rewardWeights:
       survival: 0.0
       aim: 0.01
-      closing: 0.0
+      closing: 0.01
       hit: 1.0
       gotHit: -1.0
       nearMiss: -0.1
@@ -354,22 +354,22 @@ stages:
       proximity: 3.0
 
   14:
-    description: "Self-play, far spawn, short timeout"
+    description: "Chase medium-speed fleeing enemy through asteroid field"
     shipHP: 1
     maxTicks: 1200
-    asteroidDensity: 1.0
-    enemyPolicy: "self-play"
-    enemyShoots: true
-    spawnDistance: [1000, 2000]
+    asteroidDensity: 0.5
+    enemyPolicy: "fleeing"
+    enemyShoots: false
+    aiMaxSpeedFactor: 0.6
+    spawnDistance: [500, 1000]
     spawnFacing: false
     frameSkip: 2
     campCheckTicks: 0
-    selfPlayModelPath: "training/checkpoints/selfplay/opponent_snapshot.onnx"
-    promotionThreshold: 0.80
+    promotionThreshold: 0.85
     rewardWeights:
       survival: 0.0
       aim: 0.01
-      closing: 0.0
+      closing: 0.01
       hit: 1.0
       gotHit: -1.0
       nearMiss: -0.1
@@ -382,17 +382,16 @@ stages:
       proximity: 3.0
 
   15:
-    description: "Self-play round 2, far spawn, short timeout"
+    description: "Navigate and engage unarmed predictive-optimized, far spawn"
     shipHP: 1
     maxTicks: 1200
-    asteroidDensity: 1.0
-    enemyPolicy: "self-play"
-    enemyShoots: true
+    asteroidDensity: 0.5
+    enemyPolicy: "predictive-optimized"
+    enemyShoots: false
     spawnDistance: [1000, 2000]
     spawnFacing: false
     frameSkip: 2
     campCheckTicks: 0
-    selfPlayModelPath: "training/checkpoints/selfplay/opponent_snapshot.onnx"
     promotionThreshold: 0.80
     rewardWeights:
       survival: 0.0
@@ -410,22 +409,49 @@ stages:
       proximity: 3.0
 
   16:
-    description: "Chase fleeing enemy through asteroid field"
+    description: "Navigate and fight armed predictive-optimized, far spawn"
     shipHP: 1
     maxTicks: 1200
     asteroidDensity: 0.5
-    enemyPolicy: "fleeing"
-    enemyShoots: false
-    aiMaxSpeedFactor: 0.5
-    spawnDistance: [500, 1000]
+    enemyPolicy: "predictive-optimized"
+    enemyShoots: true
+    spawnDistance: [1000, 2000]
     spawnFacing: false
     frameSkip: 2
     campCheckTicks: 0
-    promotionThreshold: 0.85
+    promotionThreshold: 0.70
     rewardWeights:
       survival: 0.0
       aim: 0.01
-      closing: 0.01
+      closing: 0.0
+      hit: 1.0
+      gotHit: -1.0
+      nearMiss: -0.1
+      firePenalty: -0.002
+      win: 5.0
+      loss: -5.0
+      draw: -3.5
+      timeout: -5.0
+      engagePenalty: 0.0
+      proximity: 3.0
+
+  17:
+    description: "Self-play, far spawn, short timeout"
+    shipHP: 1
+    maxTicks: 1200
+    asteroidDensity: 1.0
+    enemyPolicy: "self-play"
+    enemyShoots: true
+    spawnDistance: [1000, 2000]
+    spawnFacing: false
+    frameSkip: 2
+    campCheckTicks: 0
+    selfPlayModelPath: "training/checkpoints/selfplay/opponent_snapshot.onnx"
+    promotionThreshold: 0.70
+    rewardWeights:
+      survival: 0.0
+      aim: 0.01
+      closing: 0.0
       hit: 1.0
       gotHit: -1.0
       nearMiss: -0.1
