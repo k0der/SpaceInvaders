@@ -104,6 +104,10 @@
       <h2>Mean Reward</h2>
       <canvas id="chart-reward"></canvas>
     </div>
+    <div class="chart-container">
+      <h2>Asteroid Deaths (per window)</h2>
+      <canvas id="chart-ast"></canvas>
+    </div>
     <div class="chart-container" style="grid-column: 1 / -1">
       <h2>Outcome Breakdown</h2>
       <canvas id="chart-outcomes"></canvas>
@@ -119,6 +123,7 @@
     var DASHBOARD_DATA = [];
     var wrChart = null;
     var rewardChart = null;
+    var astChart = null;
     var outcomesChart = null;
 
     function loadData(cb) {
@@ -263,6 +268,60 @@
         rewardChart.data.labels = labels;
         rewardChart.data.datasets[0].data = rewardValues;
         rewardChart.update();
+      }
+
+      // Asteroid deaths chart — compute deltas from cumulative counters
+      // Reset delta to 0 on stage boundaries (counters reset to 0)
+      var agentAstDeltas = data.map(function (d, i) {
+        if (i === 0 || d.stage !== data[i - 1].stage) return 0;
+        var delta = (d.agent_asteroid_deaths || 0) - (data[i - 1].agent_asteroid_deaths || 0);
+        return Math.max(0, delta);
+      });
+      var opponentAstDeltas = data.map(function (d, i) {
+        if (i === 0 || d.stage !== data[i - 1].stage) return 0;
+        var delta = (d.opponent_asteroid_deaths || 0) - (data[i - 1].opponent_asteroid_deaths || 0);
+        return Math.max(0, delta);
+      });
+
+      if (!astChart) {
+        astChart = new Chart(document.getElementById('chart-ast'), {
+          type: 'line',
+          data: {
+            labels: labels,
+            datasets: [
+              {
+                label: 'Agent',
+                data: agentAstDeltas,
+                borderColor: '#ef4444',
+                backgroundColor: 'rgba(239,68,68,0.1)',
+                fill: true,
+                tension: 0.3,
+                pointRadius: 0,
+                borderWidth: 2
+              },
+              {
+                label: 'Opponent',
+                data: opponentAstDeltas,
+                borderColor: '#f59e0b',
+                backgroundColor: 'rgba(245,158,11,0.1)',
+                fill: true,
+                tension: 0.3,
+                pointRadius: 0,
+                borderWidth: 2
+              }
+            ]
+          },
+          options: Object.assign({}, chartOpts, {
+            scales: Object.assign({}, chartOpts.scales, {
+              y: Object.assign({}, chartOpts.scales.y, { min: 0 })
+            })
+          })
+        });
+      } else {
+        astChart.data.labels = labels;
+        astChart.data.datasets[0].data = agentAstDeltas;
+        astChart.data.datasets[1].data = opponentAstDeltas;
+        astChart.update();
       }
 
       // Outcome breakdown chart

@@ -704,7 +704,7 @@ def main():
 
     if args.auto_promote:
         checkpoint = args.checkpoint
-        for stage_num in range(args.stage, 11):
+        for stage_num in range(args.stage, 14):
             checkpoint_dir = os.path.join(
                 os.path.dirname(os.path.abspath(__file__)),
                 "checkpoints",
@@ -729,8 +729,8 @@ def main():
 
             if promoted:
                 print(f"\n  Promoted to stage {stage_num + 1}!")
-                # Export self-play snapshot when graduating to stage 10
-                if stage_num + 1 == 10:
+                # Export self-play snapshot when graduating to a self-play stage
+                if stage_num + 1 in (10, 12, 13):
                     snapshot_dir = os.path.join(
                         os.path.dirname(os.path.abspath(__file__)),
                         "checkpoints", "selfplay",

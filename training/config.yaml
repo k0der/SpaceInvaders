@@ -271,4 +271,78 @@ stages:
       draw: -2.0
       timeout: -1.0
 
+  11:
+    description: "Full-strength predictive-optimized, anti-camping rewards"
+    shipHP: 1
+    maxTicks: 3600
+    asteroidDensity: 1.0
+    enemyPolicy: "predictive-optimized"
+    enemyShoots: true
+    spawnDistance: 500
+    spawnFacing: true
+    frameSkip: 2
+    promotionThreshold: 0.85
+    rewardWeights:
+      survival: 0.0
+      aim: 0.01
+      closing: 0.15
+      hit: 1.0
+      gotHit: -1.0
+      nearMiss: -0.1
+      firePenalty: -0.002
+      win: 5.0
+      loss: -5.0
+      draw: -3.5
+      timeout: -4.0
+
+  12:
+    description: "Self-play with anti-camping rewards"
+    shipHP: 1
+    maxTicks: 3600
+    asteroidDensity: 1.0
+    enemyPolicy: "self-play"
+    enemyShoots: true
+    spawnDistance: 500
+    spawnFacing: true
+    frameSkip: 2
+    selfPlayModelPath: "training/checkpoints/selfplay/opponent_snapshot.onnx"
+    promotionThreshold: 0.60
+    rewardWeights:
+      survival: 0.0
+      aim: 0.01
+      closing: 0.15
+      hit: 1.0
+      gotHit: -1.0
+      nearMiss: -0.1
+      firePenalty: -0.002
+      win: 5.0
+      loss: -5.0
+      draw: -3.5
+      timeout: -4.0
+
+  13:
+    description: "Self-play round 2: fight snapshot from stage 12"
+    shipHP: 1
+    maxTicks: 3600
+    asteroidDensity: 1.0
+    enemyPolicy: "self-play"
+    enemyShoots: true
+    spawnDistance: 500
+    spawnFacing: true
+    frameSkip: 2
+    selfPlayModelPath: "training/checkpoints/selfplay/opponent_snapshot.onnx"
+    promotionThreshold: 0.60
+    rewardWeights:
+      survival: 0.0
+      aim: 0.01
+      closing: 0.15
+      hit: 1.0
+      gotHit: -1.0
+      nearMiss: -0.1
+      firePenalty: -0.002
+      win: 5.0
+      loss: -5.0
+      draw: -3.5
+      timeout: -4.0
+
 
