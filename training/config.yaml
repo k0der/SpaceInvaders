@@ -356,6 +356,7 @@ stages:
   14:
     description: "Chase medium-speed fleeing enemy, extra HP for asteroid mistakes"
     shipHP: 3
+    enemyHP: 1
     maxTicks: 1200
     asteroidDensity: 0.5
     enemyPolicy: "fleeing"

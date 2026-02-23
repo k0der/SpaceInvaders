@@ -118,7 +118,7 @@ export class GameEnv {
 
     // HP system (internal to GameEnv)
     this._agentHP = c.shipHP;
-    this._opponentHP = c.shipHP;
+    this._opponentHP = c.enemyHP ?? c.shipHP;
 
     // Camera following agent
     this._camera = createCamera(this._agent.x, this._agent.y, 0);

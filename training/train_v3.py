@@ -542,6 +542,7 @@ def train_stage(
         k: stage_cfg[k]
         for k in (
             "shipHP",
+            "enemyHP",
             "maxTicks",
             "asteroidDensity",
             "enemyPolicy",
