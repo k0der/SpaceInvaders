@@ -97,6 +97,22 @@ export const DANGER_ZONE_FACTOR = 3;
  *  closing distance as it enters combat range. */
 export const ENGAGE_CLOSING_SCALE = 3;
 
+/** Default scoring weights for attack behavior (pursue + fire). */
+export const DEFAULT_SCORING_WEIGHTS = {
+  distance: DISTANCE_WEIGHT,
+  aim: AIM_BONUS,
+  closingSpeed: CLOSING_SPEED_WEIGHT,
+  fireOpportunity: FIRE_OPPORTUNITY_BONUS,
+};
+
+/** Scoring weights for fleeing behavior (evade, no fire). */
+export const FLEEING_SCORING_WEIGHTS = {
+  distance: 3,
+  aim: 0,
+  closingSpeed: -16,
+  fireOpportunity: 0,
+};
+
 /**
  * Clone only the physics-relevant fields of a ship for simulation.
  */
@@ -191,7 +207,13 @@ export function simulateTrajectory(clone, action, steps, dt) {
  * - Approach rate bonus (net distance closed, immune to overshoot terror)
  * - Fire opportunity bonus for steps with viable firing solutions (proximity-scaled)
  */
-export function scoreTrajectory(positions, target, asteroids, simDt) {
+export function scoreTrajectory(
+  positions,
+  target,
+  asteroids,
+  simDt,
+  weights = DEFAULT_SCORING_WEIGHTS,
+) {
   let score = 0;
 
   // Check for first collision only (ship dies on first hit, later ones are moot)
@@ -250,7 +272,7 @@ export function scoreTrajectory(positions, target, asteroids, simDt) {
   // Distance-scaled approach urgency: stronger pull to close at long range
   const distanceScale =
     1 + Math.max(0, initialDist - ENGAGE_RANGE) / ENGAGE_RANGE;
-  score += DISTANCE_WEIGHT * distanceScale * minDist;
+  score += weights.distance * distanceScale * minDist;
 
   // Aim bonus: average alignment across all trajectory steps.
   // Averaging avoids the "crossover artifact" where a ship passing through
@@ -272,7 +294,7 @@ export function scoreTrajectory(positions, target, asteroids, simDt) {
   }
   const aimProximityFactor =
     1 + AIM_PROXIMITY_SCALE * Math.max(0, 1 - minDist / MAX_FIRE_RANGE);
-  score += AIM_BONUS * (aimSum / (positions.length - 1)) * aimProximityFactor;
+  score += weights.aim * (aimSum / (positions.length - 1)) * aimProximityFactor;
 
   // Approach rate: reward net distance closed over the simulation.
   // Uses (initialDist - finalDist) / simTime instead of instantaneous velocity
@@ -293,36 +315,38 @@ export function scoreTrajectory(positions, target, asteroids, simDt) {
       initialDist < ENGAGE_RANGE
         ? 1 + ENGAGE_CLOSING_SCALE * (1 - initialDist / ENGAGE_RANGE)
         : 1;
-    score += CLOSING_SPEED_WEIGHT * closingScale * closingRate;
+    score += weights.closingSpeed * closingScale * closingRate;
   }
 
   // Fire opportunity bonus: count steps with a viable lead-angle firing solution.
   // Uses the same lead-angle logic as the fire decision — scores trajectories
   // by whether shots would actually hit the predicted target position, not just
   // aim at where the target currently is. Scaled by proximity.
-  for (let i = 1; i < positions.length; i++) {
-    const t = i * simDt;
-    const predX = target.x + target.vx * t;
-    const predY = target.y + target.vy * t;
-    const fdx = predX - positions[i].x;
-    const fdy = predY - positions[i].y;
-    const fDist = Math.sqrt(fdx * fdx + fdy * fdy);
-    if (fDist > MAX_FIRE_RANGE) continue;
-    // Lead-angle: where target will be when a bullet fired now arrives
-    const bulletTime = fDist / BULLET_SPEED;
-    const rvx = target.vx - positions[i].vx;
-    const rvy = target.vy - positions[i].vy;
-    const leadX = predX + rvx * bulletTime;
-    const leadY = predY + rvy * bulletTime;
-    const fireAngle = Math.atan2(
-      leadY - positions[i].y,
-      leadX - positions[i].x,
-    );
-    let fireDiff = fireAngle - positions[i].heading;
-    while (fireDiff > Math.PI) fireDiff -= 2 * Math.PI;
-    while (fireDiff < -Math.PI) fireDiff += 2 * Math.PI;
-    if (Math.abs(fireDiff) < FIRE_ANGLE) {
-      score += FIRE_OPPORTUNITY_BONUS * (1 - fDist / MAX_FIRE_RANGE);
+  if (weights.fireOpportunity !== 0) {
+    for (let i = 1; i < positions.length; i++) {
+      const t = i * simDt;
+      const predX = target.x + target.vx * t;
+      const predY = target.y + target.vy * t;
+      const fdx = predX - positions[i].x;
+      const fdy = predY - positions[i].y;
+      const fDist = Math.sqrt(fdx * fdx + fdy * fdy);
+      if (fDist > MAX_FIRE_RANGE) continue;
+      // Lead-angle: where target will be when a bullet fired now arrives
+      const bulletTime = fDist / BULLET_SPEED;
+      const rvx = target.vx - positions[i].vx;
+      const rvy = target.vy - positions[i].vy;
+      const leadX = predX + rvx * bulletTime;
+      const leadY = predY + rvy * bulletTime;
+      const fireAngle = Math.atan2(
+        leadY - positions[i].y,
+        leadX - positions[i].x,
+      );
+      let fireDiff = fireAngle - positions[i].heading;
+      while (fireDiff > Math.PI) fireDiff -= 2 * Math.PI;
+      while (fireDiff < -Math.PI) fireDiff += 2 * Math.PI;
+      if (Math.abs(fireDiff) < FIRE_ANGLE) {
+        score += weights.fireOpportunity * (1 - fDist / MAX_FIRE_RANGE);
+      }
     }
   }
 
@@ -342,6 +366,7 @@ export function simulatePursuitTrajectory(
   steps,
   dt,
   brakeSteps = 0,
+  pursuitSign = 1,
 ) {
   const positions = [
     {
@@ -360,7 +385,10 @@ export function simulatePursuitTrajectory(
     const predY = target.y + target.vy * t;
     const dx = predX - clone.x;
     const dy = predY - clone.y;
-    const headingDiff = normalizeAngle(Math.atan2(dy, dx) - clone.heading);
+    const angleToTarget = Math.atan2(dy, dx);
+    const desiredAngle =
+      pursuitSign === 1 ? angleToTarget : angleToTarget + Math.PI;
+    const headingDiff = normalizeAngle(desiredAngle - clone.heading);
     const speed = Math.sqrt(clone.vx * clone.vx + clone.vy * clone.vy);
 
     if (i < brakeSteps) {
@@ -449,6 +477,8 @@ export function selectBestAction(
   asteroids,
   prevAction = null,
   simSteps = SIM_STEPS,
+  weights = DEFAULT_SCORING_WEIGHTS,
+  pursuitSign = 1,
 ) {
   const candidates = defineCandidates();
   let bestScore = -Infinity;
@@ -460,7 +490,7 @@ export function selectBestAction(
   for (const action of candidates) {
     const clone = cloneShipForSim(ship);
     const positions = simulateTrajectory(clone, action, simSteps, SIM_DT);
-    let score = scoreTrajectory(positions, target, asteroids, SIM_DT);
+    let score = scoreTrajectory(positions, target, asteroids, SIM_DT, weights);
     if (prevAction && actionsMatch(action, prevAction)) {
       score += HYSTERESIS_BONUS;
     }
@@ -482,12 +512,14 @@ export function selectBestAction(
     simSteps,
     SIM_DT,
     0,
+    pursuitSign,
   );
   let pursuitScore = scoreTrajectory(
     pursuit.positions,
     target,
     asteroids,
     SIM_DT,
+    weights,
   );
   if (
     prevAction &&
@@ -516,12 +548,14 @@ export function selectBestAction(
       simSteps,
       SIM_DT,
       BRAKE_PURSUIT_STEPS,
+      pursuitSign,
     );
     let brakeScore = scoreTrajectory(
       brakePursuit.positions,
       target,
       asteroids,
       SIM_DT,
+      weights,
     );
     if (
       prevAction &&
@@ -609,6 +643,9 @@ function updatePredictiveOptimizedAI(state, ship, target, asteroids, _dt) {
 
   const holdTime = state.holdTime ?? HOLD_TIME;
   const simSteps = state.simSteps ?? SIM_STEPS;
+  const weights = state.scoringWeights ?? DEFAULT_SCORING_WEIGHTS;
+  const pSign = state.pursuitSign ?? 1;
+  const canFire = state.canFire ?? true;
 
   state.holdTimer = Math.max(0, state.holdTimer - _dt);
 
@@ -625,6 +662,8 @@ function updatePredictiveOptimizedAI(state, ship, target, asteroids, _dt) {
       asteroids,
       state.prevAction,
       simSteps,
+      weights,
+      pSign,
     );
     state.prevAction = action;
     state.holdTimer = holdTime;
@@ -634,6 +673,12 @@ function updatePredictiveOptimizedAI(state, ship, target, asteroids, _dt) {
   ship.rotatingLeft = state.prevAction.rotatingLeft;
   ship.rotatingRight = state.prevAction.rotatingRight;
   ship.braking = state.prevAction.braking;
+
+  // Fire decision: skip entirely when strategy cannot fire
+  if (!canFire) {
+    ship.fire = false;
+    return;
+  }
 
   // Fire decision: lead-angle check — aim where the target will be
   const dx = target.x - ship.x;
@@ -659,3 +704,26 @@ export const predictiveOptimizedStrategy = {
 
 // Self-register in the strategy registry
 registerStrategy('predictive-optimized', predictiveOptimizedStrategy);
+
+/**
+ * Create fleeing AI state — same update function, inverted behavior.
+ */
+function createFleeingState() {
+  return {
+    prevAction: null,
+    holdTimer: 0,
+    scoringWeights: FLEEING_SCORING_WEIGHTS,
+    pursuitSign: -1,
+    canFire: false,
+  };
+}
+
+/**
+ * Fleeing AI strategy — reuses predictive-optimized update with inverted weights.
+ */
+export const fleeingStrategy = {
+  createState: createFleeingState,
+  update: updatePredictiveOptimizedAI,
+};
+
+registerStrategy('fleeing', fleeingStrategy);

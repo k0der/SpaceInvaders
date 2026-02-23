@@ -409,4 +409,31 @@ stages:
       engagePenalty: 0.0
       proximity: 3.0
 
+  16:
+    description: "Chase fleeing enemy through asteroid field"
+    shipHP: 1
+    maxTicks: 1200
+    asteroidDensity: 0.5
+    enemyPolicy: "fleeing"
+    enemyShoots: false
+    spawnDistance: [500, 1000]
+    spawnFacing: false
+    frameSkip: 2
+    campCheckTicks: 0
+    promotionThreshold: 0.85
+    rewardWeights:
+      survival: 0.0
+      aim: 0.01
+      closing: 0.01
+      hit: 1.0
+      gotHit: -1.0
+      nearMiss: -0.1
+      firePenalty: -0.002
+      win: 5.0
+      loss: -5.0
+      draw: -3.5
+      timeout: -5.0
+      engagePenalty: 0.0
+      proximity: 3.0
+
 

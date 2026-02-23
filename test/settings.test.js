@@ -988,7 +988,7 @@ describe('Increment 15: Star Field Direction Setting', () => {
   });
 
   describe('SETTINGS_CONFIG — playerIntelligence', () => {
-    it('defines playerIntelligence with options human, reactive, predictive, predictive-optimized, neural', () => {
+    it('defines playerIntelligence with all strategy options', () => {
       const c = SETTINGS_CONFIG.playerIntelligence;
       expect(c).toBeDefined();
       expect(c.options).toEqual([
@@ -996,6 +996,7 @@ describe('Increment 15: Star Field Direction Setting', () => {
         'reactive',
         'predictive',
         'predictive-optimized',
+        'fleeing',
         'neural',
       ]);
     });
@@ -1010,13 +1011,14 @@ describe('Increment 15: Star Field Direction Setting', () => {
   });
 
   describe('SETTINGS_CONFIG — enemyIntelligence', () => {
-    it('defines enemyIntelligence with options reactive, predictive, predictive-optimized, and neural', () => {
+    it('defines enemyIntelligence with all strategy options', () => {
       const c = SETTINGS_CONFIG.enemyIntelligence;
       expect(c).toBeDefined();
       expect(c.options).toEqual([
         'reactive',
         'predictive',
         'predictive-optimized',
+        'fleeing',
         'neural',
       ]);
     });
@@ -1243,7 +1245,7 @@ describe('Increment 15: Star Field Direction Setting', () => {
       expect(ui.selects.playerIntelligence).toBeDefined();
     });
 
-    it('playerIntelligence selector has 5 options', () => {
+    it('playerIntelligence selector has all strategy options', () => {
       const ui = createSettingsUI(container, settings);
       const options = ui.selects.playerIntelligence.querySelectorAll('option');
       const values = Array.from(options).map((o) => o.value);
@@ -1252,6 +1254,7 @@ describe('Increment 15: Star Field Direction Setting', () => {
         'reactive',
         'predictive',
         'predictive-optimized',
+        'fleeing',
         'neural',
       ]);
     });
@@ -1296,7 +1299,7 @@ describe('Increment 15: Star Field Direction Setting', () => {
       expect(ui.selects.enemyIntelligence).toBeDefined();
     });
 
-    it('enemyIntelligence selector has 4 options', () => {
+    it('enemyIntelligence selector has all strategy options', () => {
       const ui = createSettingsUI(container, settings);
       const options = ui.selects.enemyIntelligence.querySelectorAll('option');
       const values = Array.from(options).map((o) => o.value);
@@ -1304,6 +1307,7 @@ describe('Increment 15: Star Field Direction Setting', () => {
         'reactive',
         'predictive',
         'predictive-optimized',
+        'fleeing',
         'neural',
       ]);
     });

@@ -10,12 +10,15 @@ import {
   COLLISION_EARLY_BONUS,
   cloneShipForSim,
   DANGER_ZONE_FACTOR,
+  DEFAULT_SCORING_WEIGHTS,
   DISTANCE_WEIGHT,
   defineCandidates,
   ENGAGE_CLOSING_SCALE,
   ENGAGE_RANGE,
   FIRE_ANGLE,
   FIRE_OPPORTUNITY_BONUS,
+  FLEEING_SCORING_WEIGHTS,
+  fleeingStrategy,
   getLastDebugInfo,
   HOLD_TIME,
   HYSTERESIS_BONUS,
@@ -2300,5 +2303,397 @@ describe('ai-predictive-optimized: scoreTrajectory — lead-aware fire opportuni
     const movingScore = scoreTrajectory(movingPositions, target, [], 0.1);
     expect(Number.isFinite(staticScore)).toBe(true);
     expect(Number.isFinite(movingScore)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Fleeing strategy tests
+// ---------------------------------------------------------------------------
+
+describe('ai-predictive-optimized: DEFAULT_SCORING_WEIGHTS', () => {
+  it('matches the individual attack constants', () => {
+    expect(DEFAULT_SCORING_WEIGHTS.distance).toBe(DISTANCE_WEIGHT);
+    expect(DEFAULT_SCORING_WEIGHTS.aim).toBe(AIM_BONUS);
+    expect(DEFAULT_SCORING_WEIGHTS.closingSpeed).toBe(CLOSING_SPEED_WEIGHT);
+    expect(DEFAULT_SCORING_WEIGHTS.fireOpportunity).toBe(
+      FIRE_OPPORTUNITY_BONUS,
+    );
+  });
+});
+
+describe('ai-predictive-optimized: FLEEING_SCORING_WEIGHTS', () => {
+  it('inverts distance weight (farther = better)', () => {
+    expect(FLEEING_SCORING_WEIGHTS.distance).toBe(3);
+  });
+
+  it('zeroes aim bonus', () => {
+    expect(FLEEING_SCORING_WEIGHTS.aim).toBe(0);
+  });
+
+  it('inverts closing speed (opening = better)', () => {
+    expect(FLEEING_SCORING_WEIGHTS.closingSpeed).toBe(-16);
+  });
+
+  it('zeroes fire opportunity bonus', () => {
+    expect(FLEEING_SCORING_WEIGHTS.fireOpportunity).toBe(0);
+  });
+});
+
+describe('ai-predictive-optimized: scoreTrajectory — fleeing mode', () => {
+  it('prefers trajectories farther from target', () => {
+    const target = { x: 0, y: 0, vx: 0, vy: 0 };
+
+    // Close trajectory (100px from target)
+    const close = [
+      { x: 100, y: 0, heading: 0, vx: 0, vy: 0 },
+      { x: 100, y: 0, heading: 0, vx: 0, vy: 0 },
+    ];
+    // Far trajectory (600px from target)
+    const far = [
+      { x: 600, y: 0, heading: 0, vx: 0, vy: 0 },
+      { x: 600, y: 0, heading: 0, vx: 0, vy: 0 },
+    ];
+
+    const closeScore = scoreTrajectory(
+      close,
+      target,
+      [],
+      0.1,
+      FLEEING_SCORING_WEIGHTS,
+    );
+    const farScore = scoreTrajectory(
+      far,
+      target,
+      [],
+      0.1,
+      FLEEING_SCORING_WEIGHTS,
+    );
+
+    expect(farScore).toBeGreaterThan(closeScore);
+  });
+
+  it('gives no aim bonus regardless of heading alignment', () => {
+    const target = { x: 300, y: 0, vx: 0, vy: 0 };
+
+    // Aimed at target
+    const aimed = [
+      { x: 0, y: 0, heading: 0, vx: 0, vy: 0 },
+      { x: 0, y: 0, heading: 0, vx: 0, vy: 0 },
+    ];
+    // Aimed away
+    const away = [
+      { x: 0, y: 0, heading: Math.PI, vx: 0, vy: 0 },
+      { x: 0, y: 0, heading: Math.PI, vx: 0, vy: 0 },
+    ];
+
+    const aimedScore = scoreTrajectory(
+      aimed,
+      target,
+      [],
+      0.1,
+      FLEEING_SCORING_WEIGHTS,
+    );
+    const awayScore = scoreTrajectory(
+      away,
+      target,
+      [],
+      0.1,
+      FLEEING_SCORING_WEIGHTS,
+    );
+
+    // With aim=0, aim component is zero; scores differ only by distance/closing
+    // which are identical for both (same positions). Scores should be equal.
+    expect(aimedScore).toBeCloseTo(awayScore, 0);
+  });
+
+  it('rewards velocity away from target (negative closing = opening)', () => {
+    const target = { x: 500, y: 0, vx: 0, vy: 0 };
+
+    // Moving toward target
+    const closing = [
+      { x: 0, y: 0, heading: 0, vx: 100, vy: 0 },
+      { x: 10, y: 0, heading: 0, vx: 100, vy: 0 },
+    ];
+    // Moving away from target
+    const opening = [
+      { x: 0, y: 0, heading: Math.PI, vx: -100, vy: 0 },
+      { x: -10, y: 0, heading: Math.PI, vx: -100, vy: 0 },
+    ];
+
+    const closingScore = scoreTrajectory(
+      closing,
+      target,
+      [],
+      0.1,
+      FLEEING_SCORING_WEIGHTS,
+    );
+    const openingScore = scoreTrajectory(
+      opening,
+      target,
+      [],
+      0.1,
+      FLEEING_SCORING_WEIGHTS,
+    );
+
+    // Opening distance should score better with fleeing weights
+    expect(openingScore).toBeGreaterThan(closingScore);
+  });
+
+  it('gives no fire opportunity bonus even when aimed at close target', () => {
+    const target = { x: 300, y: 0, vx: 0, vy: 0 };
+
+    // Aimed at target (would get fire opp bonus in attack mode)
+    const aimed = [
+      { x: 0, y: 0, heading: 0, vx: 0, vy: 0 },
+      { x: 0, y: 0, heading: 0, vx: 0, vy: 0 },
+    ];
+    // Perpendicular (no fire opp bonus in either mode)
+    const perp = [
+      { x: 0, y: 0, heading: Math.PI / 2, vx: 0, vy: 0 },
+      { x: 0, y: 0, heading: Math.PI / 2, vx: 0, vy: 0 },
+    ];
+
+    // Under attack weights, aimed gets fire opportunity bonus
+    const attackAimed = scoreTrajectory(
+      aimed,
+      target,
+      [],
+      0.1,
+      DEFAULT_SCORING_WEIGHTS,
+    );
+    const attackPerp = scoreTrajectory(
+      perp,
+      target,
+      [],
+      0.1,
+      DEFAULT_SCORING_WEIGHTS,
+    );
+    const attackGap = attackAimed - attackPerp;
+
+    // Under fleeing weights, both should score equally (no fire opp, no aim)
+    const fleeAimed = scoreTrajectory(
+      aimed,
+      target,
+      [],
+      0.1,
+      FLEEING_SCORING_WEIGHTS,
+    );
+    const fleePerp = scoreTrajectory(
+      perp,
+      target,
+      [],
+      0.1,
+      FLEEING_SCORING_WEIGHTS,
+    );
+    const fleeGap = fleeAimed - fleePerp;
+
+    // Attack gap should be significant (fire opp + aim bonus present)
+    expect(attackGap).toBeGreaterThan(100);
+    // Fleeing gap should be near zero (no fire opp, no aim bonus)
+    expect(Math.abs(fleeGap)).toBeLessThan(10);
+  });
+
+  it('still applies collision penalty in fleeing mode', () => {
+    const target = { x: 500, y: 0, vx: 0, vy: 0 };
+    const asteroids = [{ x: 60, y: 0, vx: 0, vy: 0, collisionRadius: 50 }];
+
+    // Trajectory that collides at step 1
+    const positions = [
+      { x: 0, y: 0, heading: 0, vx: 60, vy: 0 },
+      { x: 60, y: 0, heading: 0, vx: 60, vy: 0 },
+    ];
+
+    const withAsteroid = scoreTrajectory(
+      positions,
+      target,
+      asteroids,
+      0.1,
+      FLEEING_SCORING_WEIGHTS,
+    );
+    const withoutAsteroid = scoreTrajectory(
+      positions,
+      target,
+      [],
+      0.1,
+      FLEEING_SCORING_WEIGHTS,
+    );
+
+    expect(withAsteroid).toBeLessThan(withoutAsteroid - 10000);
+  });
+});
+
+describe('ai-predictive-optimized: simulatePursuitTrajectory — evasion (pursuitSign=-1)', () => {
+  it('turns away from target when facing toward it', () => {
+    const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+    const clone = cloneShipForSim(ship);
+    const target = { x: 500, y: 0, vx: 0, vy: 0 };
+
+    // pursuitSign=-1: should rotate AWAY from target (target is at heading 0)
+    const result = simulatePursuitTrajectory(clone, target, 10, 0.1, 0, -1);
+
+    // First action should rotate (turning away from target)
+    expect(
+      result.firstAction.rotatingLeft || result.firstAction.rotatingRight,
+    ).toBe(true);
+  });
+
+  it('thrusts when facing away from target', () => {
+    // Ship facing away from target (heading = PI, target at x=500)
+    const ship = createShip({ x: 0, y: 0, heading: Math.PI, owner: 'enemy' });
+    const clone = cloneShipForSim(ship);
+    const target = { x: 500, y: 0, vx: 0, vy: 0 };
+
+    // pursuitSign=-1: desired direction is AWAY from target (heading PI is away)
+    const result = simulatePursuitTrajectory(clone, target, 5, 0.1, 0, -1);
+
+    // Already facing away — should thrust
+    expect(result.firstAction.thrust).toBe(true);
+  });
+
+  it('moves ship away from target over time', () => {
+    const ship = createShip({ x: 0, y: 0, heading: Math.PI, owner: 'enemy' });
+    const clone = cloneShipForSim(ship);
+    const target = { x: 500, y: 0, vx: 0, vy: 0 };
+
+    const result = simulatePursuitTrajectory(clone, target, 15, 0.1, 0, -1);
+
+    const first = result.positions[0];
+    const last = result.positions[result.positions.length - 1];
+    const initialDist = Math.sqrt(
+      (first.x - target.x) ** 2 + (first.y - target.y) ** 2,
+    );
+    const finalDist = Math.sqrt(
+      (last.x - target.x) ** 2 + (last.y - target.y) ** 2,
+    );
+
+    // Ship should be farther from target at end
+    expect(finalDist).toBeGreaterThan(initialDist);
+  });
+});
+
+describe('ai-predictive-optimized: selectBestAction — fleeing mode', () => {
+  it('selects action that moves away from target when path is clear', () => {
+    // Ship facing target, target ahead — in attack mode would thrust toward
+    const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+    const target = createShip({ x: 500, y: 0, heading: 0, owner: 'player' });
+
+    const attackAction = selectBestAction(ship, target, []);
+    const fleeAction = selectBestAction(
+      ship,
+      target,
+      [],
+      null,
+      SIM_STEPS,
+      FLEEING_SCORING_WEIGHTS,
+      -1,
+    );
+
+    // Attack should thrust toward; flee should not thrust straight toward
+    expect(attackAction.thrust).toBe(true);
+    const fleesForward =
+      fleeAction.thrust &&
+      !fleeAction.rotatingLeft &&
+      !fleeAction.rotatingRight;
+    expect(fleesForward).toBe(false);
+  });
+
+  it('avoids asteroids while fleeing', () => {
+    const ship = createShip({ x: 0, y: 0, heading: Math.PI, owner: 'enemy' });
+    const target = createShip({ x: 500, y: 0, heading: 0, owner: 'player' });
+    // Asteroid blocking the escape path
+    const asteroids = [{ x: -120, y: 0, vx: 0, vy: 0, collisionRadius: 30 }];
+
+    const action = selectBestAction(
+      ship,
+      target,
+      asteroids,
+      null,
+      SIM_STEPS,
+      FLEEING_SCORING_WEIGHTS,
+      -1,
+    );
+
+    // Should not thrust straight into the asteroid while fleeing
+    const thrustsIntoAsteroid =
+      action.thrust && !action.rotatingLeft && !action.rotatingRight;
+    expect(thrustsIntoAsteroid).toBe(false);
+  });
+});
+
+describe('ai-predictive-optimized: fleeingStrategy', () => {
+  it('has createState and update methods', () => {
+    expect(typeof fleeingStrategy.createState).toBe('function');
+    expect(typeof fleeingStrategy.update).toBe('function');
+  });
+
+  it('createState returns state with fleeing weights', () => {
+    const state = fleeingStrategy.createState();
+    expect(state.scoringWeights).toBe(FLEEING_SCORING_WEIGHTS);
+  });
+
+  it('createState returns state with pursuitSign=-1', () => {
+    const state = fleeingStrategy.createState();
+    expect(state.pursuitSign).toBe(-1);
+  });
+
+  it('createState returns state with canFire=false', () => {
+    const state = fleeingStrategy.createState();
+    expect(state.canFire).toBe(false);
+  });
+
+  it('update never sets ship.fire = true', () => {
+    const state = fleeingStrategy.createState();
+    const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+    const target = createShip({ x: 300, y: 0, heading: 0, owner: 'player' });
+
+    // Target is right ahead at close range — attack mode would fire
+    fleeingStrategy.update(state, ship, target, [], 0.016);
+
+    expect(ship.fire).toBe(false);
+  });
+
+  it('moves ship away from target', () => {
+    const state = fleeingStrategy.createState();
+    const ship = createShip({ x: 0, y: 0, heading: Math.PI, owner: 'enemy' });
+    const target = createShip({ x: 500, y: 0, heading: 0, owner: 'player' });
+
+    fleeingStrategy.update(state, ship, target, [], 0.016);
+
+    // Should thrust away (heading is already away from target)
+    expect(ship.thrust).toBe(true);
+  });
+
+  it('clears all flags when ship is dead', () => {
+    const state = fleeingStrategy.createState();
+    const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+    ship.alive = false;
+    ship.thrust = true;
+    const target = createShip({ x: 500, y: 0, heading: 0, owner: 'player' });
+
+    fleeingStrategy.update(state, ship, target, [], 0.016);
+
+    expect(ship.thrust).toBe(false);
+    expect(ship.rotatingLeft).toBe(false);
+    expect(ship.rotatingRight).toBe(false);
+    expect(ship.braking).toBe(false);
+    expect(ship.fire).toBe(false);
+  });
+
+  it('clears all flags when target is dead', () => {
+    const state = fleeingStrategy.createState();
+    const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+    const target = createShip({ x: 500, y: 0, heading: 0, owner: 'player' });
+    target.alive = false;
+
+    fleeingStrategy.update(state, ship, target, [], 0.016);
+
+    expect(ship.thrust).toBe(false);
+    expect(ship.fire).toBe(false);
+  });
+
+  it('is registered as "fleeing" in the strategy registry', async () => {
+    const { getStrategy } = await import('../src/ai-core.js');
+    const strategy = getStrategy('fleeing');
+    expect(strategy).toBe(fleeingStrategy);
   });
 });
