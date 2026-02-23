@@ -7,6 +7,7 @@
 - `npm run lint:check` — check lint and formatting without writing (CI-friendly)
 - `npm run build` — bundle ES modules into standalone `index.html`
 - `npm run test:watch` — run tests in watch mode (development)
+- `npm run export -- <checkpoint>` — export a trained model to ONNX (e.g., `npm run export -- training/checkpoints/stage8/best.zip`)
 
 ## Project Structure
 
@@ -15,6 +16,8 @@
 - `dev.html` — development entry point (uses ES module imports)
 - `index.html` — production build output (single file, all JS inlined)
 - `build.js` — custom bundler that strips imports/exports and inlines into `index.html`
+- `models/` — ONNX model files loaded by the browser (`policy.onnx` + `policy.onnx.data`)
+- `training/` — Python training pipeline (config, env, train scripts, ONNX export)
 - `SPEC.md` — technical specification (the "what")
 - `TODO.md` — incremental build plan with acceptance criteria (the "how")
 

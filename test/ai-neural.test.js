@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { getStrategy } from '../src/ai-core.js';
 import {
+  ACTION_HOLD_TIME,
   applyMoveAction,
   argmax,
   decodeActions,
@@ -201,6 +202,11 @@ describe('ai-neural: createState', () => {
     const state = neuralStrategy.createState();
     expect(state.cachedAction).toBeNull();
   });
+
+  it('holdTimer is initially 0', () => {
+    const state = neuralStrategy.createState();
+    expect(state.holdTimer).toBe(0);
+  });
 });
 
 // ── Fallback Behavior ───────────────────────────────────────────────
@@ -370,6 +376,105 @@ describe('ai-neural: Inference Pipeline', () => {
     neuralStrategy.update(state, ship, target, [], 1 / 60);
 
     expect(fallbackUpdateSpy).toHaveBeenCalledOnce();
+  });
+});
+
+// ── Frame Skip ──────────────────────────────────────────────────────
+
+describe('ai-neural: Frame Skip', () => {
+  function makeShip() {
+    return {
+      x: 500,
+      y: 500,
+      vx: 0,
+      vy: 0,
+      heading: 0,
+      thrust: false,
+      rotatingLeft: false,
+      rotatingRight: false,
+      braking: false,
+      fire: false,
+      alive: true,
+      thrustIntensity: 0,
+      thrustPower: 2000,
+      fireCooldown: 0,
+    };
+  }
+
+  function makeTarget() {
+    return {
+      x: 700,
+      y: 500,
+      vx: 0,
+      vy: 0,
+      heading: Math.PI,
+      alive: true,
+      thrustIntensity: 0,
+      thrustPower: 2000,
+      fireCooldown: 0,
+    };
+  }
+
+  it('ACTION_HOLD_TIME matches training config (2/60)', () => {
+    expect(ACTION_HOLD_TIME).toBeCloseTo(2 / 60);
+  });
+
+  it('does not request inference while hold timer has time remaining', () => {
+    const state = neuralStrategy.createState();
+    state.ready = true;
+    state.cachedAction = { moveIndex: 0, fire: false };
+    state.holdTimer = ACTION_HOLD_TIME;
+
+    neuralStrategy.update(state, makeShip(), makeTarget(), [], 1 / 60);
+
+    // After one frame (1/60s), timer still has ~1/60s remaining — no inference
+    expect(state.holdTimer).toBeCloseTo(ACTION_HOLD_TIME - 1 / 60);
+    expect(state.pendingInference).toBe(false);
+  });
+
+  it('resets hold timer when it expires', () => {
+    const state = neuralStrategy.createState();
+    state.ready = true;
+    state.cachedAction = { moveIndex: 0, fire: false };
+    // One dt away from expiring
+    state.holdTimer = 1 / 60;
+
+    neuralStrategy.update(state, makeShip(), makeTarget(), [], 1 / 60);
+
+    // Timer expired and was reset to ACTION_HOLD_TIME
+    expect(state.holdTimer).toBeCloseTo(ACTION_HOLD_TIME);
+  });
+
+  it('holds cached action across hold duration', () => {
+    const state = neuralStrategy.createState();
+    state.ready = true;
+    state.cachedAction = { moveIndex: 2, fire: true };
+    state.holdTimer = ACTION_HOLD_TIME;
+
+    // Simulate 2 frames at 1/60 dt (= full hold duration)
+    for (let i = 0; i < 2; i++) {
+      const ship = makeShip();
+      neuralStrategy.update(state, ship, makeTarget(), [], 1 / 60);
+      expect(ship.thrust).toBe(true);
+      expect(ship.rotatingRight).toBe(true);
+      expect(ship.fire).toBe(true);
+      // Prevent pending inference from blocking subsequent frames
+      state.pendingInference = false;
+    }
+  });
+
+  it('speed multiplier does not change decisions per game-time', () => {
+    // At speed 2.0, dt is doubled — one frame consumes the full hold duration
+    const state = neuralStrategy.createState();
+    state.ready = true;
+    state.cachedAction = { moveIndex: 0, fire: false };
+    state.holdTimer = ACTION_HOLD_TIME; // 2/60
+
+    const doubleDt = 2 / 60; // same as ACTION_HOLD_TIME
+    neuralStrategy.update(state, makeShip(), makeTarget(), [], doubleDt);
+
+    // Full hold consumed in one frame — timer expired and reset
+    expect(state.holdTimer).toBeCloseTo(ACTION_HOLD_TIME);
   });
 });
 

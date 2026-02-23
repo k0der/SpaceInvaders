@@ -117,8 +117,10 @@ populated and asteroids never appear out of thin air.
   matter. Up to `MAX_SPAWN_PER_FRAME` (10) asteroids spawn per frame when below target
 - **Aggressive recycling**: Any asteroid outside the spawn bounds (+ 5px hysteresis)
   is removed immediately
-- **Target count**: `BASE_COUNT (40) × density_setting × (zoneArea / viewportArea)`.
-  The area ratio ensures both viewport and border are populated proportionally
+- **Target count**: `BASE_COUNT (40) × density_setting`. This matches the
+  training environment (GameEnv) exactly, ensuring the neural agent faces the
+  same asteroid density it was trained on. Asteroids distribute across the full
+  spawn zone (viewport + border), so roughly half are visible at any time
 
 ### 1.6 Energy Homeostasis
 
@@ -300,9 +302,9 @@ rather than a fixed direction:
 - Each slider shows its **current value** as a label
 - Changes are applied **immediately** (live preview)
 - Asteroid density is a multiplier on the base count (40). The actual target
-  count is computed dynamically each frame as `40 × density × (boundsArea / viewportArea)`.
-  Reducing density lets excess asteroids drift off naturally; increasing it
-  triggers burst spawning to repopulate.
+  count is `40 × density` (matching the training environment). Reducing density
+  lets excess asteroids drift off naturally; increasing it triggers burst
+  spawning to repopulate.
 - Settings are persisted to `localStorage` so they survive page reload
 
 ### 5.3 Visual Style of Menu
@@ -1148,6 +1150,11 @@ interface:
   via the shared `buildObservation()` → runs ONNX inference → reads movement
   action index (argmax of 10-way output) and fire probability (sigmoid output)
   → maps to the 5 control flags on the ship.
+- **Time-based action hold**: Actions are held for `ACTION_HOLD_TIME` (2/60s)
+  of game-time, matching the training `frameSkip=2 × DT=1/60`. The hold timer
+  decrements by the game-time `dt` each frame, so the speed multiplier setting
+  acts as a pure time warp — the agent always makes the same number of
+  decisions per unit of game-time regardless of playback speed.
 - **Network architecture**: 3 hidden layers × 256 units, ReLU activations.
   Two output heads: movement (10-way softmax) and fire (sigmoid). ~200K parameters.
 - **ONNX Runtime Web**: Loaded via CDN `<script>` tag. This preserves the project's
@@ -1197,7 +1204,7 @@ environment**, not in the shipped game:
 | `spawnDistance` | 400–600 | 500 (fixed) | Consistent episode starts for stable learning |
 | `spawnFacing` | Random | true | Both ships face each other — faster engagement, less wasted exploration |
 | `rewardWeights` | N/A | See §16.7 | Per-component reward scaling |
-| `frameSkip` | N/A | 2 | Simulate N ticks per RL step — halves IPC round-trips |
+| `frameSkip` | 2 (as `ACTION_HOLD_TIME = 2/60s`) | 2 | Hold each action for N simulation ticks. In-game this is time-based (not frame-based) so the speed setting is a pure time warp |
 | `aiHoldTime` | 0.15 | 0.25 | Enemy AI decision interval in seconds — reduces AI compute |
 | `aiSimSteps` | 15 | 10 | Enemy AI lookahead steps — reduces AI compute |
 

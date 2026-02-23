@@ -223,6 +223,30 @@ stages:
       timeout: -1.0
 
   9:
+    description: "Full-strength predictive-optimized enemy (no training nerfs)"
+    shipHP: 1
+    maxTicks: 3600
+    asteroidDensity: 1.0
+    enemyPolicy: "predictive-optimized"
+    enemyShoots: true
+    spawnDistance: 500
+    spawnFacing: true
+    frameSkip: 2
+    promotionThreshold: 0.85
+    rewardWeights:
+      survival: 0.001
+      aim: 0.01
+      closing: 0.01
+      hit: 1.0
+      gotHit: -1.0
+      nearMiss: -0.5
+      firePenalty: -0.002
+      win: 5.0
+      loss: -5.0
+      draw: -2.0
+      timeout: -1.0
+
+  10:
     description: "Self-play: fight frozen snapshot of own neural policy"
     shipHP: 1
     maxTicks: 3600
@@ -246,3 +270,5 @@ stages:
       loss: -5.0
       draw: -2.0
       timeout: -1.0
+
+

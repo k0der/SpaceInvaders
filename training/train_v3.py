@@ -704,7 +704,7 @@ def main():
 
     if args.auto_promote:
         checkpoint = args.checkpoint
-        for stage_num in range(args.stage, 10):
+        for stage_num in range(args.stage, 11):
             checkpoint_dir = os.path.join(
                 os.path.dirname(os.path.abspath(__file__)),
                 "checkpoints",

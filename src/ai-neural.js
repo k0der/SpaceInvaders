@@ -18,6 +18,9 @@ export const ONNX_CDN_URL =
 /** Path to the trained ONNX model file. */
 export const MODEL_PATH = 'models/policy.onnx';
 
+/** Action hold duration in game-time seconds (training: frameSkip=2 × DT=1/60). */
+export const ACTION_HOLD_TIME = 2 / 60;
+
 /**
  * Return the index of the maximum value in arr[start..end).
  * Index is 0-based relative to `start`. Ties broken by first occurrence.
@@ -133,6 +136,7 @@ function createNeuralState() {
     fallbackState: predictiveStrategy.createState(),
     pendingInference: false,
     cachedAction: null,
+    holdTimer: 0,
   };
 
   // Fire-and-forget async model loading
@@ -165,12 +169,14 @@ function updateNeural(state, ship, target, asteroids, dt) {
     return;
   }
 
-  // Apply cached action
+  // Apply cached action every frame (held for ACTION_HOLD_TIME game-seconds)
   applyMoveAction(ship, state.cachedAction.moveIndex);
   ship.fire = state.cachedAction.fire;
 
-  // Kick off next inference if not already pending
-  if (!state.pendingInference) {
+  // Request new inference after hold duration expires (time-based, not frame-based)
+  state.holdTimer -= dt;
+  if (state.holdTimer <= 0 && !state.pendingInference) {
+    state.holdTimer = ACTION_HOLD_TIME;
     state.pendingInference = true;
     runInference(state, ship, target, asteroids);
   }

@@ -34,11 +34,7 @@ import {
 } from './src/game.js';
 import { GameEnv } from './src/game-env.js';
 import { createShip, SHIP_SIZE, updateShip } from './src/ship.js';
-import {
-  computeSpawnBounds,
-  createSimulation,
-  updateSimulation,
-} from './src/simulation.js';
+import { createSimulation, updateSimulation } from './src/simulation.js';
 
 // ── Constants ───────────────────────────────────────────────────────────
 
@@ -299,14 +295,8 @@ export function runGame(config) {
   );
 
   const viewportBounds = getViewportBounds(camera, VIEWPORT_W, VIEWPORT_H);
-  const spawnBounds = computeSpawnBounds(viewportBounds);
-  const zoneArea =
-    (spawnBounds.maxX - spawnBounds.minX) *
-    (spawnBounds.maxY - spawnBounds.minY);
-  const viewportArea = VIEWPORT_W * VIEWPORT_H;
-  const targetCount = Math.round(
-    BASE_ASTEROID_COUNT * density * (zoneArea / viewportArea),
-  );
+  // Target count must match training env (game-env.js): base × density, no zone scaling
+  const targetCount = Math.round(BASE_ASTEROID_COUNT * density);
 
   const sim = createSimulation(viewportBounds, targetCount);
 
@@ -406,13 +396,9 @@ export function runGame(config) {
     camera.y = playerShip.y;
     camera.rotation = playerShip.heading + Math.PI / 2;
 
-    // 6. Compute viewport → spawn bounds → target count
+    // 6. Compute viewport bounds (spawn bounds handled inside updateSimulation)
     const vb = getViewportBounds(camera, VIEWPORT_W, VIEWPORT_H);
-    const sb = computeSpawnBounds(vb);
-    const za = (sb.maxX - sb.minX) * (sb.maxY - sb.minY);
-    sim.targetCount = Math.round(
-      BASE_ASTEROID_COUNT * density * (za / viewportArea),
-    );
+    sim.targetCount = Math.round(BASE_ASTEROID_COUNT * density);
 
     // 7. Update simulation (asteroids: move, collide, recycle, spawn)
     updateSimulation(sim, dt, vb, playerShip.vx, playerShip.vy);

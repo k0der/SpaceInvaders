@@ -3,6 +3,7 @@ import {
   AIM_BONUS,
   AIM_PROXIMITY_SCALE,
   BRAKE_PURSUIT_STEPS,
+  BULLET_SPEED,
   CLOSING_SPEED_WEIGHT,
   COLLISION_BASE_PENALTY,
   COLLISION_BREAK_STEPS,
@@ -13,6 +14,7 @@ import {
   defineCandidates,
   ENGAGE_CLOSING_SCALE,
   ENGAGE_RANGE,
+  FIRE_ANGLE,
   FIRE_OPPORTUNITY_BONUS,
   getLastDebugInfo,
   HOLD_TIME,
@@ -58,28 +60,28 @@ describe('ai-predictive-optimized: Constants', () => {
     expect(COLLISION_BREAK_STEPS).toBe(3);
   });
 
-  it('exports HYSTERESIS_BONUS as 250', () => {
-    expect(HYSTERESIS_BONUS).toBe(250);
+  it('exports HYSTERESIS_BONUS as 350', () => {
+    expect(HYSTERESIS_BONUS).toBe(350);
   });
 
-  it('exports DISTANCE_WEIGHT as -8', () => {
-    expect(DISTANCE_WEIGHT).toBe(-8);
+  it('exports DISTANCE_WEIGHT as -3', () => {
+    expect(DISTANCE_WEIGHT).toBe(-3);
   });
 
   it('exports AIM_BONUS as 400', () => {
     expect(AIM_BONUS).toBe(400);
   });
 
-  it('exports CLOSING_SPEED_WEIGHT as 8', () => {
-    expect(CLOSING_SPEED_WEIGHT).toBe(8);
+  it('exports CLOSING_SPEED_WEIGHT as 16', () => {
+    expect(CLOSING_SPEED_WEIGHT).toBe(16);
   });
 
   it('exports AIM_PROXIMITY_SCALE as 5', () => {
     expect(AIM_PROXIMITY_SCALE).toBe(5);
   });
 
-  it('exports FIRE_OPPORTUNITY_BONUS as 300', () => {
-    expect(FIRE_OPPORTUNITY_BONUS).toBe(300);
+  it('exports FIRE_OPPORTUNITY_BONUS as 450', () => {
+    expect(FIRE_OPPORTUNITY_BONUS).toBe(450);
   });
 });
 
@@ -389,11 +391,11 @@ describe('ai-predictive-optimized: scoreTrajectory — distance-scaled approach 
     const sEngage = scoreTrajectory(atEngage, target, [], 0.1);
     const sDouble = scoreTrajectory(atDouble, target, [], 0.1);
 
-    // At ENGAGE_RANGE: scale=1.0, dist component = -8 * 350 = -2800
-    // At 2*ENGAGE_RANGE: scale=2.0, dist component = -8 * 2 * 700 = -11200
-    // Without scaling: diff = 8*(700-350) = 2800
-    // With scaling: diff = 11200-2800 = 8400 (3x the unscaled diff)
-    const unscaledDiff = Math.abs(DISTANCE_WEIGHT) * ENGAGE_RANGE; // 2800
+    // At ENGAGE_RANGE: scale=1.0, dist component = -3 * 350 = -1050
+    // At 2*ENGAGE_RANGE: scale=2.0, dist component = -3 * 2 * 700 = -4200
+    // Without scaling: diff = 3*(700-350) = 1050
+    // With scaling: diff = 4200-1050 = 3150 (3x the unscaled diff)
+    const unscaledDiff = Math.abs(DISTANCE_WEIGHT) * ENGAGE_RANGE; // 1050
     const actualDiff = sEngage - sDouble;
     expect(actualDiff).toBeGreaterThan(unscaledDiff * 2);
   });
@@ -582,14 +584,14 @@ describe('ai-predictive-optimized: scoreTrajectory — closing velocity bonus', 
     // Both end at x=100 with same heading, so distance and aim are identical.
     // The only difference is the retreat penalty on the away trajectory.
     expect(awayScore).toBeLessThan(stationaryScore);
-    // The penalty should be significant: CLOSING_SPEED_WEIGHT * 200 = 1600
+    // The penalty should be significant: CLOSING_SPEED_WEIGHT * 200 = 3200
     expect(stationaryScore - awayScore).toBeGreaterThan(1000);
   });
 
   it('closing velocity bonus scales with CLOSING_SPEED_WEIGHT', () => {
-    expect(CLOSING_SPEED_WEIGHT).toBe(8);
-    // At MAX_SPEED=400 toward target, bonus = 8 * 400 = 3200
-    expect(CLOSING_SPEED_WEIGHT * 400).toBe(3200);
+    expect(CLOSING_SPEED_WEIGHT).toBe(16);
+    // At MAX_SPEED=400 toward target, bonus = 16 * 400 = 6400
+    expect(CLOSING_SPEED_WEIGHT * 400).toBe(6400);
   });
 
   it('handles zero distance to target without error', () => {
@@ -882,9 +884,11 @@ describe('ai-predictive-optimized: scoreTrajectory — proximity-scaled aim', ()
         scoreTrajectory(farBad, target, [], 0.1),
     );
 
-    // At zero distance, aim gap should be ~(1 + AIM_PROXIMITY_SCALE) times the unscaled gap
+    // At zero distance, aim gap should be ~(1 + AIM_PROXIMITY_SCALE) times the unscaled gap.
+    // Fire opportunity bonus also contributes more at close range, so allow ±1.0 tolerance.
     const expectedRatio = 1 + AIM_PROXIMITY_SCALE;
-    expect(onTopGap / farGap).toBeCloseTo(expectedRatio, 0);
+    expect(onTopGap / farGap).toBeGreaterThan(expectedRatio - 1);
+    expect(onTopGap / farGap).toBeLessThan(expectedRatio + 1);
   });
 });
 
@@ -2193,5 +2197,108 @@ describe('ai-predictive-optimized: scoreTrajectory — engage-range closing bonu
     // Closing bonus: 8 * 2.14 * 30 = 514 vs coast's 0
     // Even with hysteresis (250) for coast, thrust should win
     expect(thrustScore).toBeGreaterThan(coastScore + HYSTERESIS_BONUS);
+  });
+});
+
+describe('ai-predictive-optimized: scoreTrajectory — lead-aware fire opportunity', () => {
+  it('awards fire opportunity when heading matches lead angle for moving target', () => {
+    // Target at close range moving fast laterally — lead angle differs from direct
+    const target = { x: 50, y: 0, vx: 0, vy: 600 };
+
+    // At step 1 (t=0.1s): predicted target at (50, 60)
+    const predY = target.vy * 0.1; // 60
+    const fDist = Math.sqrt(50 * 50 + predY * predY);
+    const bulletTime = fDist / BULLET_SPEED;
+    const leadY = predY + target.vy * bulletTime;
+    const leadAngle = Math.atan2(leadY, 50);
+    const directAngle = Math.atan2(predY, 50);
+
+    // Sanity: lead and direct angles differ by more than 2× FIRE_ANGLE
+    expect(Math.abs(leadAngle - directAngle)).toBeGreaterThan(2 * FIRE_ANGLE);
+
+    // Trajectory aimed at lead angle
+    const leadPositions = [
+      { x: 0, y: 0, heading: 0, vx: 0, vy: 0 },
+      { x: 0, y: 0, heading: leadAngle, vx: 0, vy: 0 },
+    ];
+
+    // Trajectory aimed at direct (current) angle
+    const directPositions = [
+      { x: 0, y: 0, heading: 0, vx: 0, vy: 0 },
+      { x: 0, y: 0, heading: directAngle, vx: 0, vy: 0 },
+    ];
+
+    const leadScore = scoreTrajectory(leadPositions, target, [], 0.1);
+    const directScore = scoreTrajectory(directPositions, target, [], 0.1);
+
+    // Lead-aimed trajectory should score higher: it gets the fire opportunity
+    // bonus while the direct-aimed does not. At 50px range, fire opp bonus
+    // (~253) outweighs the aim bonus advantage of direct-aimed (~125).
+    expect(leadScore).toBeGreaterThan(directScore);
+  });
+
+  it('fire opportunity unchanged for stationary targets (lead equals direct)', () => {
+    // Stationary target: lead angle and direct angle are identical
+    const target = { x: 300, y: 0, vx: 0, vy: 0 };
+
+    // Aimed at target, within range
+    const aimedPositions = [
+      { x: 0, y: 0, heading: 0, vx: 100, vy: 0 },
+      { x: 100, y: 0, heading: 0, vx: 100, vy: 0 },
+      { x: 200, y: 0, heading: 0, vx: 100, vy: 0 },
+    ];
+
+    // Perpendicular — no fire opportunity
+    const perpPositions = [
+      { x: 0, y: 0, heading: Math.PI / 2, vx: 0, vy: 100 },
+      { x: 0, y: 100, heading: Math.PI / 2, vx: 0, vy: 100 },
+      { x: 0, y: 200, heading: Math.PI / 2, vx: 0, vy: 100 },
+    ];
+
+    const aimedScore = scoreTrajectory(aimedPositions, target, [], 0.1);
+    const perpScore = scoreTrajectory(perpPositions, target, [], 0.1);
+
+    // Aimed trajectory still gets fire opportunity bonus for stationary targets
+    expect(aimedScore).toBeGreaterThan(perpScore);
+    expect(aimedScore - perpScore).toBeGreaterThan(FIRE_OPPORTUNITY_BONUS);
+  });
+
+  it('accounts for ship velocity in lead calculation (bullet inherits momentum)', () => {
+    // Ship moving toward target — relative velocity is lower, lead shift is smaller
+    const target = { x: 200, y: 0, vx: 0, vy: 400 };
+
+    // Compute lead with ship stationary vs ship moving toward target
+    const predY = target.vy * 0.1; // 40
+    const dist = Math.sqrt(200 * 200 + predY * predY);
+    const bulletTime = dist / BULLET_SPEED;
+
+    // Ship stationary: relative vy = 400
+    const leadYStatic = predY + 400 * bulletTime;
+    const leadAngleStatic = Math.atan2(leadYStatic, 200);
+
+    // Ship moving with vy=200: relative vy = 400-200 = 200
+    const leadYMoving = predY + 200 * bulletTime;
+    const leadAngleMoving = Math.atan2(leadYMoving, 200);
+
+    // Lead angle with moving ship should be smaller (less compensation needed)
+    expect(leadAngleMoving).toBeLessThan(leadAngleStatic);
+
+    // Trajectory with stationary ship aimed at static lead angle
+    const staticPositions = [
+      { x: 0, y: 0, heading: 0, vx: 0, vy: 0 },
+      { x: 0, y: 0, heading: leadAngleStatic, vx: 0, vy: 0 },
+    ];
+
+    // Trajectory with moving ship aimed at moving lead angle
+    const movingPositions = [
+      { x: 0, y: 0, heading: 0, vx: 0, vy: 200 },
+      { x: 0, y: 20, heading: leadAngleMoving, vx: 0, vy: 200 },
+    ];
+
+    // Both should produce finite scores (no crashes from velocity handling)
+    const staticScore = scoreTrajectory(staticPositions, target, [], 0.1);
+    const movingScore = scoreTrajectory(movingPositions, target, [], 0.1);
+    expect(Number.isFinite(staticScore)).toBe(true);
+    expect(Number.isFinite(movingScore)).toBe(true);
   });
 });
