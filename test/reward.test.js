@@ -3,6 +3,7 @@ import {
   computeReward,
   DANGER_RADIUS_BASE,
   DEFAULT_REWARD_WEIGHTS,
+  ENGAGE_DISTANCE,
   NEAR_MISS_RADIUS_FACTOR,
 } from '../src/reward.js';
 
@@ -54,7 +55,7 @@ function makeConfig(overrides = {}) {
 // --- Tests ---
 
 describe('DEFAULT_REWARD_WEIGHTS', () => {
-  it('exports all 11 reward weight keys', () => {
+  it('exports all 12 reward weight keys', () => {
     const expected = [
       'survival',
       'aim',
@@ -67,6 +68,7 @@ describe('DEFAULT_REWARD_WEIGHTS', () => {
       'loss',
       'draw',
       'timeout',
+      'engagePenalty',
     ];
     expect(Object.keys(DEFAULT_REWARD_WEIGHTS).sort()).toEqual(expected.sort());
   });
@@ -84,6 +86,7 @@ describe('DEFAULT_REWARD_WEIGHTS', () => {
       loss: -5.0,
       draw: -2.0,
       timeout: -1.0,
+      engagePenalty: 0.0,
     });
   });
 });
@@ -647,6 +650,118 @@ describe('NEAR_MISS_RADIUS_FACTOR export', () => {
 describe('DANGER_RADIUS_BASE export', () => {
   it('is exported and equals 40', () => {
     expect(DANGER_RADIUS_BASE).toBe(40);
+  });
+});
+
+describe('ENGAGE_DISTANCE export', () => {
+  it('is exported and equals 400', () => {
+    expect(ENGAGE_DISTANCE).toBe(400);
+  });
+});
+
+describe('computeReward — engage penalty', () => {
+  it('applies penalty when distance exceeds ENGAGE_DISTANCE', () => {
+    // Ship at origin, target at (600, 0) → dist = 600, over ENGAGE_DISTANCE (400)
+    const engageWeight = -1.0;
+    const prev = makeState({
+      ship: { x: 0, y: 0 },
+      target: { x: 600, y: 0 },
+    });
+    const curr = makeState({
+      ship: { x: 0, y: 0 },
+      target: { x: 600, y: 0 },
+    });
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ engagePenalty: engageWeight }),
+    });
+    // penalty = -1.0 * (600 - 400) / 1000 = -0.2
+    expect(computeReward(prev, curr, action, config)).toBeCloseTo(-0.2, 5);
+  });
+
+  it('applies no penalty when distance is within ENGAGE_DISTANCE', () => {
+    // Ship at origin, target at (300, 0) → dist = 300 < 400
+    const engageWeight = -1.0;
+    const prev = makeState({
+      ship: { x: 0, y: 0 },
+      target: { x: 300, y: 0 },
+    });
+    const curr = makeState({
+      ship: { x: 0, y: 0 },
+      target: { x: 300, y: 0 },
+    });
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ engagePenalty: engageWeight }),
+    });
+    expect(computeReward(prev, curr, action, config)).toBe(0.0);
+  });
+
+  it('applies no penalty at exactly ENGAGE_DISTANCE', () => {
+    // Ship at origin, target at (400, 0) → dist = 400 = ENGAGE_DISTANCE
+    const engageWeight = -1.0;
+    const prev = makeState({
+      ship: { x: 0, y: 0 },
+      target: { x: 400, y: 0 },
+    });
+    const curr = makeState({
+      ship: { x: 0, y: 0 },
+      target: { x: 400, y: 0 },
+    });
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ engagePenalty: engageWeight }),
+    });
+    expect(computeReward(prev, curr, action, config)).toBe(0.0);
+  });
+
+  it('applies no penalty when engagePenalty weight is 0 (default)', () => {
+    // dist > ENGAGE_DISTANCE but weight is 0 → no penalty
+    const prev = makeState({
+      ship: { x: 0, y: 0 },
+      target: { x: 600, y: 0 },
+    });
+    const curr = makeState({
+      ship: { x: 0, y: 0 },
+      target: { x: 600, y: 0 },
+    });
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ engagePenalty: 0.0 }),
+    });
+    expect(computeReward(prev, curr, action, config)).toBe(0.0);
+  });
+
+  it('scales linearly with distance beyond threshold', () => {
+    const engageWeight = -1.0;
+    // Test at two distances: 500 and 900
+    const makeTestState = (targetX) =>
+      makeState({ ship: { x: 0, y: 0 }, target: { x: targetX, y: 0 } });
+
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ engagePenalty: engageWeight }),
+    });
+
+    const r500 = computeReward(
+      makeTestState(500),
+      makeTestState(500),
+      action,
+      config,
+    );
+    const r900 = computeReward(
+      makeTestState(900),
+      makeTestState(900),
+      action,
+      config,
+    );
+
+    // r500 = -1.0 * (500-400)/1000 = -0.1
+    // r900 = -1.0 * (900-400)/1000 = -0.5
+    expect(r500).toBeCloseTo(-0.1, 5);
+    expect(r900).toBeCloseTo(-0.5, 5);
+    // Ratio should be 1:5
+    expect(r900 / r500).toBeCloseTo(5.0, 4);
   });
 });
 

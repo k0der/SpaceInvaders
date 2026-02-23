@@ -11,6 +11,7 @@ export const DEFAULT_REWARD_WEIGHTS = {
   loss: -5.0,
   draw: -2.0,
   timeout: -1.0,
+  engagePenalty: 0.0,
 };
 
 /** Distance threshold (px) for aim alignment reward. */
@@ -18,6 +19,12 @@ const AIM_DISTANCE_THRESHOLD = 600;
 
 /** Normalization divisor for closing distance. */
 const CLOSING_DISTANCE_NORM = 1000;
+
+/** Distance (px) below which no engage penalty applies (dogfighting zone). */
+export const ENGAGE_DISTANCE = 400;
+
+/** Normalization divisor for engage penalty distance. */
+const ENGAGE_DISTANCE_NORM = 1000;
 
 /** Multiplier on asteroid collisionRadius for near-miss danger zone. */
 export const NEAR_MISS_RADIUS_FACTOR = 3;
@@ -109,22 +116,28 @@ export function computeReward(prevState, currentState, action, config) {
     reward += w.firePenalty;
   }
 
-  // 8. Win (terminal)
+  // 8. Engage penalty — continuous cost for staying far from the enemy
+  if (w.engagePenalty !== 0 && dist > ENGAGE_DISTANCE) {
+    reward +=
+      (w.engagePenalty * (dist - ENGAGE_DISTANCE)) / ENGAGE_DISTANCE_NORM;
+  }
+
+  // 9. Win (terminal)
   if (currentState.targetHP <= 0) {
     reward += w.win;
   }
 
-  // 9. Loss (terminal) — agent is alive (checked above), but shipHP may indicate loss
+  // 10. Loss (terminal) — agent is alive (checked above), but shipHP may indicate loss
   if (currentState.shipHP <= 0) {
     reward += w.loss;
   }
 
-  // 10. Draw (terminal) — both HP <= 0
+  // 11. Draw (terminal) — both HP <= 0
   if (currentState.shipHP <= 0 && currentState.targetHP <= 0) {
     reward += w.draw;
   }
 
-  // 11. Timeout (terminal)
+  // 12. Timeout (terminal)
   if (currentState.tick >= config.maxTicks) {
     reward += w.timeout;
   }

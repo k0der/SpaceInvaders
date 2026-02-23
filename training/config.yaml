@@ -272,7 +272,7 @@ stages:
       timeout: -1.0
 
   11:
-    description: "Full-strength predictive-optimized, anti-camping rewards"
+    description: "Full-strength predictive, engage penalty forces dogfighting"
     shipHP: 1
     maxTicks: 3600
     asteroidDensity: 1.0
@@ -294,9 +294,10 @@ stages:
       loss: -5.0
       draw: -3.5
       timeout: -4.0
+      engagePenalty: -0.015
 
   12:
-    description: "Self-play with anti-camping rewards"
+    description: "Self-play with engage penalty"
     shipHP: 1
     maxTicks: 3600
     asteroidDensity: 1.0
@@ -319,9 +320,10 @@ stages:
       loss: -5.0
       draw: -3.5
       timeout: -4.0
+      engagePenalty: -0.015
 
   13:
-    description: "Self-play round 2: fight snapshot from stage 12"
+    description: "Self-play round 2 with engage penalty"
     shipHP: 1
     maxTicks: 3600
     asteroidDensity: 1.0
@@ -344,5 +346,6 @@ stages:
       loss: -5.0
       draw: -3.5
       timeout: -4.0
+      engagePenalty: -0.015
 
 
