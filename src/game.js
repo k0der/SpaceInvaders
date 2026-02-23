@@ -226,7 +226,13 @@ const HUD_DRAW_COLOR = '#FFFFFF';
  * Renders "YOU WIN" (blue), "GAME OVER" (red), or "DRAW" (white)
  * with a restart prompt below.
  */
-export function drawHUD(ctx, phase, width, height) {
+/** Scale for the game log stats line. */
+const HUD_LOG_SCALE = 2;
+
+/** Vertical gap between sub-text and game log stats line (pixels). */
+const HUD_LOG_GAP = 40;
+
+export function drawHUD(ctx, phase, width, height, gameLogText = null) {
   if (phase === 'playing' || phase === 'ending') return;
 
   const centerX = width / 2;
@@ -256,4 +262,15 @@ export function drawHUD(ctx, phase, width, height) {
     HUD_SUB_SCALE,
     { alpha: 0.5 },
   );
+
+  if (gameLogText) {
+    drawVectorText(
+      ctx,
+      gameLogText,
+      centerX,
+      centerY + HUD_TEXT_GAP + HUD_LOG_GAP,
+      HUD_LOG_SCALE,
+      { alpha: 0.6 },
+    );
+  }
 }

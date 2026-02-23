@@ -31,6 +31,12 @@ import {
   updateGameState,
 } from './game.js';
 import {
+  createGameLog,
+  formatGameLog,
+  recordResult,
+  resetGameLog,
+} from './game-log.js';
+import {
   applyInput,
   createInputState,
   handleKeyDown,
@@ -58,11 +64,7 @@ import {
   updateShip,
   updateTrail,
 } from './ship.js';
-import {
-  computeSpawnBounds,
-  createSimulation,
-  updateSimulation,
-} from './simulation.js';
+import { createSimulation, updateSimulation } from './simulation.js';
 import {
   createParallaxLayers,
   drawParallaxLayers,
@@ -168,6 +170,8 @@ export function startApp() {
       : null;
   let playerAIState = playerStrategy?.createState() ?? null;
   let elapsedTime = 0;
+  const gameLog = createGameLog();
+  let gameLogRecorded = false;
   const debugLogger = createDebugLogger();
   if (settings.aiDebugLog) debugLogger.enable();
   // Expose on window for console access
@@ -247,6 +251,9 @@ export function startApp() {
         debugLogger.disable();
       }
     }
+    if (name === 'gameLog' && !value) {
+      resetGameLog(gameLog);
+    }
     saveSettings(settings);
   };
 
@@ -316,6 +323,7 @@ export function startApp() {
     gameState.explosions = [];
     gameState.deathTimer = 0;
     gameState.resultTimer = 0;
+    gameLogRecorded = false;
 
     enemyStrategy = getStrategy(settings.enemyIntelligence);
     enemyAIState = enemyStrategy.createState();
@@ -508,16 +516,9 @@ export function startApp() {
       logicalSize.width,
       logicalSize.height,
     );
-    // Target count uses zone area (viewport + border) for proportional density
-    const spawnBounds = computeSpawnBounds(viewportBounds);
-    const zoneArea =
-      (spawnBounds.maxX - spawnBounds.minX) *
-      (spawnBounds.maxY - spawnBounds.minY);
-    const viewportArea = logicalSize.width * logicalSize.height;
+    // Target count must match training env (game-env.js): base × density, no zone scaling
     sim.targetCount = Math.round(
-      BASE_ASTEROID_COUNT *
-        settings.asteroidDensity *
-        (zoneArea / viewportArea),
+      BASE_ASTEROID_COUNT * settings.asteroidDensity,
     );
     while (sim.asteroids.length > sim.targetCount) {
       sim.asteroids.pop();
@@ -647,13 +648,27 @@ export function startApp() {
       logicalSize.width,
       logicalSize.height,
     );
-    drawHUD(ctx, gameState.phase, logicalSize.width, logicalSize.height);
-
-    // Auto-restart in AI-vs-AI mode after showing result for 2 seconds
+    // Record game result for the log (once per match)
     const terminalPhase =
       gameState.phase === 'playerWin' ||
       gameState.phase === 'playerDead' ||
       gameState.phase === 'draw';
+    if (terminalPhase && settings.gameLog && !gameLogRecorded) {
+      recordResult(gameLog, gameState.phase);
+      gameLogRecorded = true;
+    }
+
+    const gameLogText =
+      terminalPhase && settings.gameLog ? formatGameLog(gameLog) : null;
+    drawHUD(
+      ctx,
+      gameState.phase,
+      logicalSize.width,
+      logicalSize.height,
+      gameLogText,
+    );
+
+    // Auto-restart in AI-vs-AI mode after showing result for 2 seconds
     if (terminalPhase && settings.playerIntelligence !== 'human') {
       gameState.resultTimer = (gameState.resultTimer || 0) + dt;
       if (gameState.resultTimer >= 2) {

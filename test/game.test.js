@@ -667,6 +667,46 @@ describe('Increment 29: HUD', () => {
       expect(ctx.save.mock.calls.length).toBeGreaterThanOrEqual(1);
       expect(ctx.restore.mock.calls.length).toBeGreaterThanOrEqual(1);
     });
+
+    it('renders additional text when gameLogText is provided', () => {
+      const ctx = mockCtx();
+      drawHUD(ctx, 'playerWin', 800, 600);
+      const callsWithout = ctx.save.mock.calls.length;
+
+      const ctx2 = mockCtx();
+      drawHUD(
+        ctx2,
+        'playerWin',
+        800,
+        600,
+        'W:1 (100.0%)  L:0 (0.0%)  D:0 (0.0%)  N=1',
+      );
+      const callsWith = ctx2.save.mock.calls.length;
+
+      // With game log text, drawVectorText is called 3 times instead of 2
+      expect(callsWith).toBeGreaterThan(callsWithout);
+    });
+
+    it('does not render game log text during playing phase', () => {
+      const ctx = mockCtx();
+      drawHUD(
+        ctx,
+        'playing',
+        800,
+        600,
+        'W:1 (100.0%)  L:0 (0.0%)  D:0 (0.0%)  N=1',
+      );
+      expect(ctx.save).not.toHaveBeenCalled();
+    });
+
+    it('does not render game log text when gameLogText is null', () => {
+      const ctx = mockCtx();
+      drawHUD(ctx, 'playerWin', 800, 600, null);
+      // Same number of calls as without game log text (2 drawVectorText calls)
+      const ctx2 = mockCtx();
+      drawHUD(ctx2, 'playerWin', 800, 600);
+      expect(ctx.save.mock.calls.length).toBe(ctx2.save.mock.calls.length);
+    });
   });
 
   describe('drawEndScreenOverlay', () => {

@@ -1471,3 +1471,58 @@ Increments 31–37 add a third intelligence type — a neural network trained vi
 - [x] Applies fire decision from cached action
 - [x] Kicks off inference when ready and not pending
 - [x] Does not kick off inference when already pending
+
+---
+
+## Increment 40: Sim-to-Real Gap Fixes (Asteroid Count + Time-Based Action Hold)
+
+**Goal**: Fix two mismatches between the training environment and the browser game that caused the trained neural agent to perform far worse in-game than its 90% training win rate suggested.
+
+### Fix 1: Asteroid Count Mismatch
+
+**Problem**: The browser applied a `zoneArea / viewportArea` scaling factor (~2.04×) to the asteroid target count, resulting in ~82 asteroids at density 1.0. The training environment (GameEnv) uses the simple formula `40 × density` = 40 asteroids. The agent was trained to navigate 40 asteroids but faced double that in-game.
+
+**Changes**: `src/main.js`, `simulate.js`
+
+**Acceptance Criteria**:
+- [x] `main.js` per-frame target count uses `BASE_ASTEROID_COUNT * settings.asteroidDensity` (no zone area ratio)
+- [x] `simulate.js` init and per-tick target count use `BASE_ASTEROID_COUNT * density` (no zone area ratio)
+- [x] Unused `computeSpawnBounds` import removed from both files
+- [x] At density 1.0, asteroid count is 40 (matches training exactly)
+- [x] Density slider still scales linearly (density 2.0 → 80 asteroids)
+
+### Fix 2: Time-Based Neural AI Action Hold
+
+**Problem**: The neural AI used a frame-based counter (`frameTick++`, triggers at `FRAME_SKIP=2`) to decide when to request new inference. The speed multiplier setting scaled `dt` for all physics but the neural AI's decision rate was fixed per-frame. At speed 2.0, the agent held actions for twice as long in game-time (equivalent to `frameSkip=4`), making it half as responsive as trained. The enemy's predictive AI used a time-based hold timer, so it was unaffected — giving it an unfair advantage at non-1.0 speeds.
+
+**Changes**: `src/ai-neural.js`, `test/ai-neural.test.js`
+
+**Acceptance Criteria**:
+- [x] `FRAME_SKIP` constant replaced with `ACTION_HOLD_TIME = 2 / 60` (game-time seconds)
+- [x] `frameTick` counter replaced with `holdTimer` (decremented by `dt` each frame)
+- [x] New inference requested when `holdTimer <= 0` (same as predictive AI pattern)
+- [x] At speed 1.0 (60fps): decisions every ~2 frames = 1/30s game-time (matches training)
+- [x] At speed 2.0: decisions every ~1 frame = 1/30s game-time (speed is pure time warp)
+- [x] At speed 0.5: decisions every ~4 frames = 1/30s game-time (speed is pure time warp)
+- [x] All existing tests updated and passing
+- [x] SPEC.md updated: §1.5, §5.2 (asteroid count formula), §16.4, §16.6 (time-based hold)
+
+---
+
+## Increment 41: Game Log (W/L/D Statistics)
+
+**Goal**: Add a toggleable game log that tracks wins, losses, and draws across matches, displaying aggregated statistics on the end screen so long AI-vs-AI sessions can be compared with training stats.
+
+**Modules**: `src/game-log.js` (new), `src/settings.js`, `src/game.js`, `src/main.js`
+
+**Acceptance Criteria**:
+- [ ] `gameLog` boolean setting (default: false) with "Game Log" label appears as checkbox in settings panel
+- [ ] Setting is persisted to localStorage and restored on reload
+- [ ] `createGameLog()` returns a log object with wins, losses, and draws (all zero)
+- [ ] `recordResult(log, phase)` increments the correct counter for `playerWin`, `playerDead`, and `draw`
+- [ ] `resetGameLog(log)` sets all counters back to zero
+- [ ] `formatGameLog(log)` returns a stats string with counts and percentages (e.g., `W:5 (50.0%)  L:3 (30.0%)  D:2 (20.0%)  N=10`)
+- [ ] `formatGameLog` handles zero total matches without division-by-zero
+- [ ] When enabled, the end screen HUD displays the formatted stats line below the "PRESS SPACE" text
+- [ ] Stats accumulate across auto-restarts in AI-vs-AI mode
+- [ ] Log resets to zero when the checkbox is toggled off

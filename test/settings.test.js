@@ -1467,6 +1467,137 @@ describe('Increment 15: Star Field Direction Setting', () => {
     });
   });
 
+  describe('SETTINGS_CONFIG — gameLog', () => {
+    it('defines gameLog as a boolean setting with default false', () => {
+      const c = SETTINGS_CONFIG.gameLog;
+      expect(c).toBeDefined();
+      expect(c.default).toBe(false);
+      expect(c.type).toBe('boolean');
+    });
+
+    it('gameLog has a label', () => {
+      expect(typeof SETTINGS_CONFIG.gameLog.label).toBe('string');
+    });
+  });
+
+  describe('createSettings — gameLog', () => {
+    it('defaults gameLog to false', () => {
+      const s = createSettings();
+      expect(s.gameLog).toBe(false);
+    });
+
+    it('accepts gameLog override', () => {
+      const s = createSettings({ gameLog: true });
+      expect(s.gameLog).toBe(true);
+    });
+  });
+
+  describe('persistence — gameLog', () => {
+    it('saveSettings persists gameLog', () => {
+      const s = createSettings({ gameLog: true });
+      saveSettings(s);
+      const stored = JSON.parse(localStorage.getItem('asteroidSettings'));
+      expect(stored.gameLog).toBe(true);
+    });
+
+    it('loadSettings restores gameLog', () => {
+      localStorage.setItem(
+        'asteroidSettings',
+        JSON.stringify({
+          asteroidDensity: 1.0,
+          speedMultiplier: 1.0,
+          starLayers: 3,
+          thrustPower: 2000,
+          starDirection: 'left',
+          playerIntelligence: 'human',
+          enemyIntelligence: 'predictive',
+          aiDebugLog: false,
+          showDangerZones: false,
+          gameLog: true,
+        }),
+      );
+      const loaded = loadSettings();
+      expect(loaded.gameLog).toBe(true);
+    });
+
+    it('loadSettings defaults gameLog when missing from storage', () => {
+      localStorage.setItem(
+        'asteroidSettings',
+        JSON.stringify({
+          asteroidDensity: 1.0,
+          speedMultiplier: 1.0,
+          starLayers: 3,
+          thrustPower: 2000,
+          starDirection: 'left',
+          playerIntelligence: 'human',
+          enemyIntelligence: 'predictive',
+          aiDebugLog: false,
+          showDangerZones: false,
+        }),
+      );
+      const loaded = loadSettings();
+      expect(loaded.gameLog).toBe(false);
+    });
+
+    it('loadSettings defaults gameLog when stored value is not boolean', () => {
+      localStorage.setItem(
+        'asteroidSettings',
+        JSON.stringify({
+          gameLog: 'yes',
+        }),
+      );
+      const loaded = loadSettings();
+      expect(loaded.gameLog).toBe(false);
+    });
+
+    it('round-trip: save then load preserves gameLog', () => {
+      const s = createSettings({ gameLog: true });
+      saveSettings(s);
+      const loaded = loadSettings();
+      expect(loaded.gameLog).toBe(true);
+    });
+  });
+
+  describe('createSettingsUI — gameLog checkbox', () => {
+    let container;
+    let settings;
+
+    beforeEach(() => {
+      container = document.createElement('div');
+      document.body.appendChild(container);
+      settings = createSettings();
+    });
+
+    it('creates a checkbox for gameLog in checkboxes map', () => {
+      const ui = createSettingsUI(container, settings);
+      expect(ui.checkboxes.gameLog).toBeDefined();
+    });
+
+    it('checkbox defaults to unchecked', () => {
+      const ui = createSettingsUI(container, settings);
+      expect(ui.checkboxes.gameLog.checked).toBe(false);
+    });
+
+    it('checkbox reflects non-default settings on creation', () => {
+      const s = createSettings({ gameLog: true });
+      const ui = createSettingsUI(container, s);
+      expect(ui.checkboxes.gameLog.checked).toBe(true);
+    });
+
+    it('changing checkbox fires onChange with name and boolean value', () => {
+      const ui = createSettingsUI(container, settings);
+      const changes = [];
+      ui.onChange = (name, value) => changes.push({ name, value });
+
+      ui.checkboxes.gameLog.checked = true;
+      ui.checkboxes.gameLog.dispatchEvent(new Event('change'));
+
+      expect(changes.length).toBe(1);
+      expect(changes[0].name).toBe('gameLog');
+      expect(changes[0].value).toBe(true);
+    });
+  });
+
   describe('SETTINGS_CONFIG — showDangerZones', () => {
     it('defines showDangerZones as a boolean setting with default false', () => {
       const c = SETTINGS_CONFIG.showDangerZones;
