@@ -55,7 +55,7 @@ function makeConfig(overrides = {}) {
 // --- Tests ---
 
 describe('DEFAULT_REWARD_WEIGHTS', () => {
-  it('exports all 12 reward weight keys', () => {
+  it('exports all 13 reward weight keys', () => {
     const expected = [
       'survival',
       'aim',
@@ -69,6 +69,7 @@ describe('DEFAULT_REWARD_WEIGHTS', () => {
       'draw',
       'timeout',
       'engagePenalty',
+      'proximity',
     ];
     expect(Object.keys(DEFAULT_REWARD_WEIGHTS).sort()).toEqual(expected.sort());
   });
@@ -87,6 +88,7 @@ describe('DEFAULT_REWARD_WEIGHTS', () => {
       draw: -2.0,
       timeout: -1.0,
       engagePenalty: 0.0,
+      proximity: 0.0,
     });
   });
 });
@@ -762,6 +764,158 @@ describe('computeReward — engage penalty', () => {
     expect(r900).toBeCloseTo(-0.5, 5);
     // Ratio should be 1:5
     expect(r900 / r500).toBeCloseTo(5.0, 4);
+  });
+});
+
+describe('computeReward — proximity reward', () => {
+  it('awards proximity when agent moves closer to target', () => {
+    const proximityWeight = 1.0;
+    // prev: ship at (0,0), target at (500,0) → prevDist = 500
+    // curr: ship at (10,0), target at (500,0) → dist = 490
+    // hypotheticalDist = dist from (10,0) to prev target (500,0) = 490
+    // agentClosing = 500 - 490 = 10
+    // reward = 1.0 * 10 / 500 = 0.02
+    const prev = makeState({
+      ship: { x: 0, y: 0 },
+      target: { x: 500, y: 0 },
+    });
+    const curr = makeState({
+      ship: { x: 10, y: 0 },
+      target: { x: 500, y: 0 },
+    });
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ proximity: proximityWeight }),
+    });
+    expect(computeReward(prev, curr, action, config)).toBeCloseTo(0.02, 5);
+  });
+
+  it('awards zero when agent does not move (enemy closes distance)', () => {
+    const proximityWeight = 1.0;
+    // prev: ship at (0,0), target at (500,0) → prevDist = 500
+    // curr: ship at (0,0), target at (490,0) → dist = 490
+    // hypotheticalDist = dist from (0,0) to prev target (500,0) = 500
+    // agentClosing = 500 - 500 = 0 → no reward
+    const prev = makeState({
+      ship: { x: 0, y: 0 },
+      target: { x: 500, y: 0 },
+    });
+    const curr = makeState({
+      ship: { x: 0, y: 0 },
+      target: { x: 490, y: 0 },
+    });
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ proximity: proximityWeight }),
+    });
+    expect(computeReward(prev, curr, action, config)).toBe(0.0);
+  });
+
+  it('awards zero when agent retreats (moves away from target)', () => {
+    const proximityWeight = 1.0;
+    // prev: ship at (0,0), target at (500,0) → prevDist = 500
+    // curr: ship at (-10,0), target at (500,0) → dist = 510
+    // hypotheticalDist = dist from (-10,0) to prev target (500,0) = 510
+    // agentClosing = 500 - 510 = -10 → no reward
+    const prev = makeState({
+      ship: { x: 0, y: 0 },
+      target: { x: 500, y: 0 },
+    });
+    const curr = makeState({
+      ship: { x: -10, y: 0 },
+      target: { x: 500, y: 0 },
+    });
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ proximity: proximityWeight }),
+    });
+    expect(computeReward(prev, curr, action, config)).toBe(0.0);
+  });
+
+  it('awards zero when proximity weight is 0 (default)', () => {
+    const prev = makeState({
+      ship: { x: 0, y: 0 },
+      target: { x: 500, y: 0 },
+    });
+    const curr = makeState({
+      ship: { x: 10, y: 0 },
+      target: { x: 500, y: 0 },
+    });
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ proximity: 0.0 }),
+    });
+    expect(computeReward(prev, curr, action, config)).toBe(0.0);
+  });
+
+  it('gives more reward per closing unit at shorter distance', () => {
+    const proximityWeight = 1.0;
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ proximity: proximityWeight }),
+    });
+
+    // Close range: prev 200px, agent closes 5px
+    // agentClosing = 5, prevDist = 200 → reward = 1.0 * 5/200 = 0.025
+    const rClose = computeReward(
+      makeState({ ship: { x: 0, y: 0 }, target: { x: 200, y: 0 } }),
+      makeState({ ship: { x: 5, y: 0 }, target: { x: 200, y: 0 } }),
+      action,
+      config,
+    );
+
+    // Far range: prev 1000px, agent closes 5px
+    // agentClosing = 5, prevDist = 1000 → reward = 1.0 * 5/1000 = 0.005
+    const rFar = computeReward(
+      makeState({ ship: { x: 0, y: 0 }, target: { x: 1000, y: 0 } }),
+      makeState({ ship: { x: 5, y: 0 }, target: { x: 1000, y: 0 } }),
+      action,
+      config,
+    );
+
+    expect(rClose).toBeCloseTo(0.025, 5);
+    expect(rFar).toBeCloseTo(0.005, 5);
+    // Same closing distance but 5× more reward at close range
+    expect(rClose / rFar).toBeCloseTo(5.0, 4);
+  });
+
+  it('works at any distance (no hardcoded range)', () => {
+    const proximityWeight = 1.0;
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ proximity: proximityWeight }),
+    });
+
+    // Very far: prev 2000px, agent closes 10px
+    // agentClosing = 10, prevDist = 2000 → reward = 10/2000 = 0.005
+    const rVeryFar = computeReward(
+      makeState({ ship: { x: 0, y: 0 }, target: { x: 2000, y: 0 } }),
+      makeState({ ship: { x: 10, y: 0 }, target: { x: 2000, y: 0 } }),
+      action,
+      config,
+    );
+    expect(rVeryFar).toBeCloseTo(0.005, 5);
+    expect(rVeryFar).toBeGreaterThan(0);
+  });
+
+  it('awards zero when both ships are at same position (prevDist = 0)', () => {
+    const proximityWeight = 1.0;
+    const prev = makeState({
+      ship: { x: 100, y: 0 },
+      target: { x: 100, y: 0 },
+    });
+    const curr = makeState({
+      ship: { x: 100, y: 0 },
+      target: { x: 100, y: 0 },
+    });
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ proximity: proximityWeight }),
+    });
+    // prevDist = 0 → guard prevents division by zero
+    const result = computeReward(prev, curr, action, config);
+    expect(Number.isFinite(result)).toBe(true);
+    expect(result).toBe(0.0);
   });
 });
 

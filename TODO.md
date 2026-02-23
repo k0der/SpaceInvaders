@@ -1527,3 +1527,24 @@ Increments 31–37 add a third intelligence type — a neural network trained vi
 - [x] When enabled, each match result is logged to the browser console as `[Game Log] W:N (X%)  L:N (X%)  D:N (X%)  N=total`
 - [x] Stats accumulate across auto-restarts in AI-vs-AI mode
 - [x] Log resets to zero when the checkbox is toggled off
+
+---
+
+## Increment 42: Proximity Reward
+
+**Goal**: Replace engage penalty, camp check, and flat closing with an action-dependent proximity reward that naturally incentivizes close-range dogfighting.
+
+**Modules**: `src/reward.js`, `training/config.yaml`
+
+**Acceptance Criteria**:
+- [x] `proximity: 0.0` added to `DEFAULT_REWARD_WEIGHTS` (default off, backward compatible)
+- [x] `computeReward` isolates agent's own closing contribution (`agentClosing = prevDist - hypotheticalDist`)
+- [x] Proximity formula: `proximity × agentClosing / prevDist` (fractional closing rate, distance-scaled)
+- [x] Proximity is zero when agent doesn't move (enemy closing doesn't count)
+- [x] Proximity is zero when agent retreats
+- [x] Proximity is zero when weight is 0 (default)
+- [x] Proximity gives more reward per closing unit at shorter distance (verify at two distances)
+- [x] Proximity works at any distance (no hardcoded range cutoff)
+- [x] Proximity handles prevDist = 0 (division-by-zero guard)
+- [x] Config stages 11-13 updated: `proximity: 1.0`, `closing: 0.0`, `engagePenalty: 0.0`, `campCheckTicks: 0`
+- [x] All existing tests pass (backward compatible)

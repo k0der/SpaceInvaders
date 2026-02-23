@@ -12,6 +12,7 @@ export const DEFAULT_REWARD_WEIGHTS = {
   draw: -2.0,
   timeout: -1.0,
   engagePenalty: 0.0,
+  proximity: 0.0,
 };
 
 /** Distance threshold (px) for aim alignment reward. */
@@ -122,22 +123,33 @@ export function computeReward(prevState, currentState, action, config) {
       (w.engagePenalty * (dist - ENGAGE_DISTANCE)) / ENGAGE_DISTANCE_NORM;
   }
 
-  // 9. Win (terminal)
+  // 9. Proximity — action-dependent closing reward scaled by inverse distance
+  if (w.proximity !== 0) {
+    const hypDx = prevTarget.x - ship.x;
+    const hypDy = prevTarget.y - ship.y;
+    const hypotheticalDist = Math.sqrt(hypDx * hypDx + hypDy * hypDy);
+    const agentClosing = prevDist - hypotheticalDist;
+    if (agentClosing > 0 && prevDist > 0) {
+      reward += (w.proximity * agentClosing) / prevDist;
+    }
+  }
+
+  // 10. Win (terminal)
   if (currentState.targetHP <= 0) {
     reward += w.win;
   }
 
-  // 10. Loss (terminal) — agent is alive (checked above), but shipHP may indicate loss
+  // 11. Loss (terminal) — agent is alive (checked above), but shipHP may indicate loss
   if (currentState.shipHP <= 0) {
     reward += w.loss;
   }
 
-  // 11. Draw (terminal) — both HP <= 0
+  // 12. Draw (terminal) — both HP <= 0
   if (currentState.shipHP <= 0 && currentState.targetHP <= 0) {
     reward += w.draw;
   }
 
-  // 12. Timeout (terminal)
+  // 13. Timeout (terminal)
   if (currentState.tick >= config.maxTicks) {
     reward += w.timeout;
   }

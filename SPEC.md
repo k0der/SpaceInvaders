@@ -1260,6 +1260,7 @@ orders of magnitude more episodes to learn basic behaviors.
 | Got hit | -1.0 | Bullet or asteroid hits agent |
 | Near-miss penalty | -0.1 × (1 - dist/danger_radius)² | danger_radius = 3× collisionRadius + 40px base |
 | Fire discipline | -0.002 | When fire action is true |
+| Proximity | +proximity × agentClosing / prevDist | When agent closes distance (action-dependent) |
 
 **Terminal rewards**:
 
@@ -1301,6 +1302,14 @@ simultaneously. Splitting into stage 4 (predictive enemy only) and stage 5
 requires it to simultaneously learn movement, aiming, evasion, and navigation.
 Curriculum decomposition lets each skill build on the previous one, dramatically
 reducing total training time.
+
+**Proximity reward (stages 11+)**: Stages 11+ use `proximity: 1.0` to create
+a natural engagement gradient, replacing the engage penalty, camp check, and
+flat closing reward. The formula `agentClosing / prevDist` is action-dependent
+(only rewards the agent's own movement toward the target, not passive distance
+changes from the enemy approaching) and distance-scaled (closing 1px at 100px
+gives 10× more reward than at 1000px). Works at any distance with no hardcoded
+range cutoff.
 
 ### 16.9 Self-Play (Stage 9)
 

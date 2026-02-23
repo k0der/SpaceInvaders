@@ -272,7 +272,7 @@ stages:
       timeout: -1.0
 
   11:
-    description: "Full-strength predictive, engage penalty forces dogfighting"
+    description: "Full-strength predictive, proximity reward for dogfighting"
     shipHP: 1
     maxTicks: 3600
     asteroidDensity: 1.0
@@ -281,13 +281,12 @@ stages:
     spawnDistance: 500
     spawnFacing: true
     frameSkip: 2
-    campCheckTicks: 120
-    campMinClosing: 100
+    campCheckTicks: 0
     promotionThreshold: 0.85
     rewardWeights:
       survival: 0.0
       aim: 0.01
-      closing: 0.15
+      closing: 0.0
       hit: 1.0
       gotHit: -1.0
       nearMiss: -0.1
@@ -296,10 +295,11 @@ stages:
       loss: -5.0
       draw: -3.5
       timeout: -4.0
-      engagePenalty: -0.015
+      engagePenalty: 0.0
+      proximity: 1.0
 
   12:
-    description: "Self-play with engage penalty"
+    description: "Self-play with proximity reward"
     shipHP: 1
     maxTicks: 3600
     asteroidDensity: 1.0
@@ -308,14 +308,13 @@ stages:
     spawnDistance: 500
     spawnFacing: true
     frameSkip: 2
-    campCheckTicks: 120
-    campMinClosing: 100
+    campCheckTicks: 0
     selfPlayModelPath: "training/checkpoints/selfplay/opponent_snapshot.onnx"
     promotionThreshold: 0.80
     rewardWeights:
       survival: 0.0
       aim: 0.01
-      closing: 0.15
+      closing: 0.0
       hit: 1.0
       gotHit: -1.0
       nearMiss: -0.1
@@ -324,10 +323,11 @@ stages:
       loss: -5.0
       draw: -3.5
       timeout: -4.0
-      engagePenalty: -0.015
+      engagePenalty: 0.0
+      proximity: 1.0
 
   13:
-    description: "Self-play round 2 with engage penalty"
+    description: "Self-play round 2 with proximity reward"
     shipHP: 1
     maxTicks: 3600
     asteroidDensity: 1.0
@@ -336,14 +336,13 @@ stages:
     spawnDistance: 500
     spawnFacing: true
     frameSkip: 2
-    campCheckTicks: 120
-    campMinClosing: 100
+    campCheckTicks: 0
     selfPlayModelPath: "training/checkpoints/selfplay/opponent_snapshot.onnx"
     promotionThreshold: 0.80
     rewardWeights:
       survival: 0.0
       aim: 0.01
-      closing: 0.15
+      closing: 0.0
       hit: 1.0
       gotHit: -1.0
       nearMiss: -0.1
@@ -352,6 +351,7 @@ stages:
       loss: -5.0
       draw: -3.5
       timeout: -4.0
-      engagePenalty: -0.015
+      engagePenalty: 0.0
+      proximity: 1.0
 
 
