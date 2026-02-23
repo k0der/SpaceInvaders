@@ -547,46 +547,16 @@ describe('computeReward — terminal: draw', () => {
   });
 });
 
-describe('computeReward — terminal: timeout', () => {
-  it('applies timeout penalty when tick >= maxTicks', () => {
-    const timeoutWeight = -1.0;
+describe('computeReward — timeout not applied by computeReward', () => {
+  it('does not apply timeout (handled by game-env after tick increment)', () => {
     const prev = makeState({ tick: 3599 });
     const curr = makeState({ tick: 3600 });
     const action = { moveAction: 0, fireAction: 0 };
     const config = makeConfig({
       maxTicks: 3600,
-      rewardWeights: zeroWeights({ timeout: timeoutWeight }),
+      rewardWeights: zeroWeights({ timeout: -5.0 }),
     });
-    expect(computeReward(prev, curr, action, config)).toBeCloseTo(
-      timeoutWeight,
-      5,
-    );
-  });
-
-  it('applies timeout when tick exceeds maxTicks', () => {
-    const timeoutWeight = -1.0;
-    const prev = makeState({ tick: 3600 });
-    const curr = makeState({ tick: 3601 });
-    const action = { moveAction: 0, fireAction: 0 };
-    const config = makeConfig({
-      maxTicks: 3600,
-      rewardWeights: zeroWeights({ timeout: timeoutWeight }),
-    });
-    expect(computeReward(prev, curr, action, config)).toBeCloseTo(
-      timeoutWeight,
-      5,
-    );
-  });
-
-  it('does not apply timeout when tick < maxTicks', () => {
-    const timeoutWeight = -1.0;
-    const prev = makeState({ tick: 3598 });
-    const curr = makeState({ tick: 3599 });
-    const action = { moveAction: 0, fireAction: 0 };
-    const config = makeConfig({
-      maxTicks: 3600,
-      rewardWeights: zeroWeights({ timeout: timeoutWeight }),
-    });
+    // Timeout reward is now applied by game-env.js, not computeReward
     expect(computeReward(prev, curr, action, config)).toBe(0.0);
   });
 });

@@ -372,6 +372,13 @@ export class GameEnv {
         done = true;
         if (winner === null) {
           winner = 'timeout';
+          // Apply timeout reward here — computeReward runs before tick
+          // increment, so its tick check never fires. Apply directly.
+          const w = { ...DEFAULT_REWARD_WEIGHTS, ...(this._config.rewardWeights || {}) };
+          if (w.timeout !== 0) {
+            totalReward += w.timeout;
+            this._rewardBreakdown.timeout += w.timeout;
+          }
         }
       }
 

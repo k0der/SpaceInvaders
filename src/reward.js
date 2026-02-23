@@ -173,11 +173,8 @@ export function computeReward(
     if (breakdown) breakdown.draw += w.draw;
   }
 
-  // 13. Timeout (terminal)
-  if (currentState.tick >= config.maxTicks) {
-    reward += w.timeout;
-    if (breakdown) breakdown.timeout += w.timeout;
-  }
+  // 13. Timeout — applied by game-env.js after tick increment (not here,
+  //     because computeReward runs before the tick counter advances).
 
   return reward;
 }

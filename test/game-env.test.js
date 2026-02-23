@@ -451,6 +451,28 @@ describe('Episode termination', () => {
     expect(rb.survival).toBeGreaterThan(0);
   });
 
+  it('timeout reward is applied to rewardBreakdown and total reward', () => {
+    const timeoutWeight = -5.0;
+    env.reset({
+      shipHP: 5,
+      maxTicks: 2,
+      enemyPolicy: 'static',
+      asteroidDensity: 0,
+      rewardWeights: {
+        survival: 0, aim: 0, closing: 0, hit: 0, gotHit: 0,
+        nearMiss: 0, firePenalty: 0, win: 0, loss: 0, draw: 0,
+        engagePenalty: 0, proximity: 0, timeout: timeoutWeight,
+      },
+    });
+
+    env.step(3, 0); // tick 1
+    const result = env.step(3, 0); // tick 2 = maxTicks → timeout
+    expect(result.done).toBe(true);
+    expect(result.info.winner).toBe('timeout');
+    expect(result.info.rewardBreakdown.timeout).toBeCloseTo(timeoutWeight, 5);
+    expect(result.reward).toBeCloseTo(timeoutWeight, 5);
+  });
+
   it('non-terminal step does not include rewardBreakdown', () => {
     env.reset({
       shipHP: 5,

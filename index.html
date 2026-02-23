@@ -2821,8 +2821,12 @@ class GameEnv {
 
     // Opponent at spawnDistance in random direction
     const spawnAngle = Math.random() * 2 * Math.PI;
-    const opponentX = centerX + Math.cos(spawnAngle) * c.spawnDistance;
-    const opponentY = centerY + Math.sin(spawnAngle) * c.spawnDistance;
+    const dist = Array.isArray(c.spawnDistance)
+      ? c.spawnDistance[0] +
+        Math.random() * (c.spawnDistance[1] - c.spawnDistance[0])
+      : c.spawnDistance;
+    const opponentX = centerX + Math.cos(spawnAngle) * dist;
+    const opponentY = centerY + Math.sin(spawnAngle) * dist;
     this._opponent = createShip({
       x: opponentX,
       y: opponentY,
@@ -3106,6 +3110,13 @@ class GameEnv {
         done = true;
         if (winner === null) {
           winner = 'timeout';
+          // Apply timeout reward here — computeReward runs before tick
+          // increment, so its tick check never fires. Apply directly.
+          const w = { ...DEFAULT_REWARD_WEIGHTS, ...(this._config.rewardWeights || {}) };
+          if (w.timeout !== 0) {
+            totalReward += w.timeout;
+            this._rewardBreakdown.timeout += w.timeout;
+          }
         }
       }
 
@@ -4640,11 +4651,8 @@ function computeReward(
     if (breakdown) breakdown.draw += w.draw;
   }
 
-  // 13. Timeout (terminal)
-  if (currentState.tick >= config.maxTicks) {
-    reward += w.timeout;
-    if (breakdown) breakdown.timeout += w.timeout;
-  }
+  // 13. Timeout — applied by game-env.js after tick increment (not here,
+  //     because computeReward runs before the tick counter advances).
 
   return reward;
 }
