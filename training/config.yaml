@@ -357,11 +357,11 @@ stages:
     description: "Chase medium-speed fleeing enemy, extra HP for asteroid mistakes"
     shipHP: 3
     enemyHP: 1
-    maxTicks: 1200
+    maxTicks: 1800
     asteroidDensity: 0.5
     enemyPolicy: "fleeing"
     enemyShoots: false
-    aiMaxSpeedFactor: 0.6
+    aiMaxSpeedFactor: 0.45
     spawnDistance: [500, 1000]
     spawnFacing: false
     frameSkip: 2
