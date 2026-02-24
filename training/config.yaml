@@ -380,8 +380,8 @@ stages:
       draw: -3.5
       timeout: -5.0
       engagePenalty: 0.0
-      proximity: 3.0
-      asteroidPenalty: -0.3
+      proximity: 0.5
+      asteroidPenalty: -0.15
 
   15:
     description: "Chase medium-speed fleeing enemy, 1 HP"
@@ -395,7 +395,7 @@ stages:
     spawnFacing: false
     frameSkip: 2
     campCheckTicks: 0
-    promotionThreshold: 0.80
+    promotionThreshold: 0.90
     rewardWeights:
       survival: 0.0
       aim: 0.01
@@ -409,8 +409,8 @@ stages:
       draw: -3.5
       timeout: -5.0
       engagePenalty: 0.0
-      proximity: 3.0
-      asteroidPenalty: -0.3
+      proximity: 0.5
+      asteroidPenalty: -0.15
 
   16:
     description: "Navigate and engage unarmed predictive-optimized, far spawn"
