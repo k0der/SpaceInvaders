@@ -751,9 +751,11 @@ export const EVASION_SCORING_WEIGHTS = {
 };
 
 /**
- * Select a waypoint biased away from the agent.
+ * Select a random waypoint whose path doesn't cross near the agent.
  * Samples `numCandidates` random points within `radius` of `ship`,
- * returns the one farthest from `agent`.
+ * rejects any candidate in the agent's hemisphere (i.e., reaching it
+ * would require flying toward the agent), picks one at random.
+ * Falls back to the farthest candidate if all are rejected.
  *
  * @param {{ x: number, y: number }} ship
  * @param {{ x: number, y: number }} agent
@@ -762,26 +764,49 @@ export const EVASION_SCORING_WEIGHTS = {
  * @returns {{ x: number, y: number, vx: number, vy: number, alive: boolean }}
  */
 export function selectWaypoint(ship, agent, radius, numCandidates) {
-  let bestX = ship.x;
-  let bestY = ship.y;
-  let bestDist = -Infinity;
+  // Direction from ship toward agent
+  const toAgentX = agent.x - ship.x;
+  const toAgentY = agent.y - ship.y;
+
+  const valid = [];
+  let farthestX = ship.x;
+  let farthestY = ship.y;
+  let farthestDist = -Infinity;
 
   for (let i = 0; i < numCandidates; i++) {
     const angle = Math.random() * 2 * Math.PI;
     const r = Math.sqrt(Math.random()) * radius;
     const cx = ship.x + Math.cos(angle) * r;
     const cy = ship.y + Math.sin(angle) * r;
+
+    // ship→candidate direction
+    const toCandX = cx - ship.x;
+    const toCandY = cy - ship.y;
+
+    // Dot product: positive means candidate is in the agent's hemisphere
+    const dot = toCandX * toAgentX + toCandY * toAgentY;
+    if (dot <= 0) {
+      valid.push({ x: cx, y: cy });
+    }
+
+    // Track farthest from agent as fallback
     const dx = cx - agent.x;
     const dy = cy - agent.y;
-    const dist = dx * dx + dy * dy; // squared is fine for comparison
-    if (dist > bestDist) {
-      bestDist = dist;
-      bestX = cx;
-      bestY = cy;
+    const distSq = dx * dx + dy * dy;
+    if (distSq > farthestDist) {
+      farthestDist = distSq;
+      farthestX = cx;
+      farthestY = cy;
     }
   }
 
-  return { x: bestX, y: bestY, vx: 0, vy: 0, alive: true };
+  // Pick a random valid candidate; fall back to farthest if all rejected
+  const pick =
+    valid.length > 0
+      ? valid[Math.floor(Math.random() * valid.length)]
+      : { x: farthestX, y: farthestY };
+
+  return { x: pick.x, y: pick.y, vx: 0, vy: 0, alive: true };
 }
 
 /**

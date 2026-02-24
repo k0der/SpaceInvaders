@@ -2758,21 +2758,23 @@ describe('ai-predictive-optimized: selectWaypoint', () => {
     }
   });
 
-  it('biases waypoints away from agent (statistical)', () => {
+  it('rejects waypoints in the agent hemisphere (statistical)', () => {
     const ship = { x: 500, y: 500 };
     const agent = { x: 0, y: 0 };
-    let totalDist = 0;
+    const toAgentX = agent.x - ship.x;
+    const toAgentY = agent.y - ship.y;
     const N = 200;
+    let towardAgent = 0;
     for (let i = 0; i < N; i++) {
       const wp = selectWaypoint(ship, agent, 1500, 8);
-      const dx = wp.x - agent.x;
-      const dy = wp.y - agent.y;
-      totalDist += Math.sqrt(dx * dx + dy * dy);
+      const toCandX = wp.x - ship.x;
+      const toCandY = wp.y - ship.y;
+      const dot = toCandX * toAgentX + toCandY * toAgentY;
+      if (dot > 0) towardAgent++;
     }
-    const avgDist = totalDist / N;
-    // Average distance from agent should be significantly more than ship-to-agent distance
-    const shipToAgent = Math.sqrt(500 * 500 + 500 * 500);
-    expect(avgDist).toBeGreaterThan(shipToAgent);
+    // Vast majority should be in the away-hemisphere (dot <= 0)
+    // Fallback picks can occasionally land in agent hemisphere, but rarely
+    expect(towardAgent).toBeLessThan(N * 0.1);
   });
 
   it('works when agent and ship are co-located', () => {
