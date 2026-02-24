@@ -195,7 +195,8 @@ export class GameEnv {
 
     this._initialized = true;
 
-    return buildObservation(this._agent, this._opponent, this._sim.asteroids);
+    return buildObservation(this._agent, this._opponent, this._sim.asteroids)
+      .obs;
   }
 
   /**
@@ -421,7 +422,7 @@ export class GameEnv {
       this._agent,
       this._opponent,
       this._sim.asteroids,
-    );
+    ).obs;
     const info = {
       winner,
       ticksElapsed: this._tick,

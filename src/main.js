@@ -43,7 +43,6 @@ import {
   handleKeyUp,
   isRestartKey,
 } from './input.js';
-import { getObservedAsteroids } from './observation.js';
 import { setupHiDPICanvas } from './renderer.js';
 import {
   CORRIDOR_HALF_WIDTH,
@@ -619,19 +618,15 @@ export function startApp() {
 
     applyCameraTransform(ctx, camera, logicalSize.width, logicalSize.height);
 
-    const neuralShip =
+    const observedSet =
       settings.playerIntelligence === 'neural'
-        ? playerShip
+        ? playerAIState?.observedAsteroids
         : settings.enemyIntelligence === 'neural'
-          ? enemyShip
+          ? enemyAIState?.observedAsteroids
           : null;
-    const observedSet = neuralShip
-      ? getObservedAsteroids(neuralShip, sim.asteroids)
-      : null;
 
     for (const asteroid of sim.asteroids) {
-      const color =
-        observedSet && observedSet.has(asteroid) ? '#00CCFF' : '#FFFFFF';
+      const color = observedSet?.has(asteroid) ? '#00CCFF' : '#FFFFFF';
       drawAsteroid(ctx, asteroid, color);
     }
 

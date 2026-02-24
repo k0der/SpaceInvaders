@@ -207,6 +207,11 @@ describe('ai-neural: createState', () => {
     const state = neuralStrategy.createState();
     expect(state.holdTimer).toBe(0);
   });
+
+  it('observedAsteroids is initially null', () => {
+    const state = neuralStrategy.createState();
+    expect(state.observedAsteroids).toBeNull();
+  });
 });
 
 // ── Fallback Behavior ───────────────────────────────────────────────

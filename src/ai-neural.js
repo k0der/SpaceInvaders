@@ -116,8 +116,13 @@ async function initSession(state) {
  */
 async function runInference(state, ship, target, asteroids) {
   try {
-    const obs = buildObservation(ship, target, asteroids);
+    const { obs, selectedAsteroids } = buildObservation(
+      ship,
+      target,
+      asteroids,
+    );
     state.inputBuffer.set(obs);
+    state.observedAsteroids = selectedAsteroids;
 
     const tensor = new window.ort.Tensor('float32', state.inputBuffer, [
       1,
@@ -148,6 +153,7 @@ function createNeuralState() {
     pendingInference: false,
     cachedAction: null,
     holdTimer: 0,
+    observedAsteroids: null,
   };
 
   // Fire-and-forget async model loading

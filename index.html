@@ -175,8 +175,13 @@ async function initSession(state) {
  */
 async function runInference(state, ship, target, asteroids) {
   try {
-    const obs = buildObservation(ship, target, asteroids);
+    const { obs, selectedAsteroids } = buildObservation(
+      ship,
+      target,
+      asteroids,
+    );
     state.inputBuffer.set(obs);
+    state.observedAsteroids = selectedAsteroids;
 
     const tensor = new window.ort.Tensor('float32', state.inputBuffer, [
       1,
@@ -207,6 +212,7 @@ function createNeuralState() {
     pendingInference: false,
     cachedAction: null,
     holdTimer: 0,
+    observedAsteroids: null,
   };
 
   // Fire-and-forget async model loading
@@ -3200,7 +3206,8 @@ class GameEnv {
 
     this._initialized = true;
 
-    return buildObservation(this._agent, this._opponent, this._sim.asteroids);
+    return buildObservation(this._agent, this._opponent, this._sim.asteroids)
+      .obs;
   }
 
   /**
@@ -3426,7 +3433,7 @@ class GameEnv {
       this._agent,
       this._opponent,
       this._sim.asteroids,
-    );
+    ).obs;
     const info = {
       winner,
       ticksElapsed: this._tick,
@@ -4416,19 +4423,15 @@ function startApp() {
 
     applyCameraTransform(ctx, camera, logicalSize.width, logicalSize.height);
 
-    const neuralShip =
+    const observedSet =
       settings.playerIntelligence === 'neural'
-        ? playerShip
+        ? playerAIState?.observedAsteroids
         : settings.enemyIntelligence === 'neural'
-          ? enemyShip
+          ? enemyAIState?.observedAsteroids
           : null;
-    const observedSet = neuralShip
-      ? getObservedAsteroids(neuralShip, sim.asteroids)
-      : null;
 
     for (const asteroid of sim.asteroids) {
-      const color =
-        observedSet && observedSet.has(asteroid) ? '#00CCFF' : '#FFFFFF';
+      const color = observedSet?.has(asteroid) ? '#00CCFF' : '#FFFFFF';
       drawAsteroid(ctx, asteroid, color);
     }
 
@@ -4544,35 +4547,6 @@ function clamp(val, min, max) {
 }
 
 /**
- * Return the k nearest asteroid objects within observation range.
- * Used by the renderer to highlight which asteroids the model can see.
- *
- * @param {Object} ship - the controlled ship
- * @param {Array} asteroids - array of asteroid objects
- * @param {number} [k=MAX_ASTEROID_OBS] - number of asteroid slots
- * @returns {Set} set of asteroid object references
- */
-function getObservedAsteroids(ship, asteroids, k = MAX_ASTEROID_OBS) {
-  const nearby = [];
-  for (let i = 0; i < asteroids.length; i++) {
-    const a = asteroids[i];
-    const adx = a.x - ship.x;
-    const ady = a.y - ship.y;
-    const aDist = Math.sqrt(adx * adx + ady * ady);
-    if (aDist <= MAX_ASTEROID_DISTANCE) {
-      nearby.push({ asteroid: a, dist: aDist });
-    }
-  }
-  nearby.sort((a, b) => a.dist - b.dist);
-  const result = new Set();
-  const count = Math.min(nearby.length, k);
-  for (let i = 0; i < count; i++) {
-    result.add(nearby[i].asteroid);
-  }
-  return result;
-}
-
-/**
  * Build an ego-centric normalized observation vector from game state.
  * Pure function — no mutation of inputs, no side effects.
  *
@@ -4580,7 +4554,7 @@ function getObservedAsteroids(ship, asteroids, k = MAX_ASTEROID_OBS) {
  * @param {Object} target - the opponent ship
  * @param {Array} asteroids - array of asteroid objects
  * @param {number} [k=MAX_ASTEROID_OBS] - number of asteroid slots
- * @returns {Float32Array} observation vector of length OBSERVATION_SIZE
+ * @returns {{ obs: Float32Array, selectedAsteroids: Set }} observation vector and selected asteroid refs
  */
 function buildObservation(
   ship,
@@ -4657,8 +4631,14 @@ function buildObservation(
   // Sort by distance (nearest first)
   nearby.sort((a, b) => a.dist - b.dist);
 
-  // Fill k slots
+  // Select nearest k and build the selectedAsteroids Set
   const count = Math.min(nearby.length, k);
+  const selectedAsteroids = new Set();
+  for (let i = 0; i < count; i++) {
+    selectedAsteroids.add(nearby[i].asteroid);
+  }
+
+  // Fill k observation slots
   for (let i = 0; i < count; i++) {
     const { asteroid: a, dist: aDist, dx: adx, dy: ady } = nearby[i];
     const base = 12 + i * 3;
@@ -4688,7 +4668,7 @@ function buildObservation(
   }
   // Remaining slots stay 0 from Float32Array init
 
-  return obs;
+  return { obs, selectedAsteroids };
 }
 
 // ===== physics.js =====

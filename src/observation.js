@@ -27,35 +27,6 @@ function clamp(val, min, max) {
 }
 
 /**
- * Return the k nearest asteroid objects within observation range.
- * Used by the renderer to highlight which asteroids the model can see.
- *
- * @param {Object} ship - the controlled ship
- * @param {Array} asteroids - array of asteroid objects
- * @param {number} [k=MAX_ASTEROID_OBS] - number of asteroid slots
- * @returns {Set} set of asteroid object references
- */
-export function getObservedAsteroids(ship, asteroids, k = MAX_ASTEROID_OBS) {
-  const nearby = [];
-  for (let i = 0; i < asteroids.length; i++) {
-    const a = asteroids[i];
-    const adx = a.x - ship.x;
-    const ady = a.y - ship.y;
-    const aDist = Math.sqrt(adx * adx + ady * ady);
-    if (aDist <= MAX_ASTEROID_DISTANCE) {
-      nearby.push({ asteroid: a, dist: aDist });
-    }
-  }
-  nearby.sort((a, b) => a.dist - b.dist);
-  const result = new Set();
-  const count = Math.min(nearby.length, k);
-  for (let i = 0; i < count; i++) {
-    result.add(nearby[i].asteroid);
-  }
-  return result;
-}
-
-/**
  * Build an ego-centric normalized observation vector from game state.
  * Pure function — no mutation of inputs, no side effects.
  *
@@ -63,7 +34,7 @@ export function getObservedAsteroids(ship, asteroids, k = MAX_ASTEROID_OBS) {
  * @param {Object} target - the opponent ship
  * @param {Array} asteroids - array of asteroid objects
  * @param {number} [k=MAX_ASTEROID_OBS] - number of asteroid slots
- * @returns {Float32Array} observation vector of length OBSERVATION_SIZE
+ * @returns {{ obs: Float32Array, selectedAsteroids: Set }} observation vector and selected asteroid refs
  */
 export function buildObservation(
   ship,
@@ -140,8 +111,14 @@ export function buildObservation(
   // Sort by distance (nearest first)
   nearby.sort((a, b) => a.dist - b.dist);
 
-  // Fill k slots
+  // Select nearest k and build the selectedAsteroids Set
   const count = Math.min(nearby.length, k);
+  const selectedAsteroids = new Set();
+  for (let i = 0; i < count; i++) {
+    selectedAsteroids.add(nearby[i].asteroid);
+  }
+
+  // Fill k observation slots
   for (let i = 0; i < count; i++) {
     const { asteroid: a, dist: aDist, dx: adx, dy: ady } = nearby[i];
     const base = 12 + i * 3;
@@ -171,5 +148,5 @@ export function buildObservation(
   }
   // Remaining slots stay 0 from Float32Array init
 
-  return obs;
+  return { obs, selectedAsteroids };
 }

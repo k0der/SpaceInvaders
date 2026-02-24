@@ -52,8 +52,13 @@ async function initSession(state) {
  */
 async function runInference(state, ship, target, asteroids) {
   try {
-    const obs = buildObservation(ship, target, asteroids);
+    const { obs, selectedAsteroids } = buildObservation(
+      ship,
+      target,
+      asteroids,
+    );
     state.inputBuffer.set(obs);
+    state.observedAsteroids = selectedAsteroids;
 
     const ortModule = await loadOrt();
     const tensor = new ortModule.Tensor('float32', state.inputBuffer, [
@@ -89,6 +94,7 @@ function createSelfPlayState(config) {
     loadAttempted: false,
     pendingInference: false,
     cachedAction: null,
+    observedAsteroids: null,
     fallbackStrategy: predictiveOptimizedStrategy,
     fallbackState: predictiveOptimizedStrategy.createState(),
   };

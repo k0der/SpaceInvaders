@@ -1178,8 +1178,13 @@ controlled ship's position and heading, providing translation and rotation invar
 - Zero-padded when fewer than k asteroids are within range
 - Total observation size: 6 + 6 + 24 = **36 floats**
 
-The observation builder is a shared pure-function module (`src/observation.js`)
-used identically by both the training bridge and `ai-neural.js` in the browser.
+The observation builder is a shared module (`src/observation.js`). `buildObservation()`
+returns `{ obs: Float32Array, selectedAsteroids: Set }` — the observation vector and the
+exact Set of asteroid object references used to fill it. This guarantees a single source
+of truth: the neural AI stores `selectedAsteroids` on its state during inference, and the
+renderer reads from state to highlight observed asteroids, rather than recomputing the
+selection (which could diverge due to timing differences between async inference and
+per-frame rendering).
 
 ### 16.3 Action Space
 
@@ -1217,7 +1222,10 @@ interface:
 
 - **`createState()`**: Initializes an ONNX Runtime Web inference session, loads
   the model from `models/policy.onnx`, allocates input/output buffers. Returns
-  `{ session, inputBuffer, ready }`.
+  `{ session, inputBuffer, ready, observedAsteroids }`. The `observedAsteroids`
+  field (initially null, Set after first inference) holds the asteroid refs from
+  the last `buildObservation` call — used by the renderer to highlight observed
+  asteroids without recomputing the selection.
 - **`update(state, ship, target, asteroids, dt)`**: Builds observation vector
   via the shared `buildObservation()` → runs ONNX inference → reads movement
   action index (argmax of 10-way output) and fire probability (sigmoid output)

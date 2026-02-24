@@ -104,6 +104,11 @@ describe('ai-neural-node: createState', () => {
     expect(typeof state.fallbackStrategy.createState).toBe('function');
     expect(typeof state.fallbackStrategy.update).toBe('function');
   });
+
+  it('observedAsteroids is initially null', () => {
+    const state = selfPlayStrategy.createState({});
+    expect(state.observedAsteroids).toBeNull();
+  });
 });
 
 // ── Fallback Behavior ───────────────────────────────────────────────

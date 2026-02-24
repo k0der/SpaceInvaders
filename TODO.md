@@ -1572,3 +1572,21 @@ Increments 31–37 add a third intelligence type — a neural network trained vi
 - [x] Config stages 14-15 updated to use `evasion` policy
 - [x] `train_v3.py` passes evasion config keys to env
 - [x] All existing tests pass
+
+## Increment 44: Unify Asteroid Observation Pipeline
+
+**Goal**: Guarantee the renderer highlights the exact asteroids the neural model observed by returning `selectedAsteroids` from `buildObservation` and storing it on AI state. See SPEC §16.2, §16.4.
+
+**Modules**: `src/observation.js`, `src/ai-neural.js`, `src/ai-neural-node.js`, `src/game-env.js`, `src/main.js`
+
+**Acceptance Criteria**:
+- [ ] `buildObservation` returns `{ obs: Float32Array, selectedAsteroids: Set }`
+- [ ] `selectedAsteroids` contains the same asteroid objects used to fill the observation vector
+- [ ] `selectedAsteroids` is empty Set when no asteroids in range
+- [ ] `selectedAsteroids` has correct count when fewer than k asteroids exist
+- [ ] `getObservedAsteroids` is removed (no longer exported from `observation.js`)
+- [ ] Neural AI state includes `observedAsteroids: null` initially
+- [ ] `runInference` stores `selectedAsteroids` on state as `observedAsteroids`
+- [ ] Renderer reads `observedAsteroids` from AI state (not recomputed)
+- [ ] `GameEnv` callers use `.obs` for the Float32Array
+- [ ] All existing tests pass (updated to destructure `{ obs }`)
