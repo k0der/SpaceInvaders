@@ -1316,12 +1316,17 @@ This preserves the optimal policy while providing dense, directional learning si
 - `Φ(ship, asteroids)` = negative sum of Gaussian danger contributions at the ship's position
 - Each asteroid with speed ≥ `MIN_ASTEROID_SPEED` generates a continuous danger field:
   - Decomposed into `along` (projection onto velocity unit vector) and `perp` (perpendicular distance)
-  - `tNorm = along / lookahead`, `wNorm = perp / CORRIDOR_HALF_WIDTH`
-  - `danger = exp(-DANGER_ALONG_DECAY × tNorm²) × exp(-DANGER_WIDTH_DECAY × wNorm²)`
-  - Along-velocity decay: `DANGER_ALONG_DECAY` (2.0) — symmetric forward and behind
+  - **Flat-top body zone**: `BODY_RADIUS = 80px` (largest asteroid class, §1.2). Effective
+    distances are measured from the body surface, not the center:
+    `eAlong = max(|along| - BODY_RADIUS, 0)`, `ePerp = max(perp - BODY_RADIUS, 0)`
+  - Within `BODY_RADIUS` of center: danger = 1.0 (full intensity, both effective distances = 0)
+  - Beyond the body surface: `tNorm = eAlong / lookahead`, `wNorm = ePerp / CORRIDOR_HALF_WIDTH`
+  - `danger = exp(-tDecay × tNorm²) × exp(-DANGER_WIDTH_DECAY × wNorm²)`
+  - Forward decay: `DANGER_FORWARD_DECAY` (2.0) — elongated ahead along velocity (speed-dependent)
+  - Backward decay: `DANGER_BACKWARD_DECAY` (4.0) — shorter halo behind
   - Perpendicular decay: `DANGER_WIDTH_DECAY` (2.0) — smooth width falloff
-- No hard edges — smooth Gaussian decay in all directions, centered on asteroid position
-- **Size-independent**: no reference to asteroid radius or `collisionRadius`
+- No hard edges — smooth Gaussian decay in all directions beyond the body zone
+- **Size-independent**: all asteroids use the same `BODY_RADIUS` regardless of actual `collisionRadius`
 - Φ is cached as a scalar on the reward state (not recomputed from asteroid references)
   because asteroid positions are mutated in-place between ticks
 - Reward = `safetyShaping × (currentΦ - prevΦ)` — positive when moving to safety,
