@@ -500,7 +500,7 @@ stages:
       timeout: -5.0
       engagePenalty: 0.0
       proximity: 0.5
-      asteroidPenalty: -0.15
+      asteroidPenalty: -0.3
 
   19:
     description: "Fast evasion through full asteroid field, 1 HP"
@@ -531,7 +531,7 @@ stages:
       timeout: -5.0
       engagePenalty: 0.0
       proximity: 0.5
-      asteroidPenalty: -0.15
+      asteroidPenalty: -0.3
 
   20:
     description: "Far spawn evasion through full asteroid field"
@@ -562,7 +562,7 @@ stages:
       timeout: -5.0
       engagePenalty: 0.0
       proximity: 0.5
-      asteroidPenalty: -0.15
+      asteroidPenalty: -0.3
 
   21:
     description: "Self-play, nerfed opponent fire rate, full asteroids"
@@ -592,7 +592,7 @@ stages:
       timeout: -5.0
       engagePenalty: 0.0
       proximity: 1.5
-      asteroidPenalty: -0.15
+      asteroidPenalty: -0.3
 
   22:
     description: "Self-play, full strength, full asteroids"
@@ -621,6 +621,6 @@ stages:
       timeout: -5.0
       engagePenalty: 0.0
       proximity: 1.5
-      asteroidPenalty: -0.15
+      asteroidPenalty: -0.3
 
 
