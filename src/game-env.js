@@ -13,7 +13,7 @@ import {
   clearSpawnZone,
   processBulletShipCollisions,
 } from './game.js';
-import { buildObservation } from './observation.js';
+import { buildObservation, selectNearestAsteroids } from './observation.js';
 import {
   computeReward,
   computeSafetyPotential,
@@ -184,6 +184,7 @@ export class GameEnv {
       proximity: 0,
       asteroidPenalty: 0,
       safetyShaping: 0,
+      ttcPenalty: 0,
       win: 0,
       loss: 0,
       draw: 0,
@@ -480,6 +481,10 @@ export class GameEnv {
         alive: this._opponent.alive,
       },
       asteroids: this._sim.asteroids,
+      observedAsteroids: selectNearestAsteroids(
+        this._agent,
+        this._sim.asteroids,
+      ),
       shipHP: this._agentHP,
       targetHP: this._opponentHP,
       tick: this._tick,

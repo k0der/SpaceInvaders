@@ -449,6 +449,7 @@ describe('Episode termination', () => {
       'proximity',
       'asteroidPenalty',
       'safetyShaping',
+      'ttcPenalty',
       'win',
       'loss',
       'draw',

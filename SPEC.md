@@ -1306,6 +1306,7 @@ orders of magnitude more episodes to learn basic behaviors.
 | Fire discipline | -0.002 | When fire action is true |
 | Proximity | +proximity × agentClosing / prevDist | When agent closes distance (action-dependent) |
 | Safety shaping | +safetyShaping × (Φ(s') - Φ(s)) | Potential-based shaping (see below) |
+| TTC penalty | +ttcPenalty × (1 - TTC/TTC_HORIZON)² | Per observed asteroid on collision course (see below) |
 
 **Safety potential shaping** (`computeSafetyPotential`):
 
@@ -1330,6 +1331,27 @@ This preserves the optimal policy while providing dense, directional learning si
 - Reward = `safetyShaping × (currentΦ - prevΦ)` — positive when moving to safety,
   negative when entering danger
 - Default weight: 0.0 (disabled). Active in stages 14+ at 1.0.
+
+**Time-to-Collision (TTC) penalty**:
+
+A velocity-aware penalty that fires only when the ship is on a collision course
+with an observed asteroid. Unlike positional safety shaping (which penalizes being
+near asteroid paths regardless of velocity), TTC produces a sparse, actionable signal:
+only asteroids the ship is actually heading toward generate a penalty.
+
+- Iterates over `observedAsteroids` (the 8 nearest from `selectNearestAsteroids`) — only
+  asteroids the model can see, to avoid confusing reward signal from unseen threats
+- For each asteroid, solves the quadratic for earliest entry into the collision zone:
+  - Relative position: `dx = a.x - ship.x`, `dy = a.y - ship.y`
+  - Relative velocity: `dvx = a.vx - ship.vx`, `dvy = a.vy - ship.vy`
+  - Collision radius: `r = a.collisionRadius + SHIP_SIZE` (15px)
+  - `A = dvx² + dvy²`, `B = 2(dx·dvx + dy·dvy)`, `C = dx² + dy² - r²`
+  - Skip if `A ≈ 0` (same velocity) or discriminant < 0 (no intersection)
+  - `TTC = (-B - √discriminant) / (2A)` — earliest entry time
+  - Skip if `TTC ≤ 0` (already overlapping) or `TTC > TTC_HORIZON` (not urgent)
+- Penalty = `ttcPenalty × (1 - TTC / TTC_HORIZON)²` — quadratic ramp, strongest near TTC=0
+- Constant: `TTC_HORIZON = 2.0s`
+- Default weight: 0.0 (disabled). Active in stages 23+ alongside safety shaping.
 
 **Terminal rewards**:
 
@@ -1460,6 +1482,19 @@ The rolling window for win rate calculation is configurable via `--window-size N
 (default 200). A larger window reduces measurement noise — with window=100, a 60%
 true win-rate agent can randomly hit 80% on a lucky streak. Window=200 gives more
 reliable promotion signals.
+
+#### Config Hot-Reload
+
+`ConfigReloadCallback` monitors `config.yaml` file mtime every 30 seconds. On
+change, it reloads and pushes updates to all parallel environments via SB3's
+`env_method("update_config", ...)`, which crosses the `SubprocVecEnv` process
+boundary via IPC. Changes take effect on each environment's next `reset()` call
+(i.e., the start of the next episode — each episode is internally consistent).
+
+Hot-reloadable fields: all stage-level config including `rewardWeights`, `shipHP`,
+`maxTicks`, `asteroidDensity`, `enemyPolicy`, `enemyShoots`, spawn settings, AI
+parameters, plus `promotionThreshold` and `learning_rate` (which update immediately
+in the parent process).
 
 ### 16.11 Python Training Bridge
 

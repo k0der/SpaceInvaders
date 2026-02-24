@@ -27,6 +27,41 @@ function clamp(val, min, max) {
 }
 
 /**
+ * Select the k nearest asteroids within maxDistance of the ship.
+ * Returns an array of asteroid objects sorted by distance (nearest first).
+ *
+ * @param {{ x: number, y: number }} ship
+ * @param {Array} asteroids
+ * @param {number} [k=MAX_ASTEROID_OBS]
+ * @param {number} [maxDistance=MAX_ASTEROID_DISTANCE]
+ * @returns {Array} nearest asteroid objects (length ≤ k)
+ */
+export function selectNearestAsteroids(
+  ship,
+  asteroids,
+  k = MAX_ASTEROID_OBS,
+  maxDistance = MAX_ASTEROID_DISTANCE,
+) {
+  const nearby = [];
+  for (let i = 0; i < asteroids.length; i++) {
+    const a = asteroids[i];
+    const adx = a.x - ship.x;
+    const ady = a.y - ship.y;
+    const aDist = Math.sqrt(adx * adx + ady * ady);
+    if (aDist <= maxDistance) {
+      nearby.push({ asteroid: a, dist: aDist, dx: adx, dy: ady });
+    }
+  }
+  nearby.sort((a, b) => a.dist - b.dist);
+  const count = Math.min(nearby.length, k);
+  const result = [];
+  for (let i = 0; i < count; i++) {
+    result.push(nearby[i].asteroid);
+  }
+  return result;
+}
+
+/**
  * Build an ego-centric normalized observation vector from game state.
  * Pure function — no mutation of inputs, no side effects.
  *
@@ -96,31 +131,15 @@ export function buildObservation(
   obs[11] = target.alive ? 1 : 0;
 
   // --- Asteroid observations (indices 12–35) ---
-  // Compute distances and filter within range
-  const nearby = [];
-  for (let i = 0; i < asteroids.length; i++) {
-    const a = asteroids[i];
+  const nearest = selectNearestAsteroids(ship, asteroids, k);
+  const selectedAsteroids = new Set(nearest);
+
+  // Precompute dx/dy for observation encoding
+  for (let i = 0; i < nearest.length; i++) {
+    const a = nearest[i];
     const adx = a.x - ship.x;
     const ady = a.y - ship.y;
     const aDist = Math.sqrt(adx * adx + ady * ady);
-    if (aDist <= MAX_ASTEROID_DISTANCE) {
-      nearby.push({ asteroid: a, dist: aDist, dx: adx, dy: ady });
-    }
-  }
-
-  // Sort by distance (nearest first)
-  nearby.sort((a, b) => a.dist - b.dist);
-
-  // Select nearest k and build the selectedAsteroids Set
-  const count = Math.min(nearby.length, k);
-  const selectedAsteroids = new Set();
-  for (let i = 0; i < count; i++) {
-    selectedAsteroids.add(nearby[i].asteroid);
-  }
-
-  // Fill k observation slots
-  for (let i = 0; i < count; i++) {
-    const { asteroid: a, dist: aDist, dx: adx, dy: ady } = nearby[i];
     const base = 12 + i * 3;
 
     obs[base] = clamp(aDist / DISTANCE_NORM, 0, 1);

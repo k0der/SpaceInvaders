@@ -1612,3 +1612,66 @@ Increments 31–37 add a third intelligence type — a neural network trained vi
 - [x] Heatmap uses `screenToWorld` inverse camera transform, drawn in screen space behind world objects
 - [x] All existing tests pass (updated for new weight key)
 - [x] New tests cover `computeSafetyPotential` (Gaussian geometry, edge cases, size-independence) and shaping reward (delta, scaling, breakdown)
+
+## Increment 46: Training Config Hot-Reload
+
+**Goal**: Allow all `config.yaml` stage fields to be hot-reloaded during training without restarting the process. Currently only `promotionThreshold` and `learning_rate` are reloadable; game config (reward weights, HP, density, etc.) is frozen at stage start because each environment lives in a subprocess.
+
+**Modules**: `training/env.py`, `training/train_v3.py`
+
+**Acceptance Criteria**:
+- [ ] `SpaceDogfightEnv.update_config(new_config)` method replaces `_stage_config`; next `reset()` sends updated config to Node.js
+- [ ] `ENV_CONFIG_KEYS` module-level tuple in `train_v3.py` — single source of truth for stage config keys (used by both `env_config` builder and `ConfigReloadCallback`)
+- [ ] `ConfigReloadCallback` rebuilds env config from yaml on change, diffs against current, and pushes to all envs via `env_method("update_config", ...)`
+- [ ] Console prints changed key names on reload (e.g., `[CONFIG RELOAD] env_config: ['rewardWeights']`)
+- [ ] Changes take effect on next episode reset (each episode internally consistent)
+- [ ] No change to existing `promotionThreshold` / `learning_rate` hot-reload behavior
+
+---
+
+## Increment 47: Time-to-Collision (TTC) Reward Penalty
+
+**Goal**: Add a velocity-aware TTC penalty that only fires when the ship is on a collision course with an observed asteroid. Complements the positional safety shaping with a sparser, more actionable signal for dense asteroid fields.
+
+**Modules**: `src/reward.js`, `src/observation.js`, `src/game-env.js`, `training/config.yaml`
+
+**Acceptance Criteria**:
+
+### Constants & Weights
+- [x] `TTC_HORIZON = 2.0` exported from `reward.js`
+- [x] `ttcPenalty: 0.0` added to `DEFAULT_REWARD_WEIGHTS` (default off, backward compatible)
+- [x] `SHIP_SIZE` imported from `ship.js` for collision radius computation
+
+### selectNearestAsteroids Helper
+- [x] `selectNearestAsteroids(ship, asteroids, k, maxDistance)` exported from `observation.js`
+- [x] Returns array of k nearest asteroid objects sorted by distance
+- [x] `buildObservation` refactored to call it internally (no behavior change)
+
+### TTC Computation (`computeReward`)
+- [x] Guard: `if (w.ttcPenalty !== 0)` — zero cost when disabled
+- [x] Iterates `currentState.observedAsteroids` (only model-visible asteroids)
+- [x] Solves quadratic: `A = dvx²+dvy²`, `B = 2(dx·dvx+dy·dvy)`, `C = dx²+dy²-r²`
+- [x] Collision radius: `r = a.collisionRadius + SHIP_SIZE`
+- [x] Skips when: `A ≈ 0`, discriminant < 0, `TTC ≤ 0`, `TTC > TTC_HORIZON`
+- [x] Penalty formula: `ttcPenalty × (1 - TTC / TTC_HORIZON)²`
+- [x] Accumulates into `breakdown.ttcPenalty`
+
+### GameEnv Integration
+- [x] `_buildRewardState()` includes `observedAsteroids` via `selectNearestAsteroids`
+- [x] `_rewardBreakdown` includes `ttcPenalty: 0`
+
+### Tests
+- [x] Ship flying directly at stationary asteroid → penalty applied
+- [x] Ship flying away → no penalty
+- [x] Ship flying parallel (miss) → no penalty
+- [x] TTC above horizon → no penalty
+- [x] TTC near zero → near-max penalty
+- [x] Stationary ship, asteroid approaches → penalty
+- [x] Multiple asteroids, one threatening → penalty from that one only
+- [x] Weight = 0 → no penalty
+- [x] Breakdown accumulates correctly
+- [x] Collision radius includes SHIP_SIZE
+- [x] Same velocity (A ≈ 0) → no penalty
+
+### Training Config
+- [x] `ttcPenalty` enabled in stages 23-34 alongside `safetyShaping`

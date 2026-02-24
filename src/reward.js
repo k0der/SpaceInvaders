@@ -1,3 +1,5 @@
+import { SHIP_SIZE } from './ship.js';
+
 /** Default reward weights matching SPEC §16.7. */
 export const DEFAULT_REWARD_WEIGHTS = {
   survival: 0.001,
@@ -15,7 +17,11 @@ export const DEFAULT_REWARD_WEIGHTS = {
   proximity: 0.0,
   asteroidPenalty: 0.0,
   safetyShaping: 0.0,
+  ttcPenalty: 0.0,
 };
+
+/** Time horizon (seconds) for TTC penalty — penalty ramps up below this. */
+export const TTC_HORIZON = 2.0;
 
 /** Distance threshold (px) for aim alignment reward. */
 const AIM_DISTANCE_THRESHOLD = 600;
@@ -228,6 +234,37 @@ export function computeReward(
     const shapingReward = w.safetyShaping * delta;
     reward += shapingReward;
     if (breakdown) breakdown.safetyShaping += shapingReward;
+  }
+
+  // 6d. TTC penalty — velocity-aware collision proximity
+  if (w.ttcPenalty !== 0) {
+    const observed = currentState.observedAsteroids;
+    if (observed) {
+      for (let i = 0; i < observed.length; i++) {
+        const a = observed[i];
+        const adx = a.x - ship.x;
+        const ady = a.y - ship.y;
+        const dvx = a.vx - ship.vx;
+        const dvy = a.vy - ship.vy;
+        const r = a.collisionRadius + SHIP_SIZE;
+
+        const A = dvx * dvx + dvy * dvy;
+        if (A < 1e-8) continue;
+
+        const B = 2 * (adx * dvx + ady * dvy);
+        const C = adx * adx + ady * ady - r * r;
+        const disc = B * B - 4 * A * C;
+        if (disc < 0) continue;
+
+        const ttc = (-B - Math.sqrt(disc)) / (2 * A);
+        if (ttc <= 0 || ttc > TTC_HORIZON) continue;
+
+        const ratio = 1 - ttc / TTC_HORIZON;
+        const penalty = w.ttcPenalty * ratio * ratio;
+        reward += penalty;
+        if (breakdown) breakdown.ttcPenalty += penalty;
+      }
+    }
   }
 
   // 7. Fire discipline

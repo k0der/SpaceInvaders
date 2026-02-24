@@ -3191,6 +3191,7 @@ class GameEnv {
       proximity: 0,
       asteroidPenalty: 0,
       safetyShaping: 0,
+      ttcPenalty: 0,
       win: 0,
       loss: 0,
       draw: 0,
@@ -3487,6 +3488,10 @@ class GameEnv {
         alive: this._opponent.alive,
       },
       asteroids: this._sim.asteroids,
+      observedAsteroids: selectNearestAsteroids(
+        this._agent,
+        this._sim.asteroids,
+      ),
       shipHP: this._agentHP,
       targetHP: this._opponentHP,
       tick: this._tick,
@@ -4608,6 +4613,41 @@ function clamp(val, min, max) {
 }
 
 /**
+ * Select the k nearest asteroids within maxDistance of the ship.
+ * Returns an array of asteroid objects sorted by distance (nearest first).
+ *
+ * @param {{ x: number, y: number }} ship
+ * @param {Array} asteroids
+ * @param {number} [k=MAX_ASTEROID_OBS]
+ * @param {number} [maxDistance=MAX_ASTEROID_DISTANCE]
+ * @returns {Array} nearest asteroid objects (length ≤ k)
+ */
+function selectNearestAsteroids(
+  ship,
+  asteroids,
+  k = MAX_ASTEROID_OBS,
+  maxDistance = MAX_ASTEROID_DISTANCE,
+) {
+  const nearby = [];
+  for (let i = 0; i < asteroids.length; i++) {
+    const a = asteroids[i];
+    const adx = a.x - ship.x;
+    const ady = a.y - ship.y;
+    const aDist = Math.sqrt(adx * adx + ady * ady);
+    if (aDist <= maxDistance) {
+      nearby.push({ asteroid: a, dist: aDist, dx: adx, dy: ady });
+    }
+  }
+  nearby.sort((a, b) => a.dist - b.dist);
+  const count = Math.min(nearby.length, k);
+  const result = [];
+  for (let i = 0; i < count; i++) {
+    result.push(nearby[i].asteroid);
+  }
+  return result;
+}
+
+/**
  * Build an ego-centric normalized observation vector from game state.
  * Pure function — no mutation of inputs, no side effects.
  *
@@ -4677,31 +4717,15 @@ function buildObservation(
   obs[11] = target.alive ? 1 : 0;
 
   // --- Asteroid observations (indices 12–35) ---
-  // Compute distances and filter within range
-  const nearby = [];
-  for (let i = 0; i < asteroids.length; i++) {
-    const a = asteroids[i];
+  const nearest = selectNearestAsteroids(ship, asteroids, k);
+  const selectedAsteroids = new Set(nearest);
+
+  // Precompute dx/dy for observation encoding
+  for (let i = 0; i < nearest.length; i++) {
+    const a = nearest[i];
     const adx = a.x - ship.x;
     const ady = a.y - ship.y;
     const aDist = Math.sqrt(adx * adx + ady * ady);
-    if (aDist <= MAX_ASTEROID_DISTANCE) {
-      nearby.push({ asteroid: a, dist: aDist, dx: adx, dy: ady });
-    }
-  }
-
-  // Sort by distance (nearest first)
-  nearby.sort((a, b) => a.dist - b.dist);
-
-  // Select nearest k and build the selectedAsteroids Set
-  const count = Math.min(nearby.length, k);
-  const selectedAsteroids = new Set();
-  for (let i = 0; i < count; i++) {
-    selectedAsteroids.add(nearby[i].asteroid);
-  }
-
-  // Fill k observation slots
-  for (let i = 0; i < count; i++) {
-    const { asteroid: a, dist: aDist, dx: adx, dy: ady } = nearby[i];
     const base = 12 + i * 3;
 
     obs[base] = clamp(aDist / DISTANCE_NORM, 0, 1);
@@ -4856,6 +4880,7 @@ function setupHiDPICanvas(canvas, ctx, cssWidth, cssHeight, dpr) {
 }
 
 // ===== reward.js =====
+
 /** Default reward weights matching SPEC §16.7. */
 const DEFAULT_REWARD_WEIGHTS = {
   survival: 0.001,
@@ -4873,7 +4898,11 @@ const DEFAULT_REWARD_WEIGHTS = {
   proximity: 0.0,
   asteroidPenalty: 0.0,
   safetyShaping: 0.0,
+  ttcPenalty: 0.0,
 };
+
+/** Time horizon (seconds) for TTC penalty — penalty ramps up below this. */
+const TTC_HORIZON = 2.0;
 
 /** Distance threshold (px) for aim alignment reward. */
 const AIM_DISTANCE_THRESHOLD = 600;
@@ -5086,6 +5115,37 @@ function computeReward(
     const shapingReward = w.safetyShaping * delta;
     reward += shapingReward;
     if (breakdown) breakdown.safetyShaping += shapingReward;
+  }
+
+  // 6d. TTC penalty — velocity-aware collision proximity
+  if (w.ttcPenalty !== 0) {
+    const observed = currentState.observedAsteroids;
+    if (observed) {
+      for (let i = 0; i < observed.length; i++) {
+        const a = observed[i];
+        const adx = a.x - ship.x;
+        const ady = a.y - ship.y;
+        const dvx = a.vx - ship.vx;
+        const dvy = a.vy - ship.vy;
+        const r = a.collisionRadius + SHIP_SIZE;
+
+        const A = dvx * dvx + dvy * dvy;
+        if (A < 1e-8) continue;
+
+        const B = 2 * (adx * dvx + ady * dvy);
+        const C = adx * adx + ady * ady - r * r;
+        const disc = B * B - 4 * A * C;
+        if (disc < 0) continue;
+
+        const ttc = (-B - Math.sqrt(disc)) / (2 * A);
+        if (ttc <= 0 || ttc > TTC_HORIZON) continue;
+
+        const ratio = 1 - ttc / TTC_HORIZON;
+        const penalty = w.ttcPenalty * ratio * ratio;
+        reward += penalty;
+        if (breakdown) breakdown.ttcPenalty += penalty;
+      }
+    }
   }
 
   // 7. Fire discipline

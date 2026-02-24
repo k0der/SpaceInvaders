@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  BACKWARD_SCALE,
   CORRIDOR_HALF_WIDTH,
   computeReward,
   computeSafetyPotential,
@@ -12,7 +11,9 @@ import {
   LOOKAHEAD_TIME,
   MIN_ASTEROID_SPEED,
   NEAR_MISS_RADIUS_FACTOR,
+  TTC_HORIZON,
 } from '../src/reward.js';
+import { SHIP_SIZE } from '../src/ship.js';
 
 // --- Test helpers ---
 
@@ -35,6 +36,7 @@ function makeState(overrides = {}) {
     ship: makeShip(overrides.ship),
     target: makeShip({ x: 300, y: 0, alive: true, ...overrides.target }),
     asteroids: overrides.asteroids || [],
+    observedAsteroids: overrides.observedAsteroids ?? overrides.asteroids ?? [],
     shipHP: overrides.shipHP ?? 5,
     targetHP: overrides.targetHP ?? 5,
     tick: overrides.tick ?? 0,
@@ -63,7 +65,7 @@ function makeConfig(overrides = {}) {
 // --- Tests ---
 
 describe('DEFAULT_REWARD_WEIGHTS', () => {
-  it('exports all 15 reward weight keys', () => {
+  it('exports all 16 reward weight keys', () => {
     const expected = [
       'survival',
       'aim',
@@ -80,6 +82,7 @@ describe('DEFAULT_REWARD_WEIGHTS', () => {
       'proximity',
       'asteroidPenalty',
       'safetyShaping',
+      'ttcPenalty',
     ];
     expect(Object.keys(DEFAULT_REWARD_WEIGHTS).sort()).toEqual(expected.sort());
   });
@@ -101,6 +104,7 @@ describe('DEFAULT_REWARD_WEIGHTS', () => {
       proximity: 0.0,
       asteroidPenalty: 0.0,
       safetyShaping: 0.0,
+      ttcPenalty: 0.0,
     });
   });
 });
@@ -1142,6 +1146,7 @@ describe('computeReward — asteroid danger track penalty', () => {
       proximity: 0,
       asteroidPenalty: 0,
       safetyShaping: 0,
+      ttcPenalty: 0,
       win: 0,
       loss: 0,
       draw: 0,
@@ -1218,7 +1223,7 @@ describe('computeReward — edge cases', () => {
 });
 
 describe('computeReward — breakdown accumulator', () => {
-  /** Create a zeroed breakdown object with all 15 keys. */
+  /** Create a zeroed breakdown object with all 16 keys. */
   function makeBreakdown() {
     return {
       survival: 0,
@@ -1232,6 +1237,7 @@ describe('computeReward — breakdown accumulator', () => {
       proximity: 0,
       asteroidPenalty: 0,
       safetyShaping: 0,
+      ttcPenalty: 0,
       win: 0,
       loss: 0,
       draw: 0,
@@ -1676,5 +1682,258 @@ describe('computeReward — safetyShaping', () => {
     });
     // prev has no safetyPotential → 0; delta = -0.5 - 0 = -0.5
     expect(computeReward(prev, curr, action, config)).toBeCloseTo(-0.5, 5);
+  });
+});
+
+// ── TTC penalty ─────────────────────────────────────────────────────
+describe('TTC_HORIZON export', () => {
+  it('is exported and equals 2.0', () => {
+    expect(TTC_HORIZON).toBe(2.0);
+  });
+});
+
+describe('computeReward — TTC penalty', () => {
+  /**
+   * Helper to compute expected TTC for head-on approach.
+   * Ship at (sx, sy) with velocity (svx, svy),
+   * asteroid at (ax, ay) with velocity (avx, avy) and collisionRadius cr.
+   * Returns { ttc, penalty } or null if no collision.
+   */
+  function expectedTTC(sx, sy, svx, svy, ax, ay, avx, avy, cr) {
+    const dx = ax - sx;
+    const dy = ay - sy;
+    const dvx = avx - svx;
+    const dvy = avy - svy;
+    const r = cr + SHIP_SIZE;
+    const A = dvx * dvx + dvy * dvy;
+    const B = 2 * (dx * dvx + dy * dvy);
+    const C = dx * dx + dy * dy - r * r;
+    if (A < 1e-8) return null;
+    const disc = B * B - 4 * A * C;
+    if (disc < 0) return null;
+    const ttc = (-B - Math.sqrt(disc)) / (2 * A);
+    if (ttc <= 0 || ttc > TTC_HORIZON) return null;
+    const penalty = (1 - ttc / TTC_HORIZON) ** 2;
+    return { ttc, penalty };
+  }
+
+  it('penalizes ship flying directly at stationary asteroid', () => {
+    const weight = -1.0;
+    // Ship at origin, vx=100, flying at asteroid at (200, 0)
+    const asteroid = { x: 200, y: 0, vx: 0, vy: 0, collisionRadius: 20 };
+    const prev = makeState();
+    const curr = makeState({
+      ship: { x: 0, y: 0, vx: 100, vy: 0 },
+      observedAsteroids: [asteroid],
+    });
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ ttcPenalty: weight }),
+    });
+    const result = computeReward(prev, curr, action, config);
+    const exp = expectedTTC(0, 0, 100, 0, 200, 0, 0, 0, 20);
+    expect(exp).not.toBeNull();
+    expect(result).toBeCloseTo(weight * exp.penalty, 4);
+  });
+
+  it('no penalty when ship flies away from asteroid', () => {
+    const weight = -1.0;
+    // Ship flying left (vx=-100), asteroid to the right
+    const asteroid = { x: 200, y: 0, vx: 0, vy: 0, collisionRadius: 20 };
+    const prev = makeState();
+    const curr = makeState({
+      ship: { x: 0, y: 0, vx: -100, vy: 0 },
+      observedAsteroids: [asteroid],
+    });
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ ttcPenalty: weight }),
+    });
+    expect(computeReward(prev, curr, action, config)).toBe(0.0);
+  });
+
+  it('no penalty when ship flies parallel (miss)', () => {
+    const weight = -1.0;
+    // Ship flying perpendicular (vy=100), asteroid to the right
+    const asteroid = { x: 200, y: 0, vx: 0, vy: 0, collisionRadius: 20 };
+    const prev = makeState();
+    const curr = makeState({
+      ship: { x: 0, y: 0, vx: 0, vy: 100 },
+      observedAsteroids: [asteroid],
+    });
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ ttcPenalty: weight }),
+    });
+    expect(computeReward(prev, curr, action, config)).toBe(0.0);
+  });
+
+  it('no penalty when TTC exceeds horizon', () => {
+    const weight = -1.0;
+    // Slow approach to far asteroid → TTC >> 2s
+    const asteroid = { x: 500, y: 0, vx: 0, vy: 0, collisionRadius: 20 };
+    const prev = makeState();
+    const curr = makeState({
+      ship: { x: 0, y: 0, vx: 50, vy: 0 },
+      observedAsteroids: [asteroid],
+    });
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ ttcPenalty: weight }),
+    });
+    // TTC = ~9.3s > 2.0s → no penalty
+    expect(computeReward(prev, curr, action, config)).toBe(0.0);
+  });
+
+  it('near-max penalty when TTC is near zero', () => {
+    const weight = -1.0;
+    // Ship about to collide — very close, fast
+    const asteroid = { x: 40, y: 0, vx: 0, vy: 0, collisionRadius: 20 };
+    const prev = makeState();
+    const curr = makeState({
+      ship: { x: 0, y: 0, vx: 100, vy: 0 },
+      observedAsteroids: [asteroid],
+    });
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ ttcPenalty: weight }),
+    });
+    const result = computeReward(prev, curr, action, config);
+    const exp = expectedTTC(0, 0, 100, 0, 40, 0, 0, 0, 20);
+    expect(exp).not.toBeNull();
+    expect(exp.ttc).toBeLessThan(0.1);
+    expect(result).toBeCloseTo(weight * exp.penalty, 4);
+    expect(result).toBeLessThan(-0.9);
+  });
+
+  it('penalizes when stationary ship and asteroid approaches', () => {
+    const weight = -1.0;
+    // Stationary ship, asteroid moving toward it
+    const asteroid = { x: 200, y: 0, vx: -100, vy: 0, collisionRadius: 20 };
+    const prev = makeState();
+    const curr = makeState({
+      ship: { x: 0, y: 0, vx: 0, vy: 0 },
+      observedAsteroids: [asteroid],
+    });
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ ttcPenalty: weight }),
+    });
+    const result = computeReward(prev, curr, action, config);
+    const exp = expectedTTC(0, 0, 0, 0, 200, 0, -100, 0, 20);
+    expect(exp).not.toBeNull();
+    expect(result).toBeCloseTo(weight * exp.penalty, 4);
+  });
+
+  it('only penalizes threatening asteroid among multiple', () => {
+    const weight = -1.0;
+    // Threatening: ship flying at it; non-threatening: behind ship
+    const threatening = { x: 200, y: 0, vx: 0, vy: 0, collisionRadius: 20 };
+    const behind = { x: -200, y: 0, vx: 0, vy: 0, collisionRadius: 20 };
+    const prev = makeState();
+    const curr = makeState({
+      ship: { x: 0, y: 0, vx: 100, vy: 0 },
+      observedAsteroids: [threatening, behind],
+    });
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ ttcPenalty: weight }),
+    });
+    const result = computeReward(prev, curr, action, config);
+    // Only the threatening asteroid contributes
+    const exp = expectedTTC(0, 0, 100, 0, 200, 0, 0, 0, 20);
+    expect(exp).not.toBeNull();
+    expect(result).toBeCloseTo(weight * exp.penalty, 4);
+  });
+
+  it('weight 0 disables TTC penalty', () => {
+    const asteroid = { x: 200, y: 0, vx: 0, vy: 0, collisionRadius: 20 };
+    const prev = makeState();
+    const curr = makeState({
+      ship: { x: 0, y: 0, vx: 100, vy: 0 },
+      observedAsteroids: [asteroid],
+    });
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ ttcPenalty: 0.0 }),
+    });
+    expect(computeReward(prev, curr, action, config)).toBe(0.0);
+  });
+
+  it('breakdown accumulates TTC penalty correctly', () => {
+    const weight = -1.0;
+    const asteroid = { x: 200, y: 0, vx: 0, vy: 0, collisionRadius: 20 };
+    const prev = makeState();
+    const curr = makeState({
+      ship: { x: 0, y: 0, vx: 100, vy: 0 },
+      observedAsteroids: [asteroid],
+    });
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ ttcPenalty: weight }),
+    });
+    const breakdown = {
+      survival: 0,
+      aim: 0,
+      closing: 0,
+      hit: 0,
+      gotHit: 0,
+      nearMiss: 0,
+      firePenalty: 0,
+      engagePenalty: 0,
+      proximity: 0,
+      asteroidPenalty: 0,
+      safetyShaping: 0,
+      ttcPenalty: 0,
+      win: 0,
+      loss: 0,
+      draw: 0,
+      timeout: 0,
+    };
+    const reward = computeReward(prev, curr, action, config, breakdown);
+    expect(breakdown.ttcPenalty).toBeCloseTo(reward, 5);
+    expect(breakdown.ttcPenalty).toBeLessThan(0);
+  });
+
+  it('uses collision radius including SHIP_SIZE', () => {
+    const weight = -1.0;
+    // Position the asteroid so that with r = cr + SHIP_SIZE (20+15=35) there IS a collision,
+    // but with just cr (20) there would be NO collision (trajectories pass too far apart)
+    // Ship at origin, vx=0, vy=100; asteroid at (30, 200), vx=0, vy=0
+    // dx=30, dy=200, dvx=0, dvy=-100
+    // A=10000, B=2*(30*0+200*(-100))=-40000
+    // With r=35: C=30²+200²-35²=900+40000-1225=39675
+    // disc=1.6e9-4*10000*39675=1.6e9-1.587e9=13,000,000 → positive → collision
+    // With r=20: C=900+40000-400=40500
+    // disc=1.6e9-4*10000*40500=1.6e9-1.62e9=-20,000,000 → negative → no collision
+    const asteroid = { x: 30, y: 200, vx: 0, vy: 0, collisionRadius: 20 };
+    const prev = makeState();
+    const curr = makeState({
+      ship: { x: 0, y: 0, vx: 0, vy: 100 },
+      observedAsteroids: [asteroid],
+    });
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ ttcPenalty: weight }),
+    });
+    const result = computeReward(prev, curr, action, config);
+    // With SHIP_SIZE included, there IS a collision within horizon
+    expect(result).toBeLessThan(0);
+  });
+
+  it('no penalty when both ship and asteroid have same velocity', () => {
+    const weight = -1.0;
+    // Both moving right at same speed → relative velocity = 0 → A ≈ 0 → skip
+    const asteroid = { x: 200, y: 0, vx: 100, vy: 0, collisionRadius: 20 };
+    const prev = makeState();
+    const curr = makeState({
+      ship: { x: 0, y: 0, vx: 100, vy: 0 },
+      observedAsteroids: [asteroid],
+    });
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ ttcPenalty: weight }),
+    });
+    expect(computeReward(prev, curr, action, config)).toBe(0.0);
   });
 });
