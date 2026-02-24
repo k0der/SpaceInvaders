@@ -4103,7 +4103,20 @@ function startApp() {
     });
     playerShip.thrustPower = settings.thrustPower;
 
-    const spawn = spawnEnemyPosition(playerShip.x, playerShip.y);
+    let spawn;
+    if (settings.enemyIntelligence === 'evasion') {
+      // Spawn on-screen near outer edge so player can see the enemy
+      const halfW = logicalSize.width / 2;
+      const halfH = logicalSize.height / 2;
+      const edgeDist = Math.min(halfW, halfH) * (0.6 + Math.random() * 0.2);
+      const angle = Math.random() * 2 * Math.PI;
+      spawn = {
+        x: playerShip.x + Math.cos(angle) * edgeDist,
+        y: playerShip.y + Math.sin(angle) * edgeDist,
+      };
+    } else {
+      spawn = spawnEnemyPosition(playerShip.x, playerShip.y);
+    }
     enemyShip = createShip({
       x: spawn.x,
       y: spawn.y,
