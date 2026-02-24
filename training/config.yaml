@@ -381,6 +381,7 @@ stages:
       timeout: -5.0
       engagePenalty: 0.0
       proximity: 3.0
+      asteroidPenalty: -0.3
 
   15:
     description: "Chase medium-speed fleeing enemy, 1 HP"
@@ -409,6 +410,7 @@ stages:
       timeout: -5.0
       engagePenalty: 0.0
       proximity: 3.0
+      asteroidPenalty: -0.3
 
   16:
     description: "Navigate and engage unarmed predictive-optimized, far spawn"

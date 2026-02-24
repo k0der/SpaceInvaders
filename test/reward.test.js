@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ASTEROID_PENALTY_RADIUS,
   computeReward,
   DANGER_RADIUS_BASE,
   DEFAULT_REWARD_WEIGHTS,
@@ -55,7 +56,7 @@ function makeConfig(overrides = {}) {
 // --- Tests ---
 
 describe('DEFAULT_REWARD_WEIGHTS', () => {
-  it('exports all 13 reward weight keys', () => {
+  it('exports all 14 reward weight keys', () => {
     const expected = [
       'survival',
       'aim',
@@ -70,6 +71,7 @@ describe('DEFAULT_REWARD_WEIGHTS', () => {
       'timeout',
       'engagePenalty',
       'proximity',
+      'asteroidPenalty',
     ];
     expect(Object.keys(DEFAULT_REWARD_WEIGHTS).sort()).toEqual(expected.sort());
   });
@@ -89,6 +91,7 @@ describe('DEFAULT_REWARD_WEIGHTS', () => {
       timeout: -1.0,
       engagePenalty: 0.0,
       proximity: 0.0,
+      asteroidPenalty: 0.0,
     });
   });
 });
@@ -625,6 +628,12 @@ describe('DANGER_RADIUS_BASE export', () => {
   });
 });
 
+describe('ASTEROID_PENALTY_RADIUS export', () => {
+  it('is exported and equals 150', () => {
+    expect(ASTEROID_PENALTY_RADIUS).toBe(150);
+  });
+});
+
 describe('ENGAGE_DISTANCE export', () => {
   it('is exported and equals 400', () => {
     expect(ENGAGE_DISTANCE).toBe(400);
@@ -889,6 +898,96 @@ describe('computeReward — proximity reward', () => {
   });
 });
 
+describe('computeReward — asteroid penalty', () => {
+  it('applies penalty for asteroid within ASTEROID_PENALTY_RADIUS', () => {
+    const weight = -1.0;
+    // Ship at origin, asteroid at (100, 0) — within 150px radius
+    // ratio = 1 - 100/150 = 0.333, penalty = -1.0 * 0.333^2 = -0.111
+    const asteroid = { x: 100, y: 0, collisionRadius: 20 };
+    const prev = makeState();
+    const curr = makeState({ asteroids: [asteroid] });
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ asteroidPenalty: weight }),
+    });
+    expect(computeReward(prev, curr, action, config)).toBeCloseTo(-1 / 9, 4);
+  });
+
+  it('applies no penalty when asteroid beyond ASTEROID_PENALTY_RADIUS', () => {
+    const weight = -1.0;
+    const asteroid = { x: 200, y: 0, collisionRadius: 20 };
+    const prev = makeState();
+    const curr = makeState({ asteroids: [asteroid] });
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ asteroidPenalty: weight }),
+    });
+    expect(computeReward(prev, curr, action, config)).toBe(0.0);
+  });
+
+  it('applies maximum penalty when asteroid at ship position', () => {
+    const weight = -1.0;
+    const asteroid = { x: 0, y: 0, collisionRadius: 20 };
+    const prev = makeState();
+    const curr = makeState({ asteroids: [asteroid] });
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ asteroidPenalty: weight }),
+    });
+    expect(computeReward(prev, curr, action, config)).toBeCloseTo(-1.0, 5);
+  });
+
+  it('sums penalty across multiple asteroids within radius', () => {
+    const weight = -1.0;
+    // Two asteroids at 75px (half radius): ratio = 0.5, each = -0.25
+    const a1 = { x: 75, y: 0, collisionRadius: 20 };
+    const a2 = { x: 0, y: 75, collisionRadius: 20 };
+    const prev = makeState();
+    const curr = makeState({ asteroids: [a1, a2] });
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ asteroidPenalty: weight }),
+    });
+    expect(computeReward(prev, curr, action, config)).toBeCloseTo(-0.5, 5);
+  });
+
+  it('uses fixed radius regardless of asteroid size', () => {
+    const weight = -1.0;
+    // Small asteroid (collisionRadius 8) and large (collisionRadius 64) at same distance
+    const small = { x: 100, y: 0, collisionRadius: 8 };
+    const large = { x: 100, y: 0, collisionRadius: 64 };
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ asteroidPenalty: weight }),
+    });
+    const rSmall = computeReward(
+      makeState(),
+      makeState({ asteroids: [small] }),
+      action,
+      config,
+    );
+    const rLarge = computeReward(
+      makeState(),
+      makeState({ asteroids: [large] }),
+      action,
+      config,
+    );
+    // Same penalty — fixed radius, size-independent
+    expect(rSmall).toBeCloseTo(rLarge, 5);
+  });
+
+  it('applies no penalty when weight is 0 (default)', () => {
+    const asteroid = { x: 50, y: 0, collisionRadius: 20 };
+    const prev = makeState();
+    const curr = makeState({ asteroids: [asteroid] });
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ asteroidPenalty: 0.0 }),
+    });
+    expect(computeReward(prev, curr, action, config)).toBe(0.0);
+  });
+});
+
 describe('computeReward — edge cases', () => {
   it('handles zero distance to target', () => {
     const prev = makeState({
@@ -954,7 +1053,7 @@ describe('computeReward — edge cases', () => {
 });
 
 describe('computeReward — breakdown accumulator', () => {
-  /** Create a zeroed breakdown object with all 13 keys. */
+  /** Create a zeroed breakdown object with all 14 keys. */
   function makeBreakdown() {
     return {
       survival: 0,
@@ -966,6 +1065,7 @@ describe('computeReward — breakdown accumulator', () => {
       firePenalty: 0,
       engagePenalty: 0,
       proximity: 0,
+      asteroidPenalty: 0,
       win: 0,
       loss: 0,
       draw: 0,

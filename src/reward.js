@@ -13,6 +13,7 @@ export const DEFAULT_REWARD_WEIGHTS = {
   timeout: -1.0,
   engagePenalty: 0.0,
   proximity: 0.0,
+  asteroidPenalty: 0.0,
 };
 
 /** Distance threshold (px) for aim alignment reward. */
@@ -29,6 +30,9 @@ const ENGAGE_DISTANCE_NORM = 1000;
 
 /** Multiplier on asteroid collisionRadius for near-miss danger zone. */
 export const NEAR_MISS_RADIUS_FACTOR = 3;
+
+/** Fixed radius (px) for asteroid proximity penalty — size-independent. */
+export const ASTEROID_PENALTY_RADIUS = 150;
 
 /** Base radius (px) added to every danger zone for a practical minimum buffer. */
 export const DANGER_RADIUS_BASE = 40;
@@ -125,6 +129,23 @@ export function computeReward(
       const nearMissReward = w.nearMiss * ratio * ratio;
       reward += nearMissReward;
       if (breakdown) breakdown.nearMiss += nearMissReward;
+    }
+  }
+
+  // 6b. Asteroid proximity penalty — fixed radius, size-independent
+  if (w.asteroidPenalty !== 0) {
+    for (let i = 0; i < asteroids.length; i++) {
+      const a = asteroids[i];
+      const adx = a.x - ship.x;
+      const ady = a.y - ship.y;
+      const aDist = Math.sqrt(adx * adx + ady * ady);
+
+      if (aDist < ASTEROID_PENALTY_RADIUS) {
+        const ratio = 1 - aDist / ASTEROID_PENALTY_RADIUS;
+        const penalty = w.asteroidPenalty * ratio * ratio;
+        reward += penalty;
+        if (breakdown) breakdown.asteroidPenalty += penalty;
+      }
     }
   }
 

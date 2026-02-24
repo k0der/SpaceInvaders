@@ -424,7 +424,7 @@ describe('Episode termination', () => {
     expect(result.info.winner).toBe('draw_mutual');
   });
 
-  it('terminal info includes rewardBreakdown with all 13 keys', () => {
+  it('terminal info includes rewardBreakdown with all 14 keys', () => {
     env.reset({
       shipHP: 5,
       maxTicks: 2,
@@ -447,6 +447,7 @@ describe('Episode termination', () => {
       'firePenalty',
       'engagePenalty',
       'proximity',
+      'asteroidPenalty',
       'win',
       'loss',
       'draw',

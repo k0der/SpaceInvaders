@@ -174,6 +174,7 @@ export class GameEnv {
       firePenalty: 0,
       engagePenalty: 0,
       proximity: 0,
+      asteroidPenalty: 0,
       win: 0,
       loss: 0,
       draw: 0,
