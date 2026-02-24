@@ -46,8 +46,10 @@ import {
 } from './input.js';
 import { setupHiDPICanvas } from './renderer.js';
 import {
+  BODY_RADIUS,
   CORRIDOR_HALF_WIDTH,
-  DANGER_ALONG_DECAY,
+  DANGER_BACKWARD_DECAY,
+  DANGER_FORWARD_DECAY,
   DANGER_WIDTH_DECAY,
   LOOKAHEAD_TIME,
   MIN_ASTEROID_SPEED,
@@ -672,11 +674,15 @@ export function startApp() {
             const along = dx * c.ux + dy * c.uy;
             const perp = Math.abs(dx * c.uy - dy * c.ux);
 
-            const tNorm = along / c.lookahead;
-            const wNorm = perp / CORRIDOR_HALF_WIDTH;
+            const eAlong = Math.max(Math.abs(along) - BODY_RADIUS, 0);
+            const ePerp = Math.max(perp - BODY_RADIUS, 0);
+            const tNorm = eAlong / c.lookahead;
+            const wNorm = ePerp / CORRIDOR_HALF_WIDTH;
+            const tDecay =
+              along >= 0 ? DANGER_FORWARD_DECAY : DANGER_BACKWARD_DECAY;
 
             totalDanger +=
-              Math.exp(-DANGER_ALONG_DECAY * tNorm * tNorm) *
+              Math.exp(-tDecay * tNorm * tNorm) *
               Math.exp(-DANGER_WIDTH_DECAY * wNorm * wNorm);
           }
 

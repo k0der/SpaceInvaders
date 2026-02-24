@@ -50,17 +50,25 @@ function normalizeAngle(angle) {
   return angle;
 }
 
-/** Gaussian decay rate along velocity axis (both forward and behind). */
-export const DANGER_ALONG_DECAY = 2.0;
+/** Body radius (px) used for all asteroids — largest class (SPEC §1.2). */
+export const BODY_RADIUS = 80;
 
-/** Gaussian decay rate perpendicular to velocity. */
+/** Gaussian decay rate ahead of asteroid (along velocity, beyond body). */
+export const DANGER_FORWARD_DECAY = 2.0;
+
+/** Gaussian decay rate behind asteroid (beyond body). */
+export const DANGER_BACKWARD_DECAY = 4.0;
+
+/** Gaussian decay rate perpendicular to velocity (beyond body). */
 export const DANGER_WIDTH_DECAY = 2.0;
 
 /**
  * Compute a scalar safety potential at the ship's position.
- * Continuous Gaussian field — no hard edges. Danger peaks at each asteroid
- * and decays smoothly: elongated forward along velocity, narrow perpendicular,
- * small halo behind. Overlapping fields from multiple asteroids sum naturally.
+ * Continuous Gaussian field with a flat-top body zone. Within BODY_RADIUS
+ * of any asteroid, danger is at full intensity (1.0). Beyond the body,
+ * danger decays via Gaussian — elongated forward along velocity (speed-
+ * dependent), shorter behind. Size-independent: all asteroids use the
+ * same BODY_RADIUS regardless of actual collisionRadius.
  *
  * @param {{ x: number, y: number }} ship
  * @param {Array} asteroids
@@ -84,11 +92,16 @@ export function computeSafetyPotential(ship, asteroids) {
     const perp = Math.abs(adx * uy - ady * ux);
     const lookahead = speed * LOOKAHEAD_TIME;
 
-    const tNorm = along / lookahead;
-    const wNorm = perp / CORRIDOR_HALF_WIDTH;
+    // Effective distances from body surface (0 inside body)
+    const eAlong = Math.max(Math.abs(along) - BODY_RADIUS, 0);
+    const ePerp = Math.max(perp - BODY_RADIUS, 0);
+
+    const tNorm = eAlong / lookahead;
+    const wNorm = ePerp / CORRIDOR_HALF_WIDTH;
+    const tDecay = along >= 0 ? DANGER_FORWARD_DECAY : DANGER_BACKWARD_DECAY;
 
     totalDanger +=
-      Math.exp(-DANGER_ALONG_DECAY * tNorm * tNorm) *
+      Math.exp(-tDecay * tNorm * tNorm) *
       Math.exp(-DANGER_WIDTH_DECAY * wNorm * wNorm);
   }
   return totalDanger === 0 ? 0 : -totalDanger;
