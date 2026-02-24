@@ -1317,11 +1317,10 @@ This preserves the optimal policy while providing dense, directional learning si
 - Each asteroid with speed ≥ `MIN_ASTEROID_SPEED` generates a continuous danger field:
   - Decomposed into `along` (projection onto velocity unit vector) and `perp` (perpendicular distance)
   - `tNorm = along / lookahead`, `wNorm = perp / CORRIDOR_HALF_WIDTH`
-  - `danger = exp(-tDecay × tNorm²) × exp(-DANGER_WIDTH_DECAY × wNorm²)`
-  - Forward decay (`along ≥ 0`): `DANGER_FORWARD_DECAY` (2.0) — elongated along velocity
-  - Backward decay (`along < 0`): `DANGER_BACKWARD_DECAY` (8.0) — small halo behind
-  - Width decay: `DANGER_WIDTH_DECAY` (2.0) — smooth perpendicular falloff
-- No hard edges — smooth Gaussian decay in all directions, peaks at asteroid position
+  - `danger = exp(-DANGER_ALONG_DECAY × tNorm²) × exp(-DANGER_WIDTH_DECAY × wNorm²)`
+  - Along-velocity decay: `DANGER_ALONG_DECAY` (2.0) — symmetric forward and behind
+  - Perpendicular decay: `DANGER_WIDTH_DECAY` (2.0) — smooth width falloff
+- No hard edges — smooth Gaussian decay in all directions, centered on asteroid position
 - **Size-independent**: no reference to asteroid radius or `collisionRadius`
 - Φ is cached as a scalar on the reward state (not recomputed from asteroid references)
   because asteroid positions are mutated in-place between ticks
