@@ -4000,6 +4000,10 @@ function startApp() {
     };
   }
 
+  // Offscreen canvas for safety-potential heatmap (lazy-init)
+  let hmCanvas = null;
+  let hmCtx = null;
+
   // Settings UI
   const ui = createSettingsUI(document.body, settings);
   // Apply loaded settings to simulation, ships, and starfield
@@ -4423,6 +4427,80 @@ function startApp() {
 
     drawParallaxLayers(ctx, starLayers, elapsedTime);
 
+    // Safety-potential heatmap — screen-space overlay (behind world objects)
+    if (settings.showDangerZones) {
+      const HEATMAP_CELL = 8;
+      const cols = Math.ceil(logicalSize.width / HEATMAP_CELL);
+      const rows = Math.ceil(logicalSize.height / HEATMAP_CELL);
+
+      if (!hmCanvas || hmCanvas.width !== cols || hmCanvas.height !== rows) {
+        hmCanvas = document.createElement('canvas');
+        hmCanvas.width = cols;
+        hmCanvas.height = rows;
+        hmCtx = hmCanvas.getContext('2d');
+      }
+
+      // Precompute corridor data for moving asteroids
+      const corridors = [];
+      for (const a of sim.asteroids) {
+        const avx = a.vx || 0;
+        const avy = a.vy || 0;
+        const speed = Math.sqrt(avx * avx + avy * avy);
+        if (speed < MIN_ASTEROID_SPEED) continue;
+        corridors.push({
+          x: a.x,
+          y: a.y,
+          ux: avx / speed,
+          uy: avy / speed,
+          lookahead: speed * LOOKAHEAD_TIME,
+        });
+      }
+
+      const imgData = hmCtx.createImageData(cols, rows);
+      const data = imgData.data;
+      const MAX_DANGER = 2.0;
+      const vw = logicalSize.width;
+      const vh = logicalSize.height;
+
+      for (let row = 0; row < rows; row++) {
+        const sy = row * HEATMAP_CELL + HEATMAP_CELL / 2;
+        for (let col = 0; col < cols; col++) {
+          const sx = col * HEATMAP_CELL + HEATMAP_CELL / 2;
+          const [wx, wy] = screenToWorld(sx, sy, camera, vw, vh);
+
+          let totalDanger = 0;
+          for (let i = 0; i < corridors.length; i++) {
+            const c = corridors[i];
+            const dx = wx - c.x;
+            const dy = wy - c.y;
+            const along = dx * c.ux + dy * c.uy;
+            const perp = Math.abs(dx * c.uy - dy * c.ux);
+            if (
+              along > 0 &&
+              along < c.lookahead &&
+              perp < CORRIDOR_HALF_WIDTH
+            ) {
+              const timeFactor = 1 - along / c.lookahead;
+              const widthFactor = 1 - perp / CORRIDOR_HALF_WIDTH;
+              totalDanger += timeFactor * widthFactor;
+            }
+          }
+
+          if (totalDanger > 0) {
+            const intensity = Math.min(totalDanger / MAX_DANGER, 1.0);
+            const idx = (row * cols + col) * 4;
+            data[idx] = 255;
+            data[idx + 1] = Math.round(40 * (1 - intensity));
+            data[idx + 2] = 0;
+            data[idx + 3] = Math.round(intensity * 180);
+          }
+        }
+      }
+
+      hmCtx.putImageData(imgData, 0, 0);
+      ctx.drawImage(hmCanvas, 0, 0, vw, vh);
+    }
+
     applyCameraTransform(ctx, camera, logicalSize.width, logicalSize.height);
 
     const observedSet =
@@ -4435,34 +4513,6 @@ function startApp() {
     for (const asteroid of sim.asteroids) {
       const color = observedSet?.has(asteroid) ? '#00CCFF' : '#FFFFFF';
       drawAsteroid(ctx, asteroid, color);
-    }
-
-    if (settings.showDangerZones) {
-      ctx.globalCompositeOperation = 'lighter';
-      for (const asteroid of sim.asteroids) {
-        const speed = Math.sqrt(
-          asteroid.vx * asteroid.vx + asteroid.vy * asteroid.vy,
-        );
-        if (speed < MIN_ASTEROID_SPEED) continue;
-        const lookahead = speed * LOOKAHEAD_TIME;
-        const angle = Math.atan2(asteroid.vy, asteroid.vx);
-
-        ctx.save();
-        ctx.translate(asteroid.x, asteroid.y);
-        ctx.rotate(angle);
-        const gradient = ctx.createLinearGradient(0, 0, lookahead, 0);
-        gradient.addColorStop(0, 'rgba(255, 40, 0, 0.25)');
-        gradient.addColorStop(1, 'rgba(255, 40, 0, 0.0)');
-        ctx.fillStyle = gradient;
-        ctx.fillRect(
-          0,
-          -CORRIDOR_HALF_WIDTH,
-          lookahead,
-          CORRIDOR_HALF_WIDTH * 2,
-        );
-        ctx.restore();
-      }
-      ctx.globalCompositeOperation = 'source-over';
     }
 
     if (gameState.phase === 'playing' || gameState.phase === 'ending') {
