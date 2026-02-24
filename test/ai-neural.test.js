@@ -272,6 +272,36 @@ describe('ai-neural: Fallback Behavior', () => {
       1 / 60,
     );
   });
+
+  it('populates observedAsteroids during fallback (ready=false)', () => {
+    const state = neuralStrategy.createState();
+    const asteroids = [{ x: 600, y: 500, vx: 0, vy: 0, collisionRadius: 30 }];
+    neuralStrategy.update(state, makeShip(), makeTarget(), asteroids, 1 / 60);
+
+    expect(state.observedAsteroids).toBeInstanceOf(Set);
+    expect(state.observedAsteroids.size).toBe(1);
+    expect(state.observedAsteroids.has(asteroids[0])).toBe(true);
+  });
+
+  it('does not recompute observedAsteroids in fallback guard when ready=true', () => {
+    const state = neuralStrategy.createState();
+    state.ready = true;
+    state.cachedAction = null;
+    // Prevent runInference from being called
+    state.pendingInference = true;
+    const previousSet = new Set(['marker']);
+    state.observedAsteroids = previousSet;
+
+    state.fallbackStrategy = {
+      createState: () => ({}),
+      update: vi.fn(),
+    };
+
+    neuralStrategy.update(state, makeShip(), makeTarget(), [], 1 / 60);
+
+    // The !state.ready guard should NOT fire — observedAsteroids unchanged
+    expect(state.observedAsteroids).toBe(previousSet);
+  });
 });
 
 // ── Inference Pipeline (mocked session) ─────────────────────────────
@@ -364,6 +394,33 @@ describe('ai-neural: Inference Pipeline', () => {
     neuralStrategy.update(state, ship, makeTarget(), [], 1 / 60);
 
     expect(ship.fire).toBe(false);
+  });
+
+  it('observedAsteroids set from runInference when hold timer expires', () => {
+    const state = neuralStrategy.createState();
+    state.ready = true;
+    state.cachedAction = { moveIndex: 0, fire: false };
+    state.holdTimer = 1 / 60; // expires this frame
+    // Mock a session that returns valid logits
+    state.session = {
+      run: vi.fn().mockResolvedValue({
+        logits: { data: new Float32Array(12) },
+      }),
+    };
+    // Provide window.ort.Tensor for the Tensor constructor
+    globalThis.window = {
+      ort: { Tensor: vi.fn().mockImplementation(() => ({})) },
+    };
+
+    const asteroids = [{ x: 600, y: 500, vx: 0, vy: 0, collisionRadius: 30 }];
+    neuralStrategy.update(state, makeShip(), makeTarget(), asteroids, 1 / 60);
+
+    // runInference sets observedAsteroids synchronously (before first await)
+    expect(state.observedAsteroids).toBeInstanceOf(Set);
+    expect(state.observedAsteroids.size).toBe(1);
+    expect(state.observedAsteroids.has(asteroids[0])).toBe(true);
+
+    delete globalThis.window;
   });
 
   it('falls back for one frame when ready but cachedAction is null', () => {
