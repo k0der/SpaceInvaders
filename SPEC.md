@@ -1322,7 +1322,7 @@ This preserves the optimal policy while providing dense, directional learning si
     - Perpendicular: `FIELD_RADIUS` — circular cross-section
   - `d² = (along / alongScale)² + (perp / FIELD_RADIUS)²` — normalized elliptical distance
   - `danger = exp(-DANGER_DECAY × d²)` — peaks at 1.0 at center, smooth decay outward
-  - Constants: `FIELD_RADIUS = 40px`, `DANGER_DECAY = 2.0`, `BACKWARD_SCALE = 1.5`
+  - Constants: `FIELD_RADIUS = 44px`, `DANGER_DECAY = 1.4`, `BACKWARD_SCALE = 1.1`, `LOOKAHEAD_TIME = 1.9s`
 - Pure elliptical shape — no flat-top, no hard edges, no rectangular corners
 - **Size-independent**: all asteroids use the same `FIELD_RADIUS` regardless of actual `collisionRadius`
 - Φ is cached as a scalar on the reward state (not recomputed from asteroid references)

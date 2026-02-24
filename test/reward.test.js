@@ -644,8 +644,8 @@ describe('CORRIDOR_HALF_WIDTH export', () => {
 });
 
 describe('LOOKAHEAD_TIME export', () => {
-  it('is exported and equals 1.5', () => {
-    expect(LOOKAHEAD_TIME).toBe(1.5);
+  it('is exported and equals 1.9', () => {
+    expect(LOOKAHEAD_TIME).toBe(1.9);
   });
 });
 
@@ -924,10 +924,9 @@ describe('computeReward — asteroid danger track penalty', () => {
     const weight = -1.0;
     // Asteroid at origin moving right at 100 px/s
     // Ship at (50, 0) — directly ahead, center of track
-    // lookahead = 100 * 1.5 = 150
+    // lookahead = 100 * LOOKAHEAD_TIME = 190
     // along = 50, perp = 0
-    // timeFactor = 1 - 50/150 = 2/3, widthFactor = 1 - 0/80 = 1
-    // penalty = -1.0 * (2/3) * 1 = -0.6667
+    // timeFactor = 1 - 50/190, widthFactor = 1 - 0/80 = 1
     const asteroid = { x: 0, y: 0, vx: 100, vy: 0, collisionRadius: 20 };
     const prev = makeState();
     const curr = makeState({ ship: { x: 50, y: 0 }, asteroids: [asteroid] });
@@ -935,7 +934,9 @@ describe('computeReward — asteroid danger track penalty', () => {
     const config = makeConfig({
       rewardWeights: zeroWeights({ asteroidPenalty: weight }),
     });
-    expect(computeReward(prev, curr, action, config)).toBeCloseTo(-2 / 3, 4);
+    const lookahead = 100 * LOOKAHEAD_TIME;
+    const expected = -1.0 * (1 - 50 / lookahead) * 1;
+    expect(computeReward(prev, curr, action, config)).toBeCloseTo(expected, 4);
   });
 
   it('no penalty when ship is behind asteroid', () => {
@@ -1092,13 +1093,9 @@ describe('computeReward — asteroid danger track penalty', () => {
   it('diagonal velocity works correctly', () => {
     const weight = -1.0;
     // Asteroid moving diagonally at (60, 80) → speed = 100
-    // Ship at (60, 80) — exactly along velocity direction, along = 100
-    // lookahead = 100 * 1.5 = 150
-    // ux = 0.6, uy = 0.8
-    // dx = 60, dy = 80; along = 60*0.6 + 80*0.8 = 36 + 64 = 100
-    // perp = |60*0.8 - 80*0.6| = |48 - 48| = 0
-    // timeFactor = 1 - 100/150 = 1/3, widthFactor = 1
-    // penalty = -1.0 * (1/3) * 1 = -0.3333
+    // Ship at (60, 80) — along = 100, perp = 0
+    // lookahead = 100 * LOOKAHEAD_TIME
+    // timeFactor = 1 - 100/lookahead, widthFactor = 1
     const asteroid = { x: 0, y: 0, vx: 60, vy: 80, collisionRadius: 20 };
     const prev = makeState();
     const curr = makeState({ ship: { x: 60, y: 80 }, asteroids: [asteroid] });
@@ -1106,7 +1103,9 @@ describe('computeReward — asteroid danger track penalty', () => {
     const config = makeConfig({
       rewardWeights: zeroWeights({ asteroidPenalty: weight }),
     });
-    expect(computeReward(prev, curr, action, config)).toBeCloseTo(-1 / 3, 4);
+    const lookahead = 100 * LOOKAHEAD_TIME;
+    const expected = -1.0 * (1 - 100 / lookahead) * 1;
+    expect(computeReward(prev, curr, action, config)).toBeCloseTo(expected, 4);
   });
 
   it('no penalty beyond lookahead distance', () => {
@@ -1458,12 +1457,11 @@ describe('computeSafetyPotential', () => {
 
   it('diagonal velocity works correctly', () => {
     // Asteroid moving diagonally at (60, 80) → speed = 100
-    // Ship at (60, 80): along = 100, perp = 0, lookahead = 150
-    // fwdScale = FIELD_RADIUS + 150 = 190
-    // nAlong = 100/190, nPerp = 0, d² = (100/190)²
+    // Ship at (60, 80): along = 100, perp = 0
+    // lookahead = 100 * LOOKAHEAD_TIME, fwdScale = FIELD_RADIUS + lookahead
     const asteroid = { x: 0, y: 0, vx: 60, vy: 80 };
     const result = computeSafetyPotential({ x: 60, y: 80 }, [asteroid]);
-    const fwdScale = FIELD_RADIUS + 150;
+    const fwdScale = FIELD_RADIUS + 100 * LOOKAHEAD_TIME;
     const nAlong = 100 / fwdScale;
     expect(result).toBeCloseTo(-Math.exp(-DANGER_DECAY * nAlong * nAlong), 4);
   });
@@ -1591,9 +1589,9 @@ describe('computeSafetyPotential — elliptical field shape', () => {
 
   it('slow asteroid danger is compact', () => {
     const slow = { x: 0, y: 0, vx: 15, vy: 0 };
-    // fwdScale = 40 + 22.5 = 62.5
-    // At 100px ahead: nAlong = 100/62.5 = 1.6, d² = 2.56, danger ≈ exp(-5.12) ≈ 0.006
-    const result = computeSafetyPotential({ x: 100, y: 0 }, [slow]);
+    // fwdScale = FIELD_RADIUS + 15 * LOOKAHEAD_TIME
+    // At 150px ahead: nAlong = 150/fwdScale → heavily decayed
+    const result = computeSafetyPotential({ x: 150, y: 0 }, [slow]);
     expect(result).toBeGreaterThan(-0.01);
   });
 });

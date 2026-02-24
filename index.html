@@ -4894,7 +4894,7 @@ const NEAR_MISS_RADIUS_FACTOR = 3;
 const CORRIDOR_HALF_WIDTH = 80;
 
 /** Lookahead time (seconds) — multiplied by asteroid speed for track length. */
-const LOOKAHEAD_TIME = 1.5;
+const LOOKAHEAD_TIME = 1.9;
 
 /** Minimum asteroid speed (px/s) to generate a danger track. */
 const MIN_ASTEROID_SPEED = 5;
@@ -4909,13 +4909,13 @@ function normalizeAngle(angle) {
 }
 
 /** Base radius (px) for Gaussian field scaling — average large asteroid. */
-const FIELD_RADIUS = 40;
+const FIELD_RADIUS = 44;
 
 /** Gaussian steepness — controls how quickly danger decays with distance. */
-const DANGER_DECAY = 2.0;
+const DANGER_DECAY = 1.4;
 
 /** Backward scale multiplier — alongScale behind = FIELD_RADIUS × this. */
-const BACKWARD_SCALE = 1.5;
+const BACKWARD_SCALE = 1.1;
 
 /**
  * Compute a scalar safety potential at the ship's position.

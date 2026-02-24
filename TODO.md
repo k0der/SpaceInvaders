@@ -1602,7 +1602,7 @@ Increments 31–37 add a third intelligence type — a neural network trained vi
 - [x] Returns 0 when no asteroids nearby, negative near asteroid paths
 - [x] Elliptical Gaussian field — peaks at center (1.0), smooth decay outward, no flat-top or rectangular corners
 - [x] Directional: forward scale = `FIELD_RADIUS + lookahead` (speed stretches ahead), backward = `FIELD_RADIUS × BACKWARD_SCALE`, perp = `FIELD_RADIUS`
-- [x] Constants: `FIELD_RADIUS=40`, `DANGER_DECAY=2.0`, `BACKWARD_SCALE=1.5`
+- [x] Constants: `FIELD_RADIUS=44`, `DANGER_DECAY=1.4`, `BACKWARD_SCALE=1.1`, `LOOKAHEAD_TIME=1.9`
 - [x] Size-independent — all asteroids use same `FIELD_RADIUS` regardless of actual `collisionRadius`
 - [x] `safetyShaping` added to `DEFAULT_REWARD_WEIGHTS` (default 0.0)
 - [x] `computeReward` computes `safetyShaping × (currentΦ - prevΦ)` when weight ≠ 0
