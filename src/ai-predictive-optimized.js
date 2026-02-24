@@ -731,7 +731,7 @@ registerStrategy('fleeing', fleeingStrategy);
 // ─── Evasion AI ───────────────────────────────────────────────────────────────
 
 /** Sampling radius (px) for evasion waypoint candidates around the anchor. */
-export const EVASION_WAYPOINT_RADIUS = 1500;
+export const EVASION_WAYPOINT_RADIUS = 2500;
 
 /** Distance (px) at which the ship is considered to have arrived at its waypoint. */
 export const EVASION_ARRIVAL_DIST = 100;
@@ -740,7 +740,7 @@ export const EVASION_ARRIVAL_DIST = 100;
 export const EVASION_MAX_HOLD_TIME = 3.0;
 
 /** Number of random candidate points sampled per waypoint selection. */
-export const EVASION_CANDIDATES = 8;
+export const EVASION_CANDIDATES = 12;
 
 /** Scoring weights for evasion behavior (navigate toward waypoint, no firing). */
 export const EVASION_SCORING_WEIGHTS = {

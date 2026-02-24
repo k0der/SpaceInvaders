@@ -2711,8 +2711,8 @@ describe('ai-predictive-optimized: fleeingStrategy', () => {
 // ─── Evasion AI ───────────────────────────────────────────────────────────────
 
 describe('ai-predictive-optimized: Evasion constants', () => {
-  it('exports EVASION_WAYPOINT_RADIUS as 1500', () => {
-    expect(EVASION_WAYPOINT_RADIUS).toBe(1500);
+  it('exports EVASION_WAYPOINT_RADIUS as 2500', () => {
+    expect(EVASION_WAYPOINT_RADIUS).toBe(2500);
   });
 
   it('exports EVASION_ARRIVAL_DIST as 100', () => {
@@ -2723,8 +2723,8 @@ describe('ai-predictive-optimized: Evasion constants', () => {
     expect(EVASION_MAX_HOLD_TIME).toBe(3.0);
   });
 
-  it('exports EVASION_CANDIDATES as 8', () => {
-    expect(EVASION_CANDIDATES).toBe(8);
+  it('exports EVASION_CANDIDATES as 12', () => {
+    expect(EVASION_CANDIDATES).toBe(12);
   });
 
   it('exports EVASION_SCORING_WEIGHTS with correct shape', () => {
