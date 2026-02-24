@@ -730,9 +730,8 @@ registerStrategy('fleeing', fleeingStrategy);
 
 // ─── Evasion AI ───────────────────────────────────────────────────────────────
 
-/** Sampling radius (px) for evasion waypoint candidates around the ship.
- *  ~800px keeps waypoints roughly within one viewport width of the ship. */
-export const EVASION_WAYPOINT_RADIUS = 800;
+/** Sampling radius (px) for evasion waypoint candidates around the anchor. */
+export const EVASION_WAYPOINT_RADIUS = 1500;
 
 /** Distance (px) at which the ship is considered to have arrived at its waypoint. */
 export const EVASION_ARRIVAL_DIST = 100;
@@ -788,19 +787,21 @@ export function pointToSegmentDist(px, py, ax, ay, bx, by) {
 
 /**
  * Select a random waypoint whose path avoids the agent's firing zone.
- * Samples `numCandidates` random points within `radius` of `ship`,
+ * Samples `numCandidates` random points within `radius` of `anchor`,
  * rejects any candidate where the ship→waypoint path passes within
  * `dangerRange` of the agent, picks one at random.
  * Falls back to the farthest candidate if all are rejected.
  *
- * @param {{ x: number, y: number }} ship
- * @param {{ x: number, y: number }} agent
+ * @param {{ x: number, y: number }} anchor - center point for sampling (e.g., agent spawn)
+ * @param {{ x: number, y: number }} ship - current ship position (for path checking)
+ * @param {{ x: number, y: number }} agent - current agent position (danger source)
  * @param {number} radius
  * @param {number} numCandidates
  * @param {number} [dangerRange] - min path distance from agent (default: EVASION_DANGER_RANGE)
  * @returns {{ x: number, y: number, vx: number, vy: number, alive: boolean }}
  */
 export function selectWaypoint(
+  anchor,
   ship,
   agent,
   radius,
@@ -808,15 +809,15 @@ export function selectWaypoint(
   dangerRange = EVASION_DANGER_RANGE,
 ) {
   const valid = [];
-  let farthestX = ship.x;
-  let farthestY = ship.y;
+  let farthestX = anchor.x;
+  let farthestY = anchor.y;
   let farthestDist = -Infinity;
 
   for (let i = 0; i < numCandidates; i++) {
     const angle = Math.random() * 2 * Math.PI;
     const r = Math.sqrt(Math.random()) * radius;
-    const cx = ship.x + Math.cos(angle) * r;
-    const cy = ship.y + Math.sin(angle) * r;
+    const cx = anchor.x + Math.cos(angle) * r;
+    const cy = anchor.y + Math.sin(angle) * r;
 
     // Reject if the path ship→candidate passes within dangerRange of the agent
     const pathDist = pointToSegmentDist(
@@ -863,6 +864,7 @@ function createEvasionState(config = {}) {
     canFire: false,
     waypoint: null,
     waypointTimer: 0,
+    anchor: null,
     evasionWaypointRadius:
       config.evasionWaypointRadius ?? EVASION_WAYPOINT_RADIUS,
     evasionArrivalDist: config.evasionArrivalDist ?? EVASION_ARRIVAL_DIST,
@@ -889,6 +891,11 @@ function updateEvasionAI(state, ship, target, asteroids, dt) {
   // Apply speed factor (overrides any previous maxSpeed setting)
   ship.maxSpeed = MAX_SPEED * state.evasionSpeedFactor;
 
+  // Capture anchor on first frame (agent's spawn position)
+  if (state.anchor === null) {
+    state.anchor = { x: target.x, y: target.y };
+  }
+
   // Advance waypoint timer
   state.waypointTimer += dt;
 
@@ -910,6 +917,7 @@ function updateEvasionAI(state, ship, target, asteroids, dt) {
 
   if (needNewWaypoint) {
     state.waypoint = selectWaypoint(
+      state.anchor,
       ship,
       target,
       state.evasionWaypointRadius,

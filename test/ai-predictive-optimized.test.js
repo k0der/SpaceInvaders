@@ -2711,8 +2711,8 @@ describe('ai-predictive-optimized: fleeingStrategy', () => {
 // ─── Evasion AI ───────────────────────────────────────────────────────────────
 
 describe('ai-predictive-optimized: Evasion constants', () => {
-  it('exports EVASION_WAYPOINT_RADIUS as 800', () => {
-    expect(EVASION_WAYPOINT_RADIUS).toBe(800);
+  it('exports EVASION_WAYPOINT_RADIUS as 1500', () => {
+    expect(EVASION_WAYPOINT_RADIUS).toBe(1500);
   });
 
   it('exports EVASION_ARRIVAL_DIST as 100', () => {
@@ -2771,9 +2771,10 @@ describe('ai-predictive-optimized: pointToSegmentDist', () => {
 
 describe('ai-predictive-optimized: selectWaypoint', () => {
   it('returns object with x, y, vx, vy, alive', () => {
-    const ship = { x: 500, y: 500 };
+    const anchor = { x: 500, y: 500 };
+    const ship = { x: 600, y: 500 };
     const agent = { x: 0, y: 0 };
-    const wp = selectWaypoint(ship, agent, 1500, 8);
+    const wp = selectWaypoint(anchor, ship, agent, 1500, 8);
     expect(typeof wp.x).toBe('number');
     expect(typeof wp.y).toBe('number');
     expect(wp.vx).toBe(0);
@@ -2781,27 +2782,29 @@ describe('ai-predictive-optimized: selectWaypoint', () => {
     expect(wp.alive).toBe(true);
   });
 
-  it('waypoint is within radius of ship', () => {
-    const ship = { x: 1000, y: 1000 };
+  it('waypoint is within radius of anchor', () => {
+    const anchor = { x: 1000, y: 1000 };
+    const ship = { x: 1200, y: 1000 };
     const agent = { x: 0, y: 0 };
     for (let i = 0; i < 50; i++) {
-      const wp = selectWaypoint(ship, agent, 1500, 8);
-      const dx = wp.x - ship.x;
-      const dy = wp.y - ship.y;
+      const wp = selectWaypoint(anchor, ship, agent, 1500, 8);
+      const dx = wp.x - anchor.x;
+      const dy = wp.y - anchor.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
       expect(dist).toBeLessThanOrEqual(1500 + 1); // tolerance for float
     }
   });
 
   it('rejects waypoints whose path crosses near the agent (statistical)', () => {
-    // Ship far enough from agent that the starting point isn't inside danger zone
+    // Anchor at center, ship far from agent so starting point isn't in danger zone
+    const anchor = { x: 750, y: 500 };
     const ship = { x: 1500, y: 500 };
     const agent = { x: 0, y: 500 };
     const dangerRange = 500;
     const N = 200;
     let pathViolations = 0;
     for (let i = 0; i < N; i++) {
-      const wp = selectWaypoint(ship, agent, 1500, 16, dangerRange);
+      const wp = selectWaypoint(anchor, ship, agent, 1500, 16, dangerRange);
       const pathDist = pointToSegmentDist(
         agent.x,
         agent.y,
@@ -2817,21 +2820,23 @@ describe('ai-predictive-optimized: selectWaypoint', () => {
   });
 
   it('works when agent and ship are co-located', () => {
+    const anchor = { x: 100, y: 100 };
     const ship = { x: 100, y: 100 };
     const agent = { x: 100, y: 100 };
-    const wp = selectWaypoint(ship, agent, 1500, 8);
+    const wp = selectWaypoint(anchor, ship, agent, 1500, 8);
     expect(Number.isFinite(wp.x)).toBe(true);
     expect(Number.isFinite(wp.y)).toBe(true);
   });
 
   it('respects the radius parameter', () => {
+    const anchor = { x: 0, y: 0 };
     const ship = { x: 0, y: 0 };
     const agent = { x: 1000, y: 0 };
     const smallRadius = 100;
     for (let i = 0; i < 30; i++) {
-      const wp = selectWaypoint(ship, agent, smallRadius, 8);
-      const dx = wp.x - ship.x;
-      const dy = wp.y - ship.y;
+      const wp = selectWaypoint(anchor, ship, agent, smallRadius, 8);
+      const dx = wp.x - anchor.x;
+      const dy = wp.y - anchor.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
       expect(dist).toBeLessThanOrEqual(smallRadius + 1);
     }
@@ -2851,6 +2856,7 @@ describe('ai-predictive-optimized: evasionStrategy', () => {
     expect(state.canFire).toBe(false);
     expect(state.waypoint).toBe(null);
     expect(state.waypointTimer).toBe(0);
+    expect(state.anchor).toBe(null);
   });
 
   it('createState respects config overrides', () => {
@@ -2879,6 +2885,16 @@ describe('ai-predictive-optimized: evasionStrategy', () => {
     expect(state.waypoint.alive).toBe(true);
     expect(state.waypoint.vx).toBe(0);
     expect(state.waypoint.vy).toBe(0);
+  });
+
+  it('captures anchor from agent position on first call', () => {
+    const state = evasionStrategy.createState({});
+    const ship = createShip({ x: 500, y: 500, heading: 0, owner: 'enemy' });
+    const target = createShip({ x: 200, y: 300, heading: 0, owner: 'player' });
+
+    evasionStrategy.update(state, ship, target, [], 0.016);
+
+    expect(state.anchor).toEqual({ x: 200, y: 300 });
   });
 
   it('update applies speed factor to ship.maxSpeed', () => {
