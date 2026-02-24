@@ -560,6 +560,7 @@ def train_stage(
             "evasionMaxHoldTime",
             "evasionCandidates",
             "evasionSpeedFactor",
+            "enemyFireCooldown",
             "campCheckTicks",
             "campMinClosing",
         )

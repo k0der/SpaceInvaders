@@ -150,6 +150,10 @@ export class GameEnv {
       if (c.aiSimSteps != null) this._strategyState.simSteps = c.aiSimSteps;
     }
 
+    // Opponent fire rate override (null = use default FIRE_COOLDOWN)
+    this._enemyFireCooldown =
+      c.enemyFireCooldown != null ? c.enemyFireCooldown : null;
+
     // Bullets
     this._bullets = [];
 
@@ -250,7 +254,7 @@ export class GameEnv {
 
       // 4. Bullet firing
       this._tryFire(this._agent);
-      this._tryFire(this._opponent);
+      this._tryFire(this._opponent, this._enemyFireCooldown);
 
       // 5. Update camera to follow agent
       this._camera.x = this._agent.x;
@@ -436,7 +440,7 @@ export class GameEnv {
    * Attempt to fire a bullet from a ship.
    * Inline implementation (logic mirrors simulate.js tryFireBullet).
    */
-  _tryFire(ship) {
+  _tryFire(ship, cooldownOverride) {
     ship.fireCooldown = Math.max(ship.fireCooldown - DT, 0);
     if (ship.fire && ship.fireCooldown <= 0 && ship.alive) {
       const noseX = ship.x + Math.cos(ship.heading) * SHIP_SIZE;
@@ -444,7 +448,7 @@ export class GameEnv {
       this._bullets.push(
         createBullet(noseX, noseY, ship.heading, ship.vx, ship.vy, ship.owner),
       );
-      ship.fireCooldown = FIRE_COOLDOWN;
+      ship.fireCooldown = cooldownOverride ?? FIRE_COOLDOWN;
     }
   }
 

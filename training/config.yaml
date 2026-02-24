@@ -471,18 +471,113 @@ stages:
       proximity: 3.0
 
   18:
-    description: "Self-play, far spawn, short timeout"
+    description: "Slow evasion through full asteroid field, 3 HP buffer"
+    shipHP: 3
+    enemyHP: 1
+    maxTicks: 1800
+    asteroidDensity: 1.0
+    enemyPolicy: "evasion"
+    enemyShoots: false
+    aiMaxSpeedFactor: 1.2
+    evasionWaypointRadius: 1000
+    evasionMaxHoldTime: 2.0
+    spawnDistance: [500, 1000]
+    spawnFacing: false
+    frameSkip: 2
+    campCheckTicks: 0
+    promotionThreshold: 0.75
+    rewardWeights:
+      survival: 0.0
+      aim: 0.01
+      closing: 0.01
+      hit: 1.0
+      gotHit: -1.0
+      nearMiss: -0.1
+      firePenalty: -0.002
+      win: 5.0
+      loss: -5.0
+      draw: -3.5
+      timeout: -5.0
+      engagePenalty: 0.0
+      proximity: 0.5
+      asteroidPenalty: -0.15
+
+  19:
+    description: "Fast evasion through full asteroid field, 1 HP"
+    shipHP: 1
+    maxTicks: 1200
+    asteroidDensity: 1.0
+    enemyPolicy: "evasion"
+    enemyShoots: false
+    aiMaxSpeedFactor: 1.5
+    evasionWaypointRadius: 1500
+    evasionMaxHoldTime: 3.0
+    spawnDistance: [500, 1000]
+    spawnFacing: false
+    frameSkip: 2
+    campCheckTicks: 0
+    promotionThreshold: 0.80
+    rewardWeights:
+      survival: 0.0
+      aim: 0.01
+      closing: 0.01
+      hit: 1.0
+      gotHit: -1.0
+      nearMiss: -0.1
+      firePenalty: -0.002
+      win: 5.0
+      loss: -5.0
+      draw: -3.5
+      timeout: -5.0
+      engagePenalty: 0.0
+      proximity: 0.5
+      asteroidPenalty: -0.15
+
+  20:
+    description: "Far spawn evasion through full asteroid field"
+    shipHP: 1
+    maxTicks: 1200
+    asteroidDensity: 1.0
+    enemyPolicy: "evasion"
+    enemyShoots: false
+    aiMaxSpeedFactor: 1.5
+    evasionWaypointRadius: 1500
+    evasionMaxHoldTime: 3.0
+    spawnDistance: [1000, 2000]
+    spawnFacing: false
+    frameSkip: 2
+    campCheckTicks: 0
+    promotionThreshold: 0.70
+    rewardWeights:
+      survival: 0.0
+      aim: 0.01
+      closing: 0.01
+      hit: 1.0
+      gotHit: -1.0
+      nearMiss: -0.1
+      firePenalty: -0.002
+      win: 5.0
+      loss: -5.0
+      draw: -3.5
+      timeout: -5.0
+      engagePenalty: 0.0
+      proximity: 0.5
+      asteroidPenalty: -0.15
+
+  21:
+    description: "Self-play, nerfed opponent fire rate, full asteroids"
     shipHP: 1
     maxTicks: 1200
     asteroidDensity: 1.0
     enemyPolicy: "self-play"
     enemyShoots: true
+    enemyFireCooldown: 0.6
     spawnDistance: [1000, 2000]
     spawnFacing: false
     frameSkip: 2
     campCheckTicks: 0
     selfPlayModelPath: "training/checkpoints/selfplay/opponent_snapshot.onnx"
-    promotionThreshold: 0.70
+    promotionThreshold: 0.60
     rewardWeights:
       survival: 0.0
       aim: 0.01
@@ -496,6 +591,36 @@ stages:
       draw: -3.5
       timeout: -5.0
       engagePenalty: 0.0
-      proximity: 3.0
+      proximity: 1.5
+      asteroidPenalty: -0.15
+
+  22:
+    description: "Self-play, full strength, full asteroids"
+    shipHP: 1
+    maxTicks: 1200
+    asteroidDensity: 1.0
+    enemyPolicy: "self-play"
+    enemyShoots: true
+    spawnDistance: [1000, 2000]
+    spawnFacing: false
+    frameSkip: 2
+    campCheckTicks: 0
+    selfPlayModelPath: "training/checkpoints/selfplay/opponent_snapshot.onnx"
+    promotionThreshold: 0.55
+    rewardWeights:
+      survival: 0.0
+      aim: 0.01
+      closing: 0.0
+      hit: 1.0
+      gotHit: -1.0
+      nearMiss: -0.1
+      firePenalty: -0.002
+      win: 5.0
+      loss: -5.0
+      draw: -3.5
+      timeout: -5.0
+      engagePenalty: 0.0
+      proximity: 1.5
+      asteroidPenalty: -0.15
 
 
