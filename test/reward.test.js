@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
-  ASTEROID_PENALTY_RADIUS,
+  CORRIDOR_HALF_WIDTH,
   computeReward,
   DANGER_RADIUS_BASE,
   DEFAULT_REWARD_WEIGHTS,
   ENGAGE_DISTANCE,
+  LOOKAHEAD_TIME,
+  MIN_ASTEROID_SPEED,
   NEAR_MISS_RADIUS_FACTOR,
 } from '../src/reward.js';
 
@@ -628,9 +630,21 @@ describe('DANGER_RADIUS_BASE export', () => {
   });
 });
 
-describe('ASTEROID_PENALTY_RADIUS export', () => {
-  it('is exported and equals 150', () => {
-    expect(ASTEROID_PENALTY_RADIUS).toBe(150);
+describe('CORRIDOR_HALF_WIDTH export', () => {
+  it('is exported and equals 80', () => {
+    expect(CORRIDOR_HALF_WIDTH).toBe(80);
+  });
+});
+
+describe('LOOKAHEAD_TIME export', () => {
+  it('is exported and equals 1.5', () => {
+    expect(LOOKAHEAD_TIME).toBe(1.5);
+  });
+});
+
+describe('MIN_ASTEROID_SPEED export', () => {
+  it('is exported and equals 5', () => {
+    expect(MIN_ASTEROID_SPEED).toBe(5);
   });
 });
 
@@ -898,26 +912,31 @@ describe('computeReward — proximity reward', () => {
   });
 });
 
-describe('computeReward — asteroid penalty', () => {
-  it('applies penalty for asteroid within ASTEROID_PENALTY_RADIUS', () => {
+describe('computeReward — asteroid danger track penalty', () => {
+  it('penalizes ship in corridor ahead of moving asteroid', () => {
     const weight = -1.0;
-    // Ship at origin, asteroid at (100, 0) — within 150px radius
-    // ratio = 1 - 100/150 = 0.333, penalty = -1.0 * 0.333^2 = -0.111
-    const asteroid = { x: 100, y: 0, collisionRadius: 20 };
+    // Asteroid at origin moving right at 100 px/s
+    // Ship at (50, 0) — directly ahead, center of track
+    // lookahead = 100 * 1.5 = 150
+    // along = 50, perp = 0
+    // timeFactor = 1 - 50/150 = 2/3, widthFactor = 1 - 0/80 = 1
+    // penalty = -1.0 * (2/3) * 1 = -0.6667
+    const asteroid = { x: 0, y: 0, vx: 100, vy: 0, collisionRadius: 20 };
     const prev = makeState();
-    const curr = makeState({ asteroids: [asteroid] });
+    const curr = makeState({ ship: { x: 50, y: 0 }, asteroids: [asteroid] });
     const action = { moveAction: 0, fireAction: 0 };
     const config = makeConfig({
       rewardWeights: zeroWeights({ asteroidPenalty: weight }),
     });
-    expect(computeReward(prev, curr, action, config)).toBeCloseTo(-1 / 9, 4);
+    expect(computeReward(prev, curr, action, config)).toBeCloseTo(-2 / 3, 4);
   });
 
-  it('applies no penalty when asteroid beyond ASTEROID_PENALTY_RADIUS', () => {
+  it('no penalty when ship is behind asteroid', () => {
     const weight = -1.0;
-    const asteroid = { x: 200, y: 0, collisionRadius: 20 };
+    // Asteroid at (100, 0) moving right; ship at origin → behind
+    const asteroid = { x: 100, y: 0, vx: 100, vy: 0, collisionRadius: 20 };
     const prev = makeState();
-    const curr = makeState({ asteroids: [asteroid] });
+    const curr = makeState({ ship: { x: 0, y: 0 }, asteroids: [asteroid] });
     const action = { moveAction: 0, fireAction: 0 };
     const config = makeConfig({
       rewardWeights: zeroWeights({ asteroidPenalty: weight }),
@@ -925,66 +944,205 @@ describe('computeReward — asteroid penalty', () => {
     expect(computeReward(prev, curr, action, config)).toBe(0.0);
   });
 
-  it('applies maximum penalty when asteroid at ship position', () => {
+  it('no penalty when ship is to the side of track', () => {
     const weight = -1.0;
-    const asteroid = { x: 0, y: 0, collisionRadius: 20 };
+    // Asteroid at origin moving right; ship at (50, 100) → perp = 100 > 80
+    const asteroid = { x: 0, y: 0, vx: 100, vy: 0, collisionRadius: 20 };
     const prev = makeState();
-    const curr = makeState({ asteroids: [asteroid] });
+    const curr = makeState({ ship: { x: 50, y: 100 }, asteroids: [asteroid] });
     const action = { moveAction: 0, fireAction: 0 };
     const config = makeConfig({
       rewardWeights: zeroWeights({ asteroidPenalty: weight }),
     });
-    expect(computeReward(prev, curr, action, config)).toBeCloseTo(-1.0, 5);
+    expect(computeReward(prev, curr, action, config)).toBe(0.0);
   });
 
-  it('sums penalty across multiple asteroids within radius', () => {
+  it('edge of corridor is weaker than center', () => {
     const weight = -1.0;
-    // Two asteroids at 75px (half radius): ratio = 0.5, each = -0.25
-    const a1 = { x: 75, y: 0, collisionRadius: 20 };
-    const a2 = { x: 0, y: 75, collisionRadius: 20 };
-    const prev = makeState();
-    const curr = makeState({ asteroids: [a1, a2] });
+    // Both at along = 50 (same timeFactor), different perp
+    const asteroid = { x: 0, y: 0, vx: 100, vy: 0, collisionRadius: 20 };
     const action = { moveAction: 0, fireAction: 0 };
     const config = makeConfig({
       rewardWeights: zeroWeights({ asteroidPenalty: weight }),
     });
-    expect(computeReward(prev, curr, action, config)).toBeCloseTo(-0.5, 5);
-  });
-
-  it('uses fixed radius regardless of asteroid size', () => {
-    const weight = -1.0;
-    // Small asteroid (collisionRadius 8) and large (collisionRadius 64) at same distance
-    const small = { x: 100, y: 0, collisionRadius: 8 };
-    const large = { x: 100, y: 0, collisionRadius: 64 };
-    const action = { moveAction: 0, fireAction: 0 };
-    const config = makeConfig({
-      rewardWeights: zeroWeights({ asteroidPenalty: weight }),
-    });
-    const rSmall = computeReward(
+    // Center: perp = 0
+    const rCenter = computeReward(
       makeState(),
-      makeState({ asteroids: [small] }),
+      makeState({ ship: { x: 50, y: 0 }, asteroids: [asteroid] }),
       action,
       config,
     );
-    const rLarge = computeReward(
+    // Edge: perp = 40 (half of CORRIDOR_HALF_WIDTH)
+    const rEdge = computeReward(
       makeState(),
-      makeState({ asteroids: [large] }),
+      makeState({ ship: { x: 50, y: 40 }, asteroids: [asteroid] }),
       action,
       config,
     );
-    // Same penalty — fixed radius, size-independent
-    expect(rSmall).toBeCloseTo(rLarge, 5);
+    expect(rCenter).toBeLessThan(rEdge); // more negative = stronger
+    expect(rEdge).toBeLessThan(0);
   });
 
-  it('applies no penalty when weight is 0 (default)', () => {
-    const asteroid = { x: 50, y: 0, collisionRadius: 20 };
+  it('closer in time (along-track) gives stronger penalty', () => {
+    const weight = -1.0;
+    const asteroid = { x: 0, y: 0, vx: 100, vy: 0, collisionRadius: 20 };
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ asteroidPenalty: weight }),
+    });
+    // Close (along = 10)
+    const rClose = computeReward(
+      makeState(),
+      makeState({ ship: { x: 10, y: 0 }, asteroids: [asteroid] }),
+      action,
+      config,
+    );
+    // Far (along = 100)
+    const rFar = computeReward(
+      makeState(),
+      makeState({ ship: { x: 100, y: 0 }, asteroids: [asteroid] }),
+      action,
+      config,
+    );
+    expect(rClose).toBeLessThan(rFar); // more negative
+  });
+
+  it('skips stationary/slow asteroid (speed < MIN_ASTEROID_SPEED)', () => {
+    const weight = -1.0;
+    // Asteroid barely moving (vx=2) — below MIN_ASTEROID_SPEED (5)
+    const asteroid = { x: 0, y: 0, vx: 2, vy: 0, collisionRadius: 20 };
     const prev = makeState();
-    const curr = makeState({ asteroids: [asteroid] });
+    const curr = makeState({ ship: { x: 10, y: 0 }, asteroids: [asteroid] });
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ asteroidPenalty: weight }),
+    });
+    expect(computeReward(prev, curr, action, config)).toBe(0.0);
+  });
+
+  it('faster asteroid produces longer track (penalizes at same position)', () => {
+    const weight = -1.0;
+    // Ship at (120, 0) — ahead of asteroid at origin
+    // Slow asteroid: speed=50, lookahead=75 → along=120 > 75 → no penalty
+    // Fast asteroid: speed=100, lookahead=150 → along=120 < 150 → penalized
+    const slow = { x: 0, y: 0, vx: 50, vy: 0, collisionRadius: 20 };
+    const fast = { x: 0, y: 0, vx: 100, vy: 0, collisionRadius: 20 };
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ asteroidPenalty: weight }),
+    });
+    const rSlow = computeReward(
+      makeState(),
+      makeState({ ship: { x: 120, y: 0 }, asteroids: [slow] }),
+      action,
+      config,
+    );
+    const rFast = computeReward(
+      makeState(),
+      makeState({ ship: { x: 120, y: 0 }, asteroids: [fast] }),
+      action,
+      config,
+    );
+    expect(rSlow).toBe(0.0); // beyond lookahead
+    expect(rFast).toBeLessThan(0); // within lookahead
+  });
+
+  it('sums penalty across multiple asteroids', () => {
+    const weight = -1.0;
+    // Two asteroids both moving right, ship ahead of both
+    const a1 = { x: 0, y: 0, vx: 100, vy: 0, collisionRadius: 20 };
+    const a2 = { x: 0, y: 0, vx: 100, vy: 0, collisionRadius: 20 };
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ asteroidPenalty: weight }),
+    });
+    const rOne = computeReward(
+      makeState(),
+      makeState({ ship: { x: 50, y: 0 }, asteroids: [a1] }),
+      action,
+      config,
+    );
+    const rTwo = computeReward(
+      makeState(),
+      makeState({ ship: { x: 50, y: 0 }, asteroids: [a1, a2] }),
+      action,
+      config,
+    );
+    expect(rTwo).toBeCloseTo(rOne * 2, 5);
+  });
+
+  it('weight 0 disables penalty', () => {
+    const asteroid = { x: 0, y: 0, vx: 100, vy: 0, collisionRadius: 20 };
+    const prev = makeState();
+    const curr = makeState({ ship: { x: 50, y: 0 }, asteroids: [asteroid] });
     const action = { moveAction: 0, fireAction: 0 };
     const config = makeConfig({
       rewardWeights: zeroWeights({ asteroidPenalty: 0.0 }),
     });
     expect(computeReward(prev, curr, action, config)).toBe(0.0);
+  });
+
+  it('diagonal velocity works correctly', () => {
+    const weight = -1.0;
+    // Asteroid moving diagonally at (60, 80) → speed = 100
+    // Ship at (60, 80) — exactly along velocity direction, along = 100
+    // lookahead = 100 * 1.5 = 150
+    // ux = 0.6, uy = 0.8
+    // dx = 60, dy = 80; along = 60*0.6 + 80*0.8 = 36 + 64 = 100
+    // perp = |60*0.8 - 80*0.6| = |48 - 48| = 0
+    // timeFactor = 1 - 100/150 = 1/3, widthFactor = 1
+    // penalty = -1.0 * (1/3) * 1 = -0.3333
+    const asteroid = { x: 0, y: 0, vx: 60, vy: 80, collisionRadius: 20 };
+    const prev = makeState();
+    const curr = makeState({ ship: { x: 60, y: 80 }, asteroids: [asteroid] });
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ asteroidPenalty: weight }),
+    });
+    expect(computeReward(prev, curr, action, config)).toBeCloseTo(-1 / 3, 4);
+  });
+
+  it('no penalty beyond lookahead distance', () => {
+    const weight = -1.0;
+    // speed = 100, lookahead = 150; ship at (200, 0) → along = 200 > 150
+    const asteroid = { x: 0, y: 0, vx: 100, vy: 0, collisionRadius: 20 };
+    const prev = makeState();
+    const curr = makeState({ ship: { x: 200, y: 0 }, asteroids: [asteroid] });
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ asteroidPenalty: weight }),
+    });
+    expect(computeReward(prev, curr, action, config)).toBe(0.0);
+  });
+
+  it('breakdown accumulates correctly', () => {
+    const weight = -1.0;
+    const asteroid = { x: 0, y: 0, vx: 100, vy: 0, collisionRadius: 20 };
+    const prev = makeState();
+    const curr = makeState({ ship: { x: 50, y: 0 }, asteroids: [asteroid] });
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ asteroidPenalty: weight }),
+    });
+    const breakdown = {
+      survival: 0,
+      aim: 0,
+      closing: 0,
+      hit: 0,
+      gotHit: 0,
+      nearMiss: 0,
+      firePenalty: 0,
+      engagePenalty: 0,
+      proximity: 0,
+      asteroidPenalty: 0,
+      win: 0,
+      loss: 0,
+      draw: 0,
+      timeout: 0,
+    };
+    const reward = computeReward(prev, curr, action, config, breakdown);
+    expect(breakdown.asteroidPenalty).toBeCloseTo(reward, 5);
+    expect(breakdown.asteroidPenalty).toBeLessThan(0);
   });
 });
 

@@ -31,8 +31,14 @@ const ENGAGE_DISTANCE_NORM = 1000;
 /** Multiplier on asteroid collisionRadius for near-miss danger zone. */
 export const NEAR_MISS_RADIUS_FACTOR = 3;
 
-/** Fixed radius (px) for asteroid proximity penalty — size-independent. */
-export const ASTEROID_PENALTY_RADIUS = 150;
+/** Half-width (px) of the danger track corridor on each side. */
+export const CORRIDOR_HALF_WIDTH = 80;
+
+/** Lookahead time (seconds) — multiplied by asteroid speed for track length. */
+export const LOOKAHEAD_TIME = 1.5;
+
+/** Minimum asteroid speed (px/s) to generate a danger track. */
+export const MIN_ASTEROID_SPEED = 5;
 
 /** Base radius (px) added to every danger zone for a practical minimum buffer. */
 export const DANGER_RADIUS_BASE = 40;
@@ -132,17 +138,28 @@ export function computeReward(
     }
   }
 
-  // 6b. Asteroid proximity penalty — fixed radius, size-independent
+  // 6b. Asteroid danger track penalty — corridor along velocity vector
   if (w.asteroidPenalty !== 0) {
     for (let i = 0; i < asteroids.length; i++) {
       const a = asteroids[i];
-      const adx = a.x - ship.x;
-      const ady = a.y - ship.y;
-      const aDist = Math.sqrt(adx * adx + ady * ady);
+      const avx = a.vx || 0;
+      const avy = a.vy || 0;
+      const speed = Math.sqrt(avx * avx + avy * avy);
+      if (speed < MIN_ASTEROID_SPEED) continue;
 
-      if (aDist < ASTEROID_PENALTY_RADIUS) {
-        const ratio = 1 - aDist / ASTEROID_PENALTY_RADIUS;
-        const penalty = w.asteroidPenalty * ratio * ratio;
+      const ux = avx / speed;
+      const uy = avy / speed;
+      const adx = ship.x - a.x;
+      const ady = ship.y - a.y;
+
+      const along = adx * ux + ady * uy;
+      const perp = Math.abs(adx * uy - ady * ux);
+      const lookahead = speed * LOOKAHEAD_TIME;
+
+      if (along > 0 && along < lookahead && perp < CORRIDOR_HALF_WIDTH) {
+        const timeFactor = 1 - along / lookahead;
+        const widthFactor = 1 - perp / CORRIDOR_HALF_WIDTH;
+        const penalty = w.asteroidPenalty * timeFactor * widthFactor;
         reward += penalty;
         if (breakdown) breakdown.asteroidPenalty += penalty;
       }

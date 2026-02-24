@@ -45,7 +45,11 @@ import {
 } from './input.js';
 import { getObservedAsteroids } from './observation.js';
 import { setupHiDPICanvas } from './renderer.js';
-import { DANGER_RADIUS_BASE, NEAR_MISS_RADIUS_FACTOR } from './reward.js';
+import {
+  CORRIDOR_HALF_WIDTH,
+  LOOKAHEAD_TIME,
+  MIN_ASTEROID_SPEED,
+} from './reward.js';
 import {
   createSettings,
   createSettingsUI,
@@ -621,23 +625,24 @@ export function startApp() {
     if (settings.showDangerZones) {
       ctx.globalCompositeOperation = 'lighter';
       for (const asteroid of sim.asteroids) {
-        const dr =
-          NEAR_MISS_RADIUS_FACTOR * asteroid.collisionRadius +
-          DANGER_RADIUS_BASE;
-        const grad = ctx.createRadialGradient(
-          asteroid.x,
-          asteroid.y,
-          asteroid.collisionRadius,
-          asteroid.x,
-          asteroid.y,
-          dr,
+        const speed = Math.sqrt(
+          asteroid.vx * asteroid.vx + asteroid.vy * asteroid.vy,
         );
-        grad.addColorStop(0, 'rgba(255, 0, 0, 0.25)');
-        grad.addColorStop(1, 'rgba(255, 0, 0, 0.0)');
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.arc(asteroid.x, asteroid.y, dr, 0, Math.PI * 2);
-        ctx.fill();
+        if (speed < MIN_ASTEROID_SPEED) continue;
+        const lookahead = speed * LOOKAHEAD_TIME;
+        const angle = Math.atan2(asteroid.vy, asteroid.vx);
+
+        ctx.save();
+        ctx.translate(asteroid.x, asteroid.y);
+        ctx.rotate(angle);
+        ctx.fillStyle = 'rgba(255, 0, 0, 0.12)';
+        ctx.fillRect(
+          0,
+          -CORRIDOR_HALF_WIDTH,
+          lookahead,
+          CORRIDOR_HALF_WIDTH * 2,
+        );
+        ctx.restore();
       }
       ctx.globalCompositeOperation = 'source-over';
     }
