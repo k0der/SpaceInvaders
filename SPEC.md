@@ -1313,10 +1313,15 @@ A potential-based reward shaping component (Ng et al. 1999) that rewards the age
 for *improving* its safety position rather than penalizing it for being in danger.
 This preserves the optimal policy while providing dense, directional learning signal.
 
-- `Φ(ship, asteroids)` = negative sum of corridor danger at the ship's position
-- Each asteroid with speed ≥ `MIN_ASTEROID_SPEED` generates a corridor (same geometry
-  as `asteroidPenalty`: velocity-aligned, `speed × LOOKAHEAD_TIME` length, ±`CORRIDOR_HALF_WIDTH`)
-- `corridorDanger = timeFactor × widthFactor` (0 outside, peaks at 1.0 at corridor center)
+- `Φ(ship, asteroids)` = negative sum of Gaussian danger contributions at the ship's position
+- Each asteroid with speed ≥ `MIN_ASTEROID_SPEED` generates a continuous danger field:
+  - Decomposed into `along` (projection onto velocity unit vector) and `perp` (perpendicular distance)
+  - `tNorm = along / lookahead`, `wNorm = perp / CORRIDOR_HALF_WIDTH`
+  - `danger = exp(-tDecay × tNorm²) × exp(-DANGER_WIDTH_DECAY × wNorm²)`
+  - Forward decay (`along ≥ 0`): `DANGER_FORWARD_DECAY` (2.0) — elongated along velocity
+  - Backward decay (`along < 0`): `DANGER_BACKWARD_DECAY` (8.0) — small halo behind
+  - Width decay: `DANGER_WIDTH_DECAY` (2.0) — smooth perpendicular falloff
+- No hard edges — smooth Gaussian decay in all directions, peaks at asteroid position
 - **Size-independent**: no reference to asteroid radius or `collisionRadius`
 - Φ is cached as a scalar on the reward state (not recomputed from asteroid references)
   because asteroid positions are mutated in-place between ticks
@@ -1481,22 +1486,27 @@ delimited).
   managed by the Python `SubprocVecEnv` wrapper)
 - The Python side wraps this in a Gymnasium-compatible `SpaceDogfightEnv` class
 
-### 16.12 Danger Zone Overlay
+### 16.12 Safety Potential Heatmap
 
-A debug visualization that renders the near-miss penalty field around each
-asteroid as a red radial gradient. Helps tune reward weights and diagnose
-agent behavior during training observation.
+A full-screen visualization of the `computeSafetyPotential` field. Renders the
+exact same Gaussian potential evaluated at every point in the viewport, so what
+the player sees matches exactly what the training reward function computes.
 
 **Setting**: `showDangerZones` (boolean, default `false`) — checkbox in the
 settings panel labeled "Danger Zones".
 
 **Visualization**:
-- Each asteroid gets a radial gradient from its surface (`collisionRadius`) to
-  the danger zone edge (`NEAR_MISS_RADIUS_FACTOR × collisionRadius + DANGER_RADIUS_BASE`).
-- Inner edge: `rgba(255, 0, 0, 0.25)` — outer edge: fully transparent.
-- Composite operation `'lighter'` — overlapping zones stack additively,
-  so dense asteroid clusters glow brighter red, matching how the reward
-  system sums per-asteroid penalties.
+- Evaluates safety potential at every 8×8 pixel cell across the viewport
+- Each screen cell is inverse-transformed to world coordinates via `screenToWorld`
+- Computes Gaussian corridor danger using the same constants and math as
+  `computeSafetyPotential` (precomputed per asteroid for performance)
+- Color mapping: red gradient for danger (Φ < 0, brighter = deeper danger),
+  subtle green tint for safe areas (Φ ≈ 0)
+- Rendered to an offscreen canvas at reduced resolution, then scaled up
+- Drawn in screen space between parallax stars and camera transform (behind
+  all world objects)
+- Overlapping danger fields from multiple asteroids sum naturally, producing
+  brighter "hot spots" at corridor intersections
 - Zero render cost when the setting is off.
 
 ### 16.13 File Structure Additions

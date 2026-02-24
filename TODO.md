@@ -1599,13 +1599,16 @@ Increments 31–37 add a third intelligence type — a neural network trained vi
 
 **Acceptance Criteria**:
 - [x] `computeSafetyPotential(ship, asteroids)` exported from `reward.js`
-- [x] Returns 0 when no corridors overlap ship, negative when inside corridors
+- [x] Returns 0 when no asteroids nearby, negative near asteroid paths
+- [x] Continuous Gaussian field — no hard edges, smooth decay in all directions
+- [x] Directional: elongated forward along velocity (decay=2.0), narrow perpendicular (decay=2.0), small halo behind (decay=8.0)
 - [x] Size-independent — no reference to asteroid radius or collisionRadius
-- [x] Uses same corridor geometry as `asteroidPenalty` (CORRIDOR_HALF_WIDTH, LOOKAHEAD_TIME, MIN_ASTEROID_SPEED)
+- [x] Uses same scale constants as corridor geometry (CORRIDOR_HALF_WIDTH, LOOKAHEAD_TIME, MIN_ASTEROID_SPEED)
 - [x] `safetyShaping` added to `DEFAULT_REWARD_WEIGHTS` (default 0.0)
 - [x] `computeReward` computes `safetyShaping × (currentΦ - prevΦ)` when weight ≠ 0
 - [x] `_buildRewardState()` caches `safetyPotential` scalar on reward state
 - [x] `_rewardBreakdown` includes `safetyShaping` component
-- [x] Danger zone visualization uses gradient corridors (brighter near asteroid, fading along path)
+- [x] Full-screen safety potential heatmap: evaluates Φ at every 8px cell across viewport, red for danger, green tint for safe areas
+- [x] Heatmap uses `screenToWorld` inverse camera transform, drawn in screen space behind world objects
 - [x] All existing tests pass (updated for new weight key)
-- [x] New tests cover `computeSafetyPotential` (geometry, edge cases, size-independence) and shaping reward (delta, scaling, breakdown)
+- [x] New tests cover `computeSafetyPotential` (Gaussian geometry, edge cases, size-independence) and shaping reward (delta, scaling, breakdown)
