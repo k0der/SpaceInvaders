@@ -655,7 +655,7 @@ export function startApp() {
 
       const imgData = hmCtx.createImageData(cols, rows);
       const data = imgData.data;
-      const MAX_DANGER = 2.0;
+      const MAX_DANGER = 1.0;
       const vw = logicalSize.width;
       const vh = logicalSize.height;
 
