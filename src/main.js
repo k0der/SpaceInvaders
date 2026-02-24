@@ -47,8 +47,7 @@ import {
 import { setupHiDPICanvas } from './renderer.js';
 import {
   CORRIDOR_HALF_WIDTH,
-  DANGER_BACKWARD_DECAY,
-  DANGER_FORWARD_DECAY,
+  DANGER_ALONG_DECAY,
   DANGER_WIDTH_DECAY,
   LOOKAHEAD_TIME,
   MIN_ASTEROID_SPEED,
@@ -675,11 +674,9 @@ export function startApp() {
 
             const tNorm = along / c.lookahead;
             const wNorm = perp / CORRIDOR_HALF_WIDTH;
-            const tDecay =
-              along >= 0 ? DANGER_FORWARD_DECAY : DANGER_BACKWARD_DECAY;
 
             totalDanger +=
-              Math.exp(-tDecay * tNorm * tNorm) *
+              Math.exp(-DANGER_ALONG_DECAY * tNorm * tNorm) *
               Math.exp(-DANGER_WIDTH_DECAY * wNorm * wNorm);
           }
 

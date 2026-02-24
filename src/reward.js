@@ -50,13 +50,10 @@ function normalizeAngle(angle) {
   return angle;
 }
 
-/** Gaussian decay rate for danger ahead of asteroid (along velocity). */
-export const DANGER_FORWARD_DECAY = 2.0;
+/** Gaussian decay rate along velocity axis (both forward and behind). */
+export const DANGER_ALONG_DECAY = 2.0;
 
-/** Gaussian decay rate for danger behind asteroid (rapid falloff). */
-export const DANGER_BACKWARD_DECAY = 8.0;
-
-/** Gaussian decay rate for danger perpendicular to velocity. */
+/** Gaussian decay rate perpendicular to velocity. */
 export const DANGER_WIDTH_DECAY = 2.0;
 
 /**
@@ -89,10 +86,9 @@ export function computeSafetyPotential(ship, asteroids) {
 
     const tNorm = along / lookahead;
     const wNorm = perp / CORRIDOR_HALF_WIDTH;
-    const tDecay = along >= 0 ? DANGER_FORWARD_DECAY : DANGER_BACKWARD_DECAY;
 
     totalDanger +=
-      Math.exp(-tDecay * tNorm * tNorm) *
+      Math.exp(-DANGER_ALONG_DECAY * tNorm * tNorm) *
       Math.exp(-DANGER_WIDTH_DECAY * wNorm * wNorm);
   }
   return totalDanger === 0 ? 0 : -totalDanger;
