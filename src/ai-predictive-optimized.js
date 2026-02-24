@@ -751,23 +751,58 @@ export const EVASION_SCORING_WEIGHTS = {
 };
 
 /**
- * Select a random waypoint whose path doesn't cross near the agent.
+ * Minimum distance from the agent that the ship→waypoint path must maintain.
+ * Paths crossing within this range are rejected to avoid flying into the
+ * agent's firing zone. Uses MAX_FIRE_RANGE as the danger threshold.
+ */
+export const EVASION_DANGER_RANGE = MAX_FIRE_RANGE;
+
+/**
+ * Closest distance from a point to a line segment.
+ * Returns the minimum distance from point P to the segment AB.
+ */
+export function pointToSegmentDist(px, py, ax, ay, bx, by) {
+  const abx = bx - ax;
+  const aby = by - ay;
+  const lenSq = abx * abx + aby * aby;
+  if (lenSq === 0) {
+    const dx = px - ax;
+    const dy = py - ay;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+  // Project P onto AB, clamped to [0,1]
+  const t = Math.max(
+    0,
+    Math.min(1, ((px - ax) * abx + (py - ay) * aby) / lenSq),
+  );
+  const projX = ax + t * abx;
+  const projY = ay + t * aby;
+  const dx = px - projX;
+  const dy = py - projY;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+/**
+ * Select a random waypoint whose path avoids the agent's firing zone.
  * Samples `numCandidates` random points within `radius` of `ship`,
- * rejects any candidate in the agent's hemisphere (i.e., reaching it
- * would require flying toward the agent), picks one at random.
+ * rejects any candidate where the ship→waypoint path passes within
+ * `dangerRange` of the agent, picks one at random.
  * Falls back to the farthest candidate if all are rejected.
  *
  * @param {{ x: number, y: number }} ship
  * @param {{ x: number, y: number }} agent
  * @param {number} radius
  * @param {number} numCandidates
+ * @param {number} [dangerRange] - min path distance from agent (default: EVASION_DANGER_RANGE)
  * @returns {{ x: number, y: number, vx: number, vy: number, alive: boolean }}
  */
-export function selectWaypoint(ship, agent, radius, numCandidates) {
-  // Direction from ship toward agent
-  const toAgentX = agent.x - ship.x;
-  const toAgentY = agent.y - ship.y;
-
+export function selectWaypoint(
+  ship,
+  agent,
+  radius,
+  numCandidates,
+  dangerRange = EVASION_DANGER_RANGE,
+) {
   const valid = [];
   let farthestX = ship.x;
   let farthestY = ship.y;
@@ -779,13 +814,16 @@ export function selectWaypoint(ship, agent, radius, numCandidates) {
     const cx = ship.x + Math.cos(angle) * r;
     const cy = ship.y + Math.sin(angle) * r;
 
-    // ship→candidate direction
-    const toCandX = cx - ship.x;
-    const toCandY = cy - ship.y;
-
-    // Dot product: positive means candidate is in the agent's hemisphere
-    const dot = toCandX * toAgentX + toCandY * toAgentY;
-    if (dot <= 0) {
+    // Reject if the path ship→candidate passes within dangerRange of the agent
+    const pathDist = pointToSegmentDist(
+      agent.x,
+      agent.y,
+      ship.x,
+      ship.y,
+      cx,
+      cy,
+    );
+    if (pathDist >= dangerRange) {
       valid.push({ x: cx, y: cy });
     }
 

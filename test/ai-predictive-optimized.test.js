@@ -17,6 +17,7 @@ import {
   ENGAGE_RANGE,
   EVASION_ARRIVAL_DIST,
   EVASION_CANDIDATES,
+  EVASION_DANGER_RANGE,
   EVASION_MAX_HOLD_TIME,
   EVASION_SCORING_WEIGHTS,
   EVASION_WAYPOINT_RADIUS,
@@ -29,6 +30,7 @@ import {
   HOLD_TIME,
   HYSTERESIS_BONUS,
   hasImminentCollision,
+  pointToSegmentDist,
   predictAsteroidAt,
   predictiveOptimizedStrategy,
   SIM_DT,
@@ -2732,6 +2734,34 @@ describe('ai-predictive-optimized: Evasion constants', () => {
       fireOpportunity: 0,
     });
   });
+
+  it('exports EVASION_DANGER_RANGE as MAX_FIRE_RANGE (500)', () => {
+    expect(EVASION_DANGER_RANGE).toBe(500);
+  });
+});
+
+describe('ai-predictive-optimized: pointToSegmentDist', () => {
+  it('returns distance to endpoint when segment is zero-length', () => {
+    expect(pointToSegmentDist(3, 4, 0, 0, 0, 0)).toBeCloseTo(5, 5);
+  });
+
+  it('returns perpendicular distance when projection falls on segment', () => {
+    // Point (0,5) to segment (0,0)→(10,0): perpendicular distance = 5
+    expect(pointToSegmentDist(0, 5, 0, 0, 10, 0)).toBeCloseTo(5, 5);
+    // Point (5,3) to segment (0,0)→(10,0): perpendicular distance = 3
+    expect(pointToSegmentDist(5, 3, 0, 0, 10, 0)).toBeCloseTo(3, 5);
+  });
+
+  it('returns distance to nearest endpoint when projection falls outside', () => {
+    // Point (-5,0) to segment (0,0)→(10,0): nearest endpoint = (0,0), dist = 5
+    expect(pointToSegmentDist(-5, 0, 0, 0, 10, 0)).toBeCloseTo(5, 5);
+    // Point (15,0) to segment (0,0)→(10,0): nearest endpoint = (10,0), dist = 5
+    expect(pointToSegmentDist(15, 0, 0, 0, 10, 0)).toBeCloseTo(5, 5);
+  });
+
+  it('returns 0 when point is on the segment', () => {
+    expect(pointToSegmentDist(5, 0, 0, 0, 10, 0)).toBeCloseTo(0, 5);
+  });
 });
 
 describe('ai-predictive-optimized: selectWaypoint', () => {
@@ -2758,23 +2788,27 @@ describe('ai-predictive-optimized: selectWaypoint', () => {
     }
   });
 
-  it('rejects waypoints in the agent hemisphere (statistical)', () => {
-    const ship = { x: 500, y: 500 };
-    const agent = { x: 0, y: 0 };
-    const toAgentX = agent.x - ship.x;
-    const toAgentY = agent.y - ship.y;
+  it('rejects waypoints whose path crosses near the agent (statistical)', () => {
+    // Ship far enough from agent that the starting point isn't inside danger zone
+    const ship = { x: 1500, y: 500 };
+    const agent = { x: 0, y: 500 };
+    const dangerRange = 500;
     const N = 200;
-    let towardAgent = 0;
+    let pathViolations = 0;
     for (let i = 0; i < N; i++) {
-      const wp = selectWaypoint(ship, agent, 1500, 8);
-      const toCandX = wp.x - ship.x;
-      const toCandY = wp.y - ship.y;
-      const dot = toCandX * toAgentX + toCandY * toAgentY;
-      if (dot > 0) towardAgent++;
+      const wp = selectWaypoint(ship, agent, 1500, 16, dangerRange);
+      const pathDist = pointToSegmentDist(
+        agent.x,
+        agent.y,
+        ship.x,
+        ship.y,
+        wp.x,
+        wp.y,
+      );
+      if (pathDist < dangerRange) pathViolations++;
     }
-    // Vast majority should be in the away-hemisphere (dot <= 0)
-    // Fallback picks can occasionally land in agent hemisphere, but rarely
-    expect(towardAgent).toBeLessThan(N * 0.1);
+    // Vast majority should have safe paths (fallback is rare)
+    expect(pathViolations).toBeLessThan(N * 0.15);
   });
 
   it('works when agent and ship are co-located', () => {
