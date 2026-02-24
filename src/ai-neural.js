@@ -104,7 +104,10 @@ async function initSession(state) {
     });
     state.ready = true;
   } catch (err) {
-    console.warn('Neural AI: model load failed, using fallback.', err?.message || err);
+    console.warn(
+      'Neural AI: model load failed, using fallback.',
+      err?.message || err,
+    );
   }
 }
 

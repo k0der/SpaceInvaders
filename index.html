@@ -993,6 +993,139 @@ const fleeingStrategy = {
 
 registerStrategy('fleeing', fleeingStrategy);
 
+// ─── Evasion AI ───────────────────────────────────────────────────────────────
+
+/** Sampling radius (px) for evasion waypoint candidates around the ship. */
+const EVASION_WAYPOINT_RADIUS = 1500;
+
+/** Distance (px) at which the ship is considered to have arrived at its waypoint. */
+const EVASION_ARRIVAL_DIST = 100;
+
+/** Maximum time (seconds) before forcing a new waypoint selection. */
+const EVASION_MAX_HOLD_TIME = 3.0;
+
+/** Number of random candidate points sampled per waypoint selection. */
+const EVASION_CANDIDATES = 8;
+
+/** Scoring weights for evasion behavior (navigate toward waypoint, no firing). */
+const EVASION_SCORING_WEIGHTS = {
+  distance: -3,
+  aim: 0,
+  closingSpeed: 16,
+  fireOpportunity: 0,
+};
+
+/**
+ * Select a waypoint biased away from the agent.
+ * Samples `numCandidates` random points within `radius` of `ship`,
+ * returns the one farthest from `agent`.
+ *
+ * @param {{ x: number, y: number }} ship
+ * @param {{ x: number, y: number }} agent
+ * @param {number} radius
+ * @param {number} numCandidates
+ * @returns {{ x: number, y: number, vx: number, vy: number, alive: boolean }}
+ */
+function selectWaypoint(ship, agent, radius, numCandidates) {
+  let bestX = ship.x;
+  let bestY = ship.y;
+  let bestDist = -Infinity;
+
+  for (let i = 0; i < numCandidates; i++) {
+    const angle = Math.random() * 2 * Math.PI;
+    const r = Math.sqrt(Math.random()) * radius;
+    const cx = ship.x + Math.cos(angle) * r;
+    const cy = ship.y + Math.sin(angle) * r;
+    const dx = cx - agent.x;
+    const dy = cy - agent.y;
+    const dist = dx * dx + dy * dy; // squared is fine for comparison
+    if (dist > bestDist) {
+      bestDist = dist;
+      bestX = cx;
+      bestY = cy;
+    }
+  }
+
+  return { x: bestX, y: bestY, vx: 0, vy: 0, alive: true };
+}
+
+/**
+ * Create evasion AI state — waypoint-based navigation away from the pursuer.
+ */
+function createEvasionState(config = {}) {
+  return {
+    prevAction: null,
+    holdTimer: 0,
+    scoringWeights: EVASION_SCORING_WEIGHTS,
+    pursuitSign: 1,
+    canFire: false,
+    waypoint: null,
+    waypointTimer: 0,
+    evasionWaypointRadius:
+      config.evasionWaypointRadius ?? EVASION_WAYPOINT_RADIUS,
+    evasionArrivalDist: config.evasionArrivalDist ?? EVASION_ARRIVAL_DIST,
+    evasionMaxHoldTime: config.evasionMaxHoldTime ?? EVASION_MAX_HOLD_TIME,
+    evasionCandidates: config.evasionCandidates ?? EVASION_CANDIDATES,
+  };
+}
+
+/**
+ * Evasion AI update — manages waypoint lifecycle, delegates navigation
+ * to the shared predictive-optimized update function.
+ */
+function updateEvasionAI(state, ship, target, asteroids, dt) {
+  if (!ship.alive || !target.alive) {
+    ship.thrust = false;
+    ship.rotatingLeft = false;
+    ship.rotatingRight = false;
+    ship.braking = false;
+    ship.fire = false;
+    return;
+  }
+
+  // Advance waypoint timer
+  state.waypointTimer += dt;
+
+  // Determine if a new waypoint is needed
+  let needNewWaypoint = state.waypoint === null;
+
+  if (!needNewWaypoint && state.waypointTimer >= state.evasionMaxHoldTime) {
+    needNewWaypoint = true;
+  }
+
+  if (!needNewWaypoint && state.waypoint) {
+    const dx = ship.x - state.waypoint.x;
+    const dy = ship.y - state.waypoint.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (dist < state.evasionArrivalDist) {
+      needNewWaypoint = true;
+    }
+  }
+
+  if (needNewWaypoint) {
+    state.waypoint = selectWaypoint(
+      ship,
+      target,
+      state.evasionWaypointRadius,
+      state.evasionCandidates,
+    );
+    state.waypointTimer = 0;
+  }
+
+  // Navigate toward waypoint using shared predictive-optimized logic
+  updatePredictiveOptimizedAI(state, ship, state.waypoint, asteroids, dt);
+}
+
+/**
+ * Evasion AI strategy — waypoint-based navigation biased away from the pursuer.
+ */
+const evasionStrategy = {
+  createState: createEvasionState,
+  update: updateEvasionAI,
+};
+
+registerStrategy('evasion', evasionStrategy);
+
 })();
 // ===== ai-predictive.js =====
 /**
@@ -4857,6 +4990,7 @@ const SETTINGS_CONFIG = {
       'predictive',
       'predictive-optimized',
       'fleeing',
+      'evasion',
       'neural',
     ],
     default: 'human',
@@ -4868,6 +5002,7 @@ const SETTINGS_CONFIG = {
       'predictive',
       'predictive-optimized',
       'fleeing',
+      'evasion',
       'neural',
     ],
     default: 'predictive',

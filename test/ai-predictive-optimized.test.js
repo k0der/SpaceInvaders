@@ -15,6 +15,12 @@ import {
   defineCandidates,
   ENGAGE_CLOSING_SCALE,
   ENGAGE_RANGE,
+  EVASION_ARRIVAL_DIST,
+  EVASION_CANDIDATES,
+  EVASION_MAX_HOLD_TIME,
+  EVASION_SCORING_WEIGHTS,
+  EVASION_WAYPOINT_RADIUS,
+  evasionStrategy,
   FIRE_ANGLE,
   FIRE_OPPORTUNITY_BONUS,
   FLEEING_SCORING_WEIGHTS,
@@ -29,6 +35,7 @@ import {
   SIM_STEPS,
   scoreTrajectory,
   selectBestAction,
+  selectWaypoint,
   simulatePursuitTrajectory,
   simulateTrajectory,
 } from '../src/ai-predictive-optimized.js';
@@ -2695,5 +2702,245 @@ describe('ai-predictive-optimized: fleeingStrategy', () => {
     const { getStrategy } = await import('../src/ai-core.js');
     const strategy = getStrategy('fleeing');
     expect(strategy).toBe(fleeingStrategy);
+  });
+});
+
+// ─── Evasion AI ───────────────────────────────────────────────────────────────
+
+describe('ai-predictive-optimized: Evasion constants', () => {
+  it('exports EVASION_WAYPOINT_RADIUS as 1500', () => {
+    expect(EVASION_WAYPOINT_RADIUS).toBe(1500);
+  });
+
+  it('exports EVASION_ARRIVAL_DIST as 100', () => {
+    expect(EVASION_ARRIVAL_DIST).toBe(100);
+  });
+
+  it('exports EVASION_MAX_HOLD_TIME as 3.0', () => {
+    expect(EVASION_MAX_HOLD_TIME).toBe(3.0);
+  });
+
+  it('exports EVASION_CANDIDATES as 8', () => {
+    expect(EVASION_CANDIDATES).toBe(8);
+  });
+
+  it('exports EVASION_SCORING_WEIGHTS with correct shape', () => {
+    expect(EVASION_SCORING_WEIGHTS).toEqual({
+      distance: -3,
+      aim: 0,
+      closingSpeed: 16,
+      fireOpportunity: 0,
+    });
+  });
+});
+
+describe('ai-predictive-optimized: selectWaypoint', () => {
+  it('returns object with x, y, vx, vy, alive', () => {
+    const ship = { x: 500, y: 500 };
+    const agent = { x: 0, y: 0 };
+    const wp = selectWaypoint(ship, agent, 1500, 8);
+    expect(typeof wp.x).toBe('number');
+    expect(typeof wp.y).toBe('number');
+    expect(wp.vx).toBe(0);
+    expect(wp.vy).toBe(0);
+    expect(wp.alive).toBe(true);
+  });
+
+  it('waypoint is within radius of ship', () => {
+    const ship = { x: 1000, y: 1000 };
+    const agent = { x: 0, y: 0 };
+    for (let i = 0; i < 50; i++) {
+      const wp = selectWaypoint(ship, agent, 1500, 8);
+      const dx = wp.x - ship.x;
+      const dy = wp.y - ship.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      expect(dist).toBeLessThanOrEqual(1500 + 1); // tolerance for float
+    }
+  });
+
+  it('biases waypoints away from agent (statistical)', () => {
+    const ship = { x: 500, y: 500 };
+    const agent = { x: 0, y: 0 };
+    let totalDist = 0;
+    const N = 200;
+    for (let i = 0; i < N; i++) {
+      const wp = selectWaypoint(ship, agent, 1500, 8);
+      const dx = wp.x - agent.x;
+      const dy = wp.y - agent.y;
+      totalDist += Math.sqrt(dx * dx + dy * dy);
+    }
+    const avgDist = totalDist / N;
+    // Average distance from agent should be significantly more than ship-to-agent distance
+    const shipToAgent = Math.sqrt(500 * 500 + 500 * 500);
+    expect(avgDist).toBeGreaterThan(shipToAgent);
+  });
+
+  it('works when agent and ship are co-located', () => {
+    const ship = { x: 100, y: 100 };
+    const agent = { x: 100, y: 100 };
+    const wp = selectWaypoint(ship, agent, 1500, 8);
+    expect(Number.isFinite(wp.x)).toBe(true);
+    expect(Number.isFinite(wp.y)).toBe(true);
+  });
+
+  it('respects the radius parameter', () => {
+    const ship = { x: 0, y: 0 };
+    const agent = { x: 1000, y: 0 };
+    const smallRadius = 100;
+    for (let i = 0; i < 30; i++) {
+      const wp = selectWaypoint(ship, agent, smallRadius, 8);
+      const dx = wp.x - ship.x;
+      const dy = wp.y - ship.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      expect(dist).toBeLessThanOrEqual(smallRadius + 1);
+    }
+  });
+});
+
+describe('ai-predictive-optimized: evasionStrategy', () => {
+  it('has createState and update methods', () => {
+    expect(typeof evasionStrategy.createState).toBe('function');
+    expect(typeof evasionStrategy.update).toBe('function');
+  });
+
+  it('createState returns correct defaults', () => {
+    const state = evasionStrategy.createState({});
+    expect(state.scoringWeights).toBe(EVASION_SCORING_WEIGHTS);
+    expect(state.pursuitSign).toBe(1);
+    expect(state.canFire).toBe(false);
+    expect(state.waypoint).toBe(null);
+    expect(state.waypointTimer).toBe(0);
+  });
+
+  it('createState respects config overrides', () => {
+    const state = evasionStrategy.createState({
+      evasionWaypointRadius: 2000,
+      evasionArrivalDist: 200,
+      evasionMaxHoldTime: 5.0,
+      evasionCandidates: 12,
+    });
+    expect(state.evasionWaypointRadius).toBe(2000);
+    expect(state.evasionArrivalDist).toBe(200);
+    expect(state.evasionMaxHoldTime).toBe(5.0);
+    expect(state.evasionCandidates).toBe(12);
+  });
+
+  it('update populates state.waypoint on first call', () => {
+    const state = evasionStrategy.createState({});
+    const ship = createShip({ x: 500, y: 500, heading: 0, owner: 'enemy' });
+    const target = createShip({ x: 0, y: 0, heading: 0, owner: 'player' });
+
+    evasionStrategy.update(state, ship, target, [], 0.016);
+
+    expect(state.waypoint).not.toBe(null);
+    expect(state.waypoint.alive).toBe(true);
+    expect(state.waypoint.vx).toBe(0);
+    expect(state.waypoint.vy).toBe(0);
+  });
+
+  it('update never sets ship.fire = true', () => {
+    const state = evasionStrategy.createState({});
+    const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+    const target = createShip({ x: 300, y: 0, heading: 0, owner: 'player' });
+
+    evasionStrategy.update(state, ship, target, [], 0.016);
+
+    expect(ship.fire).toBe(false);
+  });
+
+  it('waypoint changes on arrival', () => {
+    const state = evasionStrategy.createState({});
+    const ship = createShip({ x: 500, y: 500, heading: 0, owner: 'enemy' });
+    const target = createShip({ x: 0, y: 0, heading: 0, owner: 'player' });
+
+    // First update creates a waypoint
+    evasionStrategy.update(state, ship, target, [], 0.016);
+    const firstWaypoint = { ...state.waypoint };
+
+    // Move ship to waypoint position (simulate arrival)
+    ship.x = state.waypoint.x;
+    ship.y = state.waypoint.y;
+
+    // Next update should pick a new waypoint
+    evasionStrategy.update(state, ship, target, [], 0.016);
+    const secondWaypoint = state.waypoint;
+
+    // At least one coordinate should differ (statistically certain)
+    expect(
+      secondWaypoint.x !== firstWaypoint.x ||
+        secondWaypoint.y !== firstWaypoint.y,
+    ).toBe(true);
+  });
+
+  it('waypoint changes on timer expiry', () => {
+    const state = evasionStrategy.createState({});
+    const ship = createShip({ x: 500, y: 500, heading: 0, owner: 'enemy' });
+    const target = createShip({ x: 0, y: 0, heading: 0, owner: 'player' });
+
+    // First update creates a waypoint
+    evasionStrategy.update(state, ship, target, [], 0.016);
+    const firstWaypoint = { ...state.waypoint };
+
+    // Advance timer past maxHoldTime (3.0s default)
+    evasionStrategy.update(state, ship, target, [], 3.1);
+    const secondWaypoint = state.waypoint;
+
+    expect(
+      secondWaypoint.x !== firstWaypoint.x ||
+        secondWaypoint.y !== firstWaypoint.y,
+    ).toBe(true);
+  });
+
+  it('clears all flags when ship is dead', () => {
+    const state = evasionStrategy.createState({});
+    const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+    ship.alive = false;
+    ship.thrust = true;
+    const target = createShip({ x: 500, y: 0, heading: 0, owner: 'player' });
+
+    evasionStrategy.update(state, ship, target, [], 0.016);
+
+    expect(ship.thrust).toBe(false);
+    expect(ship.rotatingLeft).toBe(false);
+    expect(ship.rotatingRight).toBe(false);
+    expect(ship.braking).toBe(false);
+    expect(ship.fire).toBe(false);
+  });
+
+  it('clears all flags when target is dead', () => {
+    const state = evasionStrategy.createState({});
+    const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
+    const target = createShip({ x: 500, y: 0, heading: 0, owner: 'player' });
+    target.alive = false;
+
+    evasionStrategy.update(state, ship, target, [], 0.016);
+
+    expect(ship.thrust).toBe(false);
+    expect(ship.fire).toBe(false);
+  });
+
+  it('resets waypoint timer on new waypoint selection', () => {
+    const state = evasionStrategy.createState({});
+    const ship = createShip({ x: 500, y: 500, heading: 0, owner: 'enemy' });
+    const target = createShip({ x: 0, y: 0, heading: 0, owner: 'player' });
+
+    // First update creates waypoint (was null → resets timer to 0)
+    evasionStrategy.update(state, ship, target, [], 0.016);
+
+    // Accumulate some timer
+    evasionStrategy.update(state, ship, target, [], 1.0);
+    evasionStrategy.update(state, ship, target, [], 1.0);
+    // Timer should be ~2.0 now (below 3.0 threshold)
+
+    // Advance past max hold time to trigger re-selection
+    evasionStrategy.update(state, ship, target, [], 1.5);
+    // Timer should have been reset (not accumulated to 3.5+)
+    expect(state.waypointTimer).toBe(0);
+  });
+
+  it('is registered as "evasion" in the strategy registry', async () => {
+    const { getStrategy } = await import('../src/ai-core.js');
+    const strategy = getStrategy('evasion');
+    expect(strategy).toBe(evasionStrategy);
   });
 });

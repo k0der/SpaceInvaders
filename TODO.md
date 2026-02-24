@@ -1548,3 +1548,27 @@ Increments 31–37 add a third intelligence type — a neural network trained vi
 - [x] Proximity handles prevDist = 0 (division-by-zero guard)
 - [x] Config stages 11-13 updated: `proximity: 1.0`, `closing: 0.0`, `engagePenalty: 0.0`, `campCheckTicks: 0`
 - [x] All existing tests pass (backward compatible)
+
+---
+
+## Increment 43: Evasion AI Strategy
+
+**Goal**: Add an `evasion` strategy where the enemy navigates to waypoints biased away from the agent, creating flowing, unpredictable chase patterns. See SPEC §12.8.
+
+**Modules**: `src/ai-predictive-optimized.js`, `src/settings.js`, `training/config.yaml`, `training/train_v3.py`
+
+**Acceptance Criteria**:
+- [x] `selectWaypoint` picks points biased away from agent (statistical test)
+- [x] `selectWaypoint` returns `{ x, y, vx: 0, vy: 0, alive: true }`
+- [x] `selectWaypoint` respects radius parameter
+- [x] `evasionStrategy` registered as `'evasion'` and selectable in settings
+- [x] `createState` returns correct defaults (weights, pursuitSign, canFire, waypoint, timer)
+- [x] `createState` respects config overrides (radius, arrival dist, hold time, candidates)
+- [x] Waypoint populated on first `update` call
+- [x] Waypoint changes on arrival (ship within `EVASION_ARRIVAL_DIST`)
+- [x] Waypoint changes on timer expiry (`EVASION_MAX_HOLD_TIME`)
+- [x] Ship never fires (`ship.fire = false`)
+- [x] Dead ship clears all flags
+- [x] Config stages 14-15 updated to use `evasion` policy
+- [x] `train_v3.py` passes evasion config keys to env
+- [x] All existing tests pass

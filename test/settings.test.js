@@ -997,6 +997,7 @@ describe('Increment 15: Star Field Direction Setting', () => {
         'predictive',
         'predictive-optimized',
         'fleeing',
+        'evasion',
         'neural',
       ]);
     });
@@ -1019,6 +1020,7 @@ describe('Increment 15: Star Field Direction Setting', () => {
         'predictive',
         'predictive-optimized',
         'fleeing',
+        'evasion',
         'neural',
       ]);
     });
@@ -1255,6 +1257,7 @@ describe('Increment 15: Star Field Direction Setting', () => {
         'predictive',
         'predictive-optimized',
         'fleeing',
+        'evasion',
         'neural',
       ]);
     });
@@ -1308,6 +1311,7 @@ describe('Increment 15: Star Field Direction Setting', () => {
         'predictive',
         'predictive-optimized',
         'fleeing',
+        'evasion',
         'neural',
       ]);
     });

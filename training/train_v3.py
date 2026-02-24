@@ -555,6 +555,10 @@ def train_stage(
             "aiSimSteps",
             "aiMaxSpeedFactor",
             "selfPlayModelPath",
+            "evasionWaypointRadius",
+            "evasionArrivalDist",
+            "evasionMaxHoldTime",
+            "evasionCandidates",
             "campCheckTicks",
             "campMinClosing",
         )

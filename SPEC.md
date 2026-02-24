@@ -847,6 +847,42 @@ Player/Enemy intelligence dropdowns.
 predictive test suite, pointing at the optimized module. Can diverge freely as
 the algorithm evolves.
 
+### 12.8 Evasion AI
+
+Waypoint-based evasion strategy that creates flowing, unpredictable chase
+patterns. The enemy navigates toward waypoints biased away from the pursuing
+agent, rather than flying in a straight line (like fleeing). This forces the
+agent to learn lead interception, efficient asteroid navigation, and
+opportunistic shooting.
+
+**Waypoint selection**: `selectWaypoint(ship, agent, radius, numCandidates)`
+samples `numCandidates` random points within a circle of `radius` around the
+ship (uniform area distribution via `sqrt(random)`). Picks the candidate
+farthest from the agent. Returns `{ x, y, vx: 0, vy: 0, alive: true }` — a
+virtual stationary target for the navigation system.
+
+**Waypoint lifecycle** — a new waypoint is selected when:
+- **First frame**: no waypoint exists yet
+- **Arrival**: ship is within `EVASION_ARRIVAL_DIST` (100px) of the current waypoint
+- **Timer expiry**: `EVASION_MAX_HOLD_TIME` (3.0s) elapsed — prevents getting stuck behind asteroids
+
+**Navigation**: Reuses `updatePredictiveOptimizedAI` with the waypoint as the
+`target` parameter. Scoring weights (`EVASION_SCORING_WEIGHTS`) pursue the
+waypoint (negative distance weight, positive closing speed) with no aim or
+fire opportunity bonuses. `pursuitSign: 1` (pursue toward waypoint),
+`canFire: false`.
+
+**Configurable parameters** (passed via `config` in training):
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `evasionWaypointRadius` | 1500 px | Sampling radius for candidate waypoints |
+| `evasionArrivalDist` | 100 px | Arrival threshold (~6 ship sizes) |
+| `evasionMaxHoldTime` | 3.0 s | Max time before forcing waypoint re-selection |
+| `evasionCandidates` | 8 | Number of candidate points per selection |
+
+**Registration**: Self-registers as `'evasion'` in the strategy registry.
+Selectable via Player/Enemy intelligence dropdowns.
+
 ---
 
 ## 13. Game State
@@ -968,8 +1004,8 @@ Each ship has its own intelligence dropdown in the settings panel:
 
 | Setting | Options | Default |
 |---------|---------|---------|
-| `playerIntelligence` | `'human'`, `'reactive'`, `'predictive'`, `'predictive-optimized'` | `'human'` |
-| `enemyIntelligence` | `'reactive'`, `'predictive'`, `'predictive-optimized'` | `'predictive'` |
+| `playerIntelligence` | `'human'`, `'reactive'`, `'predictive'`, `'predictive-optimized'`, `'fleeing'`, `'evasion'`, `'neural'` | `'human'` |
+| `enemyIntelligence` | `'reactive'`, `'predictive'`, `'predictive-optimized'`, `'fleeing'`, `'evasion'`, `'neural'` | `'predictive'` |
 
 - When `playerIntelligence = 'human'`: keyboard controls player (current behavior)
 - When `playerIntelligence = 'reactive'` or `'predictive'`: AI controls player ship, keyboard ignored

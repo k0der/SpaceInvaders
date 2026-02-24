@@ -354,14 +354,16 @@ stages:
       proximity: 3.0
 
   14:
-    description: "Chase medium-speed fleeing enemy, extra HP for asteroid mistakes"
+    description: "Chase slow evasion enemy through asteroid field"
     shipHP: 3
     enemyHP: 1
     maxTicks: 1800
     asteroidDensity: 0.5
-    enemyPolicy: "fleeing"
+    enemyPolicy: "evasion"
     enemyShoots: false
     aiMaxSpeedFactor: 0.45
+    evasionWaypointRadius: 1000
+    evasionMaxHoldTime: 2.0
     spawnDistance: [500, 1000]
     spawnFacing: false
     frameSkip: 2
@@ -384,13 +386,15 @@ stages:
       asteroidPenalty: -0.15
 
   15:
-    description: "Chase medium-speed fleeing enemy, 1 HP"
+    description: "Chase medium-speed evasion enemy, 1 HP"
     shipHP: 1
     maxTicks: 1200
     asteroidDensity: 0.5
-    enemyPolicy: "fleeing"
+    enemyPolicy: "evasion"
     enemyShoots: false
     aiMaxSpeedFactor: 0.6
+    evasionWaypointRadius: 1500
+    evasionMaxHoldTime: 3.0
     spawnDistance: [500, 1000]
     spawnFacing: false
     frameSkip: 2
