@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Safety Potential Field Test</title>
+<style>
+  body { margin: 0; background: #111; color: #ccc; font-family: monospace; display: flex; }
+  canvas { display: block; }
+  #controls { padding: 12px; width: 260px; flex-shrink: 0; }
+  #controls label { display: block; margin: 8px 0 2px; font-size: 13px; }
+  #controls input[type=range] { width: 100%; }
+  #controls .val { color: #0f0; float: right; }
+  #legend { margin-top: 16px; font-size: 12px; line-height: 1.6; }
+  .asteroid-label { font-size: 11px; margin: 2px 0; }
+  .large { color: #f88; }
+  .medium { color: #fa0; }
+  .small { color: #ff0; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="controls">
+  <h3 style="margin-top:0">Field Constants</h3>
+
+  <label>FIELD_RADIUS <span class="val" id="vRadius">40</span></label>
+  <input type="range" id="sRadius" min="10" max="100" value="40" step="1">
+
+  <label>DANGER_DECAY <span class="val" id="vDecay">2.0</span></label>
+  <input type="range" id="sDecay" min="0.2" max="5.0" value="2.0" step="0.1">
+
+  <label>BACKWARD_SCALE <span class="val" id="vBack">1.5</span></label>
+  <input type="range" id="sBack" min="0.5" max="4.0" value="1.5" step="0.1">
+
+  <label>LOOKAHEAD_TIME <span class="val" id="vLook">1.5</span></label>
+  <input type="range" id="sLook" min="0.5" max="4.0" value="1.5" step="0.1">
+
+  <label>MIN_ASTEROID_SPEED <span class="val" id="vMinSpd">5</span></label>
+  <input type="range" id="sMinSpd" min="1" max="20" value="5" step="1">
+
+  <label>Heatmap cell size <span class="val" id="vCell">4</span></label>
+  <input type="range" id="sCell" min="2" max="16" value="4" step="1">
+
+  <label style="margin-top:12px">Copy-paste values:</label>
+  <textarea id="copyValues" readonly rows="5" style="width:100%;background:#222;color:#0f0;border:1px solid #555;font-family:monospace;font-size:12px;padding:4px;resize:vertical"></textarea>
+
+  <div id="legend">
+    <b>Test asteroids:</b>
+    <div class="asteroid-label large">&#9679; Large (r=65) — 20 px/s right</div>
+    <div class="asteroid-label medium">&#9679; Medium (r=35) — 45 px/s down-right</div>
+    <div class="asteroid-label small">&#9679; Small (r=15) — 90 px/s up</div>
+    <div class="asteroid-label large">&#9679; Large (r=55) — 15 px/s left</div>
+    <div style="margin-top:8px">
+      <b>Red</b> = danger (Phi &lt; 0)<br>
+      <b>Green</b> = safe (Phi ~ 0)<br>
+      Cyan outline = collisionRadius (0.8 &times; r)<br>
+      White arrow = velocity
+    </div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+// Test asteroids: variety of sizes and speeds
+const asteroids = [
+  { x: 300, y: 300, vx: 20, vy: 0, radius: 65, label: 'Large slow' },
+  { x: 650, y: 250, vx: 32, vy: 32, radius: 35, label: 'Medium diagonal' },
+  { x: 500, y: 500, vx: 0, vy: -90, radius: 15, label: 'Small fast up' },
+  { x: 200, y: 550, vx: -15, vy: 0, radius: 55, label: 'Large slowest' },
+];
+
+function getVal(id) { return parseFloat(document.getElementById(id).value); }
+
+function render() {
+  const FIELD_RADIUS = getVal('sRadius');
+  const DANGER_DECAY = getVal('sDecay');
+  const BACKWARD_SCALE = getVal('sBack');
+  const LOOKAHEAD_TIME = getVal('sLook');
+  const MIN_SPEED = getVal('sMinSpd');
+  const CELL = getVal('sCell');
+
+  // Update display values
+  document.getElementById('vRadius').textContent = FIELD_RADIUS;
+  document.getElementById('vDecay').textContent = DANGER_DECAY.toFixed(1);
+  document.getElementById('vBack').textContent = BACKWARD_SCALE.toFixed(1);
+  document.getElementById('vLook').textContent = LOOKAHEAD_TIME.toFixed(1);
+  document.getElementById('vMinSpd').textContent = MIN_SPEED;
+  document.getElementById('vCell').textContent = CELL;
+
+  document.getElementById('copyValues').value =
+    `FIELD_RADIUS = ${FIELD_RADIUS}\n` +
+    `DANGER_DECAY = ${DANGER_DECAY.toFixed(1)}\n` +
+    `BACKWARD_SCALE = ${BACKWARD_SCALE.toFixed(1)}\n` +
+    `LOOKAHEAD_TIME = ${LOOKAHEAD_TIME.toFixed(1)}\n` +
+    `MIN_ASTEROID_SPEED = ${MIN_SPEED}`;
+
+  const W = canvas.width;
+  const H = canvas.height;
+
+  // Precompute asteroid data
+  const fields = [];
+  for (const a of asteroids) {
+    const speed = Math.sqrt(a.vx * a.vx + a.vy * a.vy);
+    if (speed < MIN_SPEED) continue;
+    fields.push({
+      x: a.x, y: a.y,
+      ux: a.vx / speed, uy: a.vy / speed,
+      fwdScale: FIELD_RADIUS + speed * LOOKAHEAD_TIME,
+      bwdScale: FIELD_RADIUS * BACKWARD_SCALE,
+      speed,
+    });
+  }
+
+  // Render heatmap
+  const cols = Math.ceil(W / CELL);
+  const rows = Math.ceil(H / CELL);
+  const imgData = ctx.createImageData(cols, rows);
+  const data = imgData.data;
+
+  for (let row = 0; row < rows; row++) {
+    const wy = row * CELL + CELL / 2;
+    for (let col = 0; col < cols; col++) {
+      const wx = col * CELL + CELL / 2;
+
+      let totalDanger = 0;
+      for (const f of fields) {
+        const dx = wx - f.x;
+        const dy = wy - f.y;
+        const along = dx * f.ux + dy * f.uy;
+        const perp = Math.abs(dx * f.uy - dy * f.ux);
+
+        const alongScale = along >= 0 ? f.fwdScale : f.bwdScale;
+        const nAlong = along / alongScale;
+        const nPerp = perp / FIELD_RADIUS;
+        const d2 = nAlong * nAlong + nPerp * nPerp;
+        totalDanger += Math.exp(-DANGER_DECAY * d2);
+      }
+
+      const idx = (row * cols + col) * 4;
+      if (totalDanger > 0.01) {
+        const intensity = Math.min(totalDanger, 1.0);
+        data[idx] = 255;
+        data[idx + 1] = Math.round(40 * (1 - intensity));
+        data[idx + 2] = 0;
+        data[idx + 3] = Math.round(intensity * 180);
+      } else {
+        data[idx] = 0;
+        data[idx + 1] = 200;
+        data[idx + 2] = 0;
+        data[idx + 3] = 20;
+      }
+    }
+  }
+
+  // Draw heatmap scaled up
+  const offscreen = new OffscreenCanvas(cols, rows);
+  const offCtx = offscreen.getContext('2d');
+  offCtx.putImageData(imgData, 0, 0);
+
+  ctx.clearRect(0, 0, W, H);
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(offscreen, 0, 0, W, H);
+
+  // Draw asteroid outlines and velocity arrows
+  for (const a of asteroids) {
+    const cr = a.radius * 0.8; // collisionRadius approximation
+    const speed = Math.sqrt(a.vx * a.vx + a.vy * a.vy);
+
+    // Collision radius circle (cyan)
+    ctx.beginPath();
+    ctx.arc(a.x, a.y, cr, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(0, 255, 255, 0.7)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // Visual radius circle (dim cyan dashed)
+    ctx.beginPath();
+    ctx.arc(a.x, a.y, a.radius, 0, Math.PI * 2);
+    ctx.strokeStyle = 'rgba(0, 255, 255, 0.25)';
+    ctx.setLineDash([4, 4]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Velocity arrow (white)
+    if (speed >= MIN_SPEED) {
+      const ux = a.vx / speed;
+      const uy = a.vy / speed;
+      const arrowLen = Math.min(speed * 1.5, 120);
+      const ex = a.x + ux * arrowLen;
+      const ey = a.y + uy * arrowLen;
+
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(ex, ey);
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // Arrowhead
+      const headLen = 8;
+      ctx.beginPath();
+      ctx.moveTo(ex, ey);
+      ctx.lineTo(ex - headLen * ux + headLen * 0.4 * uy, ey - headLen * uy - headLen * 0.4 * ux);
+      ctx.moveTo(ex, ey);
+      ctx.lineTo(ex - headLen * ux - headLen * 0.4 * uy, ey - headLen * uy + headLen * 0.4 * ux);
+      ctx.stroke();
+    }
+
+    // Label
+    ctx.fillStyle = '#fff';
+    ctx.font = '11px monospace';
+    ctx.fillText(`r=${a.radius} v=${speed.toFixed(0)}`, a.x + cr + 6, a.y - 4);
+  }
+
+  // FIELD_RADIUS reference circle at bottom-right
+  ctx.beginPath();
+  ctx.arc(W - 80, H - 60, FIELD_RADIUS, 0, Math.PI * 2);
+  ctx.strokeStyle = 'rgba(255, 255, 0, 0.5)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.fillStyle = 'rgba(255, 255, 0, 0.6)';
+  ctx.font = '11px monospace';
+  ctx.fillText(`FIELD_RADIUS=${FIELD_RADIUS}`, W - 80 - 50, H - 60 + FIELD_RADIUS + 14);
+}
+
+function resize() {
+  canvas.width = window.innerWidth - 260;
+  canvas.height = window.innerHeight;
+  render();
+}
+
+// Bind sliders
+for (const el of document.querySelectorAll('input[type=range]')) {
+  el.addEventListener('input', render);
+}
+
+window.addEventListener('resize', resize);
+resize();
+</script>
+</body>
+</html>
