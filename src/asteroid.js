@@ -83,14 +83,14 @@ export function updateAsteroid(asteroid, dt) {
 /**
  * Draw an asteroid as a white wireframe polygon on a canvas 2D context.
  */
-export function drawAsteroid(ctx, asteroid) {
+export function drawAsteroid(ctx, asteroid, color = '#FFFFFF') {
   const { x, y, rotation, shape, strokeWidth } = asteroid;
 
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(rotation);
 
-  ctx.strokeStyle = '#FFFFFF';
+  ctx.strokeStyle = color;
   ctx.lineWidth = strokeWidth;
 
   ctx.beginPath();

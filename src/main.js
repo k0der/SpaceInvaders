@@ -43,6 +43,7 @@ import {
   handleKeyUp,
   isRestartKey,
 } from './input.js';
+import { getObservedAsteroids } from './observation.js';
 import { setupHiDPICanvas } from './renderer.js';
 import { DANGER_RADIUS_BASE, NEAR_MISS_RADIUS_FACTOR } from './reward.js';
 import {
@@ -601,8 +602,20 @@ export function startApp() {
 
     applyCameraTransform(ctx, camera, logicalSize.width, logicalSize.height);
 
+    const neuralShip =
+      settings.playerIntelligence === 'neural'
+        ? playerShip
+        : settings.enemyIntelligence === 'neural'
+          ? enemyShip
+          : null;
+    const observedSet = neuralShip
+      ? getObservedAsteroids(neuralShip, sim.asteroids)
+      : null;
+
     for (const asteroid of sim.asteroids) {
-      drawAsteroid(ctx, asteroid);
+      const color =
+        observedSet && observedSet.has(asteroid) ? '#00CCFF' : '#FFFFFF';
+      drawAsteroid(ctx, asteroid, color);
     }
 
     if (settings.showDangerZones) {

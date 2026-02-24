@@ -1939,14 +1939,14 @@ function updateAsteroid(asteroid, dt) {
 /**
  * Draw an asteroid as a white wireframe polygon on a canvas 2D context.
  */
-function drawAsteroid(ctx, asteroid) {
+function drawAsteroid(ctx, asteroid, color = '#FFFFFF') {
   const { x, y, rotation, shape, strokeWidth } = asteroid;
 
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(rotation);
 
-  ctx.strokeStyle = '#FFFFFF';
+  ctx.strokeStyle = color;
   ctx.lineWidth = strokeWidth;
 
   ctx.beginPath();
@@ -4199,8 +4199,20 @@ function startApp() {
 
     applyCameraTransform(ctx, camera, logicalSize.width, logicalSize.height);
 
+    const neuralShip =
+      settings.playerIntelligence === 'neural'
+        ? playerShip
+        : settings.enemyIntelligence === 'neural'
+          ? enemyShip
+          : null;
+    const observedSet = neuralShip
+      ? getObservedAsteroids(neuralShip, sim.asteroids)
+      : null;
+
     for (const asteroid of sim.asteroids) {
-      drawAsteroid(ctx, asteroid);
+      const color =
+        observedSet && observedSet.has(asteroid) ? '#00CCFF' : '#FFFFFF';
+      drawAsteroid(ctx, asteroid, color);
     }
 
     if (settings.showDangerZones) {
@@ -4311,6 +4323,35 @@ function normalizeAngle(angle) {
 
 function clamp(val, min, max) {
   return val < min ? min : val > max ? max : val;
+}
+
+/**
+ * Return the k nearest asteroid objects within observation range.
+ * Used by the renderer to highlight which asteroids the model can see.
+ *
+ * @param {Object} ship - the controlled ship
+ * @param {Array} asteroids - array of asteroid objects
+ * @param {number} [k=MAX_ASTEROID_OBS] - number of asteroid slots
+ * @returns {Set} set of asteroid object references
+ */
+function getObservedAsteroids(ship, asteroids, k = MAX_ASTEROID_OBS) {
+  const nearby = [];
+  for (let i = 0; i < asteroids.length; i++) {
+    const a = asteroids[i];
+    const adx = a.x - ship.x;
+    const ady = a.y - ship.y;
+    const aDist = Math.sqrt(adx * adx + ady * ady);
+    if (aDist <= MAX_ASTEROID_DISTANCE) {
+      nearby.push({ asteroid: a, dist: aDist });
+    }
+  }
+  nearby.sort((a, b) => a.dist - b.dist);
+  const result = new Set();
+  const count = Math.min(nearby.length, k);
+  for (let i = 0; i < count; i++) {
+    result.add(nearby[i].asteroid);
+  }
+  return result;
 }
 
 /**
