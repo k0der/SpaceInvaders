@@ -229,15 +229,6 @@ function createNeuralState() {
  */
 function updateNeural(state, ship, target, asteroids, dt) {
   if (!state.ready || state.cachedAction === null) {
-    // Best-effort highlights while model loads (not yet authoritative)
-    if (!state.ready) {
-      state.observedAsteroids = buildObservation(
-        ship,
-        target,
-        asteroids,
-      ).selectedAsteroids;
-    }
-
     state.fallbackStrategy.update(
       state.fallbackState,
       ship,

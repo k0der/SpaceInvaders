@@ -273,34 +273,13 @@ describe('ai-neural: Fallback Behavior', () => {
     );
   });
 
-  it('populates observedAsteroids during fallback (ready=false)', () => {
+  it('observedAsteroids stays null during fallback (ready=false)', () => {
     const state = neuralStrategy.createState();
     const asteroids = [{ x: 600, y: 500, vx: 0, vy: 0, collisionRadius: 30 }];
     neuralStrategy.update(state, makeShip(), makeTarget(), asteroids, 1 / 60);
 
-    expect(state.observedAsteroids).toBeInstanceOf(Set);
-    expect(state.observedAsteroids.size).toBe(1);
-    expect(state.observedAsteroids.has(asteroids[0])).toBe(true);
-  });
-
-  it('does not recompute observedAsteroids in fallback guard when ready=true', () => {
-    const state = neuralStrategy.createState();
-    state.ready = true;
-    state.cachedAction = null;
-    // Prevent runInference from being called
-    state.pendingInference = true;
-    const previousSet = new Set(['marker']);
-    state.observedAsteroids = previousSet;
-
-    state.fallbackStrategy = {
-      createState: () => ({}),
-      update: vi.fn(),
-    };
-
-    neuralStrategy.update(state, makeShip(), makeTarget(), [], 1 / 60);
-
-    // The !state.ready guard should NOT fire — observedAsteroids unchanged
-    expect(state.observedAsteroids).toBe(previousSet);
+    // No cyan until model actually runs inference
+    expect(state.observedAsteroids).toBeNull();
   });
 });
 
