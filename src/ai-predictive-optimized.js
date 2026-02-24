@@ -9,7 +9,7 @@
 
 import { registerStrategy } from './ai-core.js';
 import { fmtAction } from './debug.js';
-import { SHIP_SIZE, updateShip } from './ship.js';
+import { MAX_SPEED, SHIP_SIZE, updateShip } from './ship.js';
 
 /** Angular threshold for AI firing (~8.6°) — duplicated from ai-reactive for decoupling. */
 export const FIRE_ANGLE = 0.15;
@@ -730,8 +730,9 @@ registerStrategy('fleeing', fleeingStrategy);
 
 // ─── Evasion AI ───────────────────────────────────────────────────────────────
 
-/** Sampling radius (px) for evasion waypoint candidates around the ship. */
-export const EVASION_WAYPOINT_RADIUS = 1500;
+/** Sampling radius (px) for evasion waypoint candidates around the ship.
+ *  ~800px keeps waypoints roughly within one viewport width of the ship. */
+export const EVASION_WAYPOINT_RADIUS = 800;
 
 /** Distance (px) at which the ship is considered to have arrived at its waypoint. */
 export const EVASION_ARRIVAL_DIST = 100;
@@ -756,6 +757,9 @@ export const EVASION_SCORING_WEIGHTS = {
  * agent's firing zone. Uses MAX_FIRE_RANGE as the danger threshold.
  */
 export const EVASION_DANGER_RANGE = MAX_FIRE_RANGE;
+
+/** Default speed multiplier for evasion ships (applied to MAX_SPEED). */
+export const EVASION_SPEED_FACTOR = 1.3;
 
 /**
  * Closest distance from a point to a line segment.
@@ -864,6 +868,7 @@ function createEvasionState(config = {}) {
     evasionArrivalDist: config.evasionArrivalDist ?? EVASION_ARRIVAL_DIST,
     evasionMaxHoldTime: config.evasionMaxHoldTime ?? EVASION_MAX_HOLD_TIME,
     evasionCandidates: config.evasionCandidates ?? EVASION_CANDIDATES,
+    evasionSpeedFactor: config.evasionSpeedFactor ?? EVASION_SPEED_FACTOR,
   };
 }
 
@@ -880,6 +885,9 @@ function updateEvasionAI(state, ship, target, asteroids, dt) {
     ship.fire = false;
     return;
   }
+
+  // Apply speed factor (overrides any previous maxSpeed setting)
+  ship.maxSpeed = MAX_SPEED * state.evasionSpeedFactor;
 
   // Advance waypoint timer
   state.waypointTimer += dt;

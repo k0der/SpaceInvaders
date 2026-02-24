@@ -20,6 +20,7 @@ import {
   EVASION_DANGER_RANGE,
   EVASION_MAX_HOLD_TIME,
   EVASION_SCORING_WEIGHTS,
+  EVASION_SPEED_FACTOR,
   EVASION_WAYPOINT_RADIUS,
   evasionStrategy,
   FIRE_ANGLE,
@@ -41,7 +42,7 @@ import {
   simulatePursuitTrajectory,
   simulateTrajectory,
 } from '../src/ai-predictive-optimized.js';
-import { createShip } from '../src/ship.js';
+import { createShip, MAX_SPEED } from '../src/ship.js';
 
 describe('ai-predictive-optimized: Constants', () => {
   it('exports SIM_STEPS as 15', () => {
@@ -2710,8 +2711,8 @@ describe('ai-predictive-optimized: fleeingStrategy', () => {
 // ─── Evasion AI ───────────────────────────────────────────────────────────────
 
 describe('ai-predictive-optimized: Evasion constants', () => {
-  it('exports EVASION_WAYPOINT_RADIUS as 1500', () => {
-    expect(EVASION_WAYPOINT_RADIUS).toBe(1500);
+  it('exports EVASION_WAYPOINT_RADIUS as 800', () => {
+    expect(EVASION_WAYPOINT_RADIUS).toBe(800);
   });
 
   it('exports EVASION_ARRIVAL_DIST as 100', () => {
@@ -2737,6 +2738,10 @@ describe('ai-predictive-optimized: Evasion constants', () => {
 
   it('exports EVASION_DANGER_RANGE as MAX_FIRE_RANGE (500)', () => {
     expect(EVASION_DANGER_RANGE).toBe(500);
+  });
+
+  it('exports EVASION_SPEED_FACTOR as 1.3', () => {
+    expect(EVASION_SPEED_FACTOR).toBe(1.3);
   });
 });
 
@@ -2854,11 +2859,13 @@ describe('ai-predictive-optimized: evasionStrategy', () => {
       evasionArrivalDist: 200,
       evasionMaxHoldTime: 5.0,
       evasionCandidates: 12,
+      evasionSpeedFactor: 1.8,
     });
     expect(state.evasionWaypointRadius).toBe(2000);
     expect(state.evasionArrivalDist).toBe(200);
     expect(state.evasionMaxHoldTime).toBe(5.0);
     expect(state.evasionCandidates).toBe(12);
+    expect(state.evasionSpeedFactor).toBe(1.8);
   });
 
   it('update populates state.waypoint on first call', () => {
@@ -2874,7 +2881,17 @@ describe('ai-predictive-optimized: evasionStrategy', () => {
     expect(state.waypoint.vy).toBe(0);
   });
 
-  it('update never sets ship.fire = true', () => {
+  it('update applies speed factor to ship.maxSpeed', () => {
+    const state = evasionStrategy.createState({});
+    const ship = createShip({ x: 500, y: 500, heading: 0, owner: 'enemy' });
+    const target = createShip({ x: 0, y: 0, heading: 0, owner: 'player' });
+
+    evasionStrategy.update(state, ship, target, [], 0.016);
+
+    expect(ship.maxSpeed).toBeCloseTo(MAX_SPEED * EVASION_SPEED_FACTOR, 1);
+  });
+
+  it('update never sets ship.fire = true (evasion)', () => {
     const state = evasionStrategy.createState({});
     const ship = createShip({ x: 0, y: 0, heading: 0, owner: 'enemy' });
     const target = createShip({ x: 300, y: 0, heading: 0, owner: 'player' });
