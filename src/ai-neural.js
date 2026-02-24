@@ -116,8 +116,13 @@ async function initSession(state) {
  */
 async function runInference(state, ship, target, asteroids) {
   try {
-    const { obs } = buildObservation(ship, target, asteroids);
+    const { obs, selectedAsteroids } = buildObservation(
+      ship,
+      target,
+      asteroids,
+    );
     state.inputBuffer.set(obs);
+    state.observedAsteroids = selectedAsteroids;
 
     const tensor = new window.ort.Tensor('float32', state.inputBuffer, [
       1,
@@ -164,14 +169,16 @@ function createNeuralState() {
  * When ready: apply cached action and kick off next async inference.
  */
 function updateNeural(state, ship, target, asteroids, dt) {
-  // Always update observed asteroids for renderer highlighting
-  state.observedAsteroids = buildObservation(
-    ship,
-    target,
-    asteroids,
-  ).selectedAsteroids;
-
   if (!state.ready || state.cachedAction === null) {
+    // Best-effort highlights while model loads (not yet authoritative)
+    if (!state.ready) {
+      state.observedAsteroids = buildObservation(
+        ship,
+        target,
+        asteroids,
+      ).selectedAsteroids;
+    }
+
     state.fallbackStrategy.update(
       state.fallbackState,
       ship,
