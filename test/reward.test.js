@@ -1,15 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
-  BODY_RADIUS,
+  BACKWARD_SCALE,
   CORRIDOR_HALF_WIDTH,
   computeReward,
   computeSafetyPotential,
-  DANGER_BACKWARD_DECAY,
-  DANGER_FORWARD_DECAY,
+  DANGER_DECAY,
   DANGER_RADIUS_BASE,
-  DANGER_WIDTH_DECAY,
   DEFAULT_REWARD_WEIGHTS,
   ENGAGE_DISTANCE,
+  FIELD_RADIUS,
   LOOKAHEAD_TIME,
   MIN_ASTEROID_SPEED,
   NEAR_MISS_RADIUS_FACTOR,
@@ -1412,37 +1411,33 @@ describe('computeSafetyPotential', () => {
 
   it('forward asymmetry — more danger ahead than behind at equal distance', () => {
     const asteroid = { x: 0, y: 0, vx: 100, vy: 0 };
-    // 200px is well beyond the body (80px), so decay rates matter
-    const ahead = computeSafetyPotential({ x: 200, y: 0 }, [asteroid]);
-    const behind = computeSafetyPotential({ x: -200, y: 0 }, [asteroid]);
-    // Both should be negative (danger)
+    // Same distance from center, but forward scale >> backward scale
+    const ahead = computeSafetyPotential({ x: 100, y: 0 }, [asteroid]);
+    const behind = computeSafetyPotential({ x: -100, y: 0 }, [asteroid]);
     expect(ahead).toBeLessThan(0);
     expect(behind).toBeLessThan(0);
-    // But ahead should be more negative (more danger in direction of travel)
+    // Ahead should be more negative (forward scale is larger → slower decay)
     expect(ahead).toBeLessThan(behind);
   });
 
-  it('near zero when ship is far outside corridor width', () => {
+  it('near zero when ship is far outside perpendicular range', () => {
     const ship = { x: 50, y: 300 };
     const asteroid = { x: 0, y: 0, vx: 100, vy: 0 };
     const result = computeSafetyPotential(ship, [asteroid]);
-    // Far off to the side → width Gaussian decays, near zero
+    // Far off to the side → perp Gaussian decays to near zero
     expect(result).toBeGreaterThan(-0.01);
     expect(result).toBeLessThan(0);
   });
 
-  it('more negative when ship is closer to corridor center', () => {
-    // Both beyond body so width decay matters
-    // Center: perp = 0, ePerp = 0
-    const center = computeSafetyPotential({ x: 200, y: 0 }, [
+  it('more negative when ship is closer to center axis', () => {
+    const center = computeSafetyPotential({ x: 100, y: 0 }, [
       { x: 0, y: 0, vx: 100, vy: 0 },
     ]);
-    // Edge: perp = 100, ePerp = 100 - 80 = 20
-    const edge = computeSafetyPotential({ x: 200, y: 100 }, [
+    const offCenter = computeSafetyPotential({ x: 100, y: 60 }, [
       { x: 0, y: 0, vx: 100, vy: 0 },
     ]);
-    expect(center).toBeLessThan(edge);
-    expect(edge).toBeLessThan(0);
+    expect(center).toBeLessThan(offCenter);
+    expect(offCenter).toBeLessThan(0);
   });
 
   it('more negative when ship is closer to asteroid (higher timeFactor)', () => {
@@ -1464,17 +1459,13 @@ describe('computeSafetyPotential', () => {
   it('diagonal velocity works correctly', () => {
     // Asteroid moving diagonally at (60, 80) → speed = 100
     // Ship at (60, 80): along = 100, perp = 0, lookahead = 150
-    // eAlong = max(100 - 80, 0) = 20, ePerp = 0
-    // tNorm = 20/150 = 2/15, forward decay
-    // danger = exp(-2 * (2/15)²) = exp(-2 * 4/225) = exp(-8/225)
+    // fwdScale = FIELD_RADIUS + 150 = 190
+    // nAlong = 100/190, nPerp = 0, d² = (100/190)²
     const asteroid = { x: 0, y: 0, vx: 60, vy: 80 };
     const result = computeSafetyPotential({ x: 60, y: 80 }, [asteroid]);
-    const eAlong = 100 - BODY_RADIUS; // 20
-    const tNorm = eAlong / 150;
-    expect(result).toBeCloseTo(
-      -Math.exp(-DANGER_FORWARD_DECAY * tNorm * tNorm),
-      4,
-    );
+    const fwdScale = FIELD_RADIUS + 150;
+    const nAlong = 100 / fwdScale;
+    expect(result).toBeCloseTo(-Math.exp(-DANGER_DECAY * nAlong * nAlong), 4);
   });
 
   it('size-independent — same result regardless of asteroid radius', () => {
@@ -1489,128 +1480,121 @@ describe('computeSafetyPotential', () => {
     expect(rSmall).toBeCloseTo(rNone, 5);
   });
 
-  it('decays smoothly beyond body + lookahead distance', () => {
-    // speed = 100, lookahead = 150; ship at (300, 0)
-    // eAlong = 300-80 = 220, tNorm = 220/150 ≈ 1.47 → decayed but nonzero
-    const ship = { x: 300, y: 0 };
+  it('decays smoothly with increasing distance', () => {
     const asteroid = { x: 0, y: 0, vx: 100, vy: 0 };
-    const result = computeSafetyPotential(ship, [asteroid]);
-    expect(result).toBeLessThan(0);
-    // But much smaller than inside body
-    const insideBody = computeSafetyPotential({ x: 10, y: 0 }, [asteroid]);
-    expect(result).toBeGreaterThan(insideBody);
+    const near = computeSafetyPotential({ x: 10, y: 0 }, [asteroid]);
+    const mid = computeSafetyPotential({ x: 100, y: 0 }, [asteroid]);
+    const far = computeSafetyPotential({ x: 300, y: 0 }, [asteroid]);
+    // All negative, monotonically decreasing danger
+    expect(near).toBeLessThan(mid);
+    expect(mid).toBeLessThan(far);
+    expect(far).toBeLessThan(0);
   });
 
   it('computes correct value for known geometry', () => {
     // Asteroid at origin moving right at 100 px/s
     // Ship at (50, 0): along = 50, perp = 0
-    // eAlong = max(50 - 80, 0) = 0 (inside body), ePerp = 0
-    // danger = exp(0) * exp(0) = 1.0 → potential = -1.0
+    // fwdScale = 40 + 150 = 190, nAlong = 50/190, d² = (50/190)²
+    // danger = exp(-2 * (50/190)²) = exp(-2 * 2500/36100) = exp(-5000/36100)
     const ship = { x: 50, y: 0 };
     const asteroid = { x: 0, y: 0, vx: 100, vy: 0 };
-    expect(computeSafetyPotential(ship, [asteroid])).toBeCloseTo(-1.0, 4);
+    const fwdScale = FIELD_RADIUS + 100 * LOOKAHEAD_TIME;
+    const nAlong = 50 / fwdScale;
+    const expected = -Math.exp(-DANGER_DECAY * nAlong * nAlong);
+    expect(computeSafetyPotential(ship, [asteroid])).toBeCloseTo(expected, 4);
   });
 });
 
-// ── field coverage: worst-case asteroid body ────────────────────────
+// ── elliptical Gaussian field shape ─────────────────────────────────
 //
-// The model treats all asteroids identically (no size in observation).
-// The field uses the LARGEST asteroid body (radius 80px, SPEC §1.2) as
-// the reference for ALL asteroids. Within 80px of center, danger is at
-// full intensity. Gaussian decay begins only beyond the body surface.
+// The field is a pure elliptical Gaussian centered on each asteroid.
+// Forward direction stretches with speed (FIELD_RADIUS + lookahead),
+// backward is a shorter halo (FIELD_RADIUS × BACKWARD_SCALE),
+// perpendicular uses FIELD_RADIUS.
 //
 // Asteroid speed classes (SPEC §1.3):
-//   Large:  15–30 px/s
-//   Medium: 30–60 px/s
-//   Small:  60–120 px/s
-// MIN_ASTEROID_SPEED = 5 px/s (filter threshold)
+//   Large:  15–30 px/s   → lookahead 22.5–45 px
+//   Medium: 30–60 px/s   → lookahead 45–90 px
+//   Small:  60–120 px/s  → lookahead 90–180 px
 
-const LARGEST_RADIUS = 80;
-const FULL_DANGER = -0.95;
-
-describe('computeSafetyPotential — field coverage', () => {
-  it('full danger at body surface (80px) ahead — fast asteroid', () => {
+describe('computeSafetyPotential — elliptical field shape', () => {
+  it('danger peaks at center (-1.0) and decays outward', () => {
     const asteroid = { x: 0, y: 0, vx: 100, vy: 0 };
-    const result = computeSafetyPotential({ x: LARGEST_RADIUS, y: 0 }, [
-      asteroid,
-    ]);
-    expect(result).toBeLessThan(FULL_DANGER);
+    const atCenter = computeSafetyPotential({ x: 0, y: 0 }, [asteroid]);
+    const nearby = computeSafetyPotential({ x: 30, y: 0 }, [asteroid]);
+    // Center is exactly -1.0 (exp(0) = 1)
+    expect(atCenter).toBeCloseTo(-1.0, 4);
+    // Nearby is less negative (decayed)
+    expect(nearby).toBeGreaterThan(atCenter);
+    expect(nearby).toBeLessThan(0);
   });
 
-  it('full danger at body surface (80px) behind — fast asteroid', () => {
+  it('field is elliptical — no square corners', () => {
+    // At 45° diagonal from center, danger should be LESS than along either axis
+    // at the same Euclidean distance (because both dimensions contribute to d²)
     const asteroid = { x: 0, y: 0, vx: 100, vy: 0 };
-    const result = computeSafetyPotential({ x: -LARGEST_RADIUS, y: 0 }, [
-      asteroid,
-    ]);
-    expect(result).toBeLessThan(FULL_DANGER);
+    const d = 60; // test distance
+    const diag = d / Math.sqrt(2); // ~42.4px in each dimension
+    const onAxis = computeSafetyPotential({ x: d, y: 0 }, [asteroid]);
+    const diagonal = computeSafetyPotential({ x: diag, y: diag }, [asteroid]);
+    // Diagonal should be less negative (more decay) than on-axis
+    expect(diagonal).toBeGreaterThan(onAxis);
   });
 
-  it('full danger at body surface (80px) perpendicular — fast asteroid', () => {
-    const asteroid = { x: 0, y: 0, vx: 100, vy: 0 };
-    const result = computeSafetyPotential({ x: 0, y: LARGEST_RADIUS }, [
-      asteroid,
-    ]);
-    expect(result).toBeLessThan(FULL_DANGER);
-  });
-
-  it('full danger at body surface — slowest large asteroid (15 px/s)', () => {
-    const asteroid = { x: 0, y: 0, vx: 15, vy: 0 };
-    const ahead = computeSafetyPotential({ x: LARGEST_RADIUS, y: 0 }, [
-      asteroid,
-    ]);
-    const behind = computeSafetyPotential({ x: -LARGEST_RADIUS, y: 0 }, [
-      asteroid,
-    ]);
-    const perp = computeSafetyPotential({ x: 0, y: LARGEST_RADIUS }, [
-      asteroid,
-    ]);
-    expect(ahead).toBeLessThan(FULL_DANGER);
-    expect(behind).toBeLessThan(FULL_DANGER);
-    expect(perp).toBeLessThan(FULL_DANGER);
-  });
-
-  it('full danger at body surface — MIN_ASTEROID_SPEED (5 px/s)', () => {
-    const asteroid = { x: 0, y: 0, vx: MIN_ASTEROID_SPEED, vy: 0 };
-    const ahead = computeSafetyPotential({ x: LARGEST_RADIUS, y: 0 }, [
-      asteroid,
-    ]);
-    const behind = computeSafetyPotential({ x: -LARGEST_RADIUS, y: 0 }, [
-      asteroid,
-    ]);
-    const perp = computeSafetyPotential({ x: 0, y: LARGEST_RADIUS }, [
-      asteroid,
-    ]);
-    expect(ahead).toBeLessThan(FULL_DANGER);
-    expect(behind).toBeLessThan(FULL_DANGER);
-    expect(perp).toBeLessThan(FULL_DANGER);
-  });
-
-  it('decay begins beyond body surface', () => {
-    const asteroid = { x: 0, y: 0, vx: 100, vy: 0 };
-    const atSurface = computeSafetyPotential({ x: LARGEST_RADIUS, y: 0 }, [
-      asteroid,
-    ]);
-    const beyond = computeSafetyPotential({ x: LARGEST_RADIUS + 100, y: 0 }, [
-      asteroid,
-    ]);
-    expect(atSurface).toBeLessThan(beyond);
-  });
-
-  it('speed stretches forward — fast asteroid reaches farther ahead', () => {
+  it('speed dramatically stretches forward field', () => {
     const fast = { x: 0, y: 0, vx: 100, vy: 0 };
     const slow = { x: 0, y: 0, vx: 15, vy: 0 };
-    // 200px: beyond body, decay depends on lookahead (speed-dependent)
-    const farAhead = { x: 200, y: 0 };
+    // At 150px ahead: fast has fwdScale=190, slow has fwdScale=62.5
+    const farAhead = { x: 150, y: 0 };
     const fastResult = computeSafetyPotential(farAhead, [fast]);
     const slowResult = computeSafetyPotential(farAhead, [slow]);
+    // Fast asteroid still has significant danger
     expect(fastResult).toBeLessThan(-0.1);
+    // Slow asteroid has negligible danger (heavily decayed)
+    expect(slowResult).toBeGreaterThan(-0.01);
     expect(fastResult).toBeLessThan(slowResult);
   });
 
-  it('fast asteroid has significant danger at 250px ahead', () => {
+  it('perpendicular extent matches FIELD_RADIUS scale', () => {
+    const asteroid = { x: 0, y: 0, vx: 100, vy: 0 };
+    // At FIELD_RADIUS perpendicular: nPerp = 1.0, d² ≥ 1.0
+    // danger = exp(-2 * 1) = exp(-2) ≈ 0.135 at best (if along = 0)
+    const atFieldRadius = computeSafetyPotential({ x: 0, y: FIELD_RADIUS }, [
+      asteroid,
+    ]);
+    expect(atFieldRadius).toBeCloseTo(-Math.exp(-DANGER_DECAY), 2);
+    // At 2× FIELD_RADIUS: d² ≥ 4.0, danger ≈ exp(-8) ≈ 0.0003
+    const atDoubleRadius = computeSafetyPotential(
+      { x: 0, y: FIELD_RADIUS * 2 },
+      [asteroid],
+    );
+    expect(atDoubleRadius).toBeGreaterThan(-0.01);
+  });
+
+  it('backward halo is shorter than forward stretch', () => {
+    const asteroid = { x: 0, y: 0, vx: 100, vy: 0 };
+    // At 100px: check forward vs backward danger
+    const forward = computeSafetyPotential({ x: 100, y: 0 }, [asteroid]);
+    const backward = computeSafetyPotential({ x: -100, y: 0 }, [asteroid]);
+    // Forward (fwdScale=190) should have more danger than backward (bwdScale=60)
+    expect(forward).toBeLessThan(backward);
+    // Backward at 100px is heavily decayed (nAlong = 100/60 ≈ 1.67, d²≈2.78)
+    expect(backward).toBeGreaterThan(-0.01);
+  });
+
+  it('fast asteroid has significant danger at 200px ahead', () => {
     const fast = { x: 0, y: 0, vx: 120, vy: 0 };
-    const result = computeSafetyPotential({ x: 250, y: 0 }, [fast]);
+    // fwdScale = 40 + 180 = 220, nAlong = 200/220 ≈ 0.91, d² ≈ 0.83
+    const result = computeSafetyPotential({ x: 200, y: 0 }, [fast]);
     expect(result).toBeLessThan(-0.1);
+  });
+
+  it('slow asteroid danger is compact', () => {
+    const slow = { x: 0, y: 0, vx: 15, vy: 0 };
+    // fwdScale = 40 + 22.5 = 62.5
+    // At 100px ahead: nAlong = 100/62.5 = 1.6, d² = 2.56, danger ≈ exp(-5.12) ≈ 0.006
+    const result = computeSafetyPotential({ x: 100, y: 0 }, [slow]);
+    expect(result).toBeGreaterThan(-0.01);
   });
 });
 

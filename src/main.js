@@ -46,11 +46,9 @@ import {
 } from './input.js';
 import { setupHiDPICanvas } from './renderer.js';
 import {
-  BODY_RADIUS,
-  CORRIDOR_HALF_WIDTH,
-  DANGER_BACKWARD_DECAY,
-  DANGER_FORWARD_DECAY,
-  DANGER_WIDTH_DECAY,
+  BACKWARD_SCALE,
+  DANGER_DECAY,
+  FIELD_RADIUS,
   LOOKAHEAD_TIME,
   MIN_ASTEROID_SPEED,
 } from './reward.js';
@@ -638,7 +636,7 @@ export function startApp() {
         hmCtx = hmCanvas.getContext('2d');
       }
 
-      // Precompute corridor data for moving asteroids
+      // Precompute per-asteroid data for the elliptical Gaussian field
       const corridors = [];
       for (const a of sim.asteroids) {
         const avx = a.vx || 0;
@@ -650,7 +648,8 @@ export function startApp() {
           y: a.y,
           ux: avx / speed,
           uy: avy / speed,
-          lookahead: speed * LOOKAHEAD_TIME,
+          fwdScale: FIELD_RADIUS + speed * LOOKAHEAD_TIME,
+          bwdScale: FIELD_RADIUS * BACKWARD_SCALE,
         });
       }
 
@@ -674,16 +673,12 @@ export function startApp() {
             const along = dx * c.ux + dy * c.uy;
             const perp = Math.abs(dx * c.uy - dy * c.ux);
 
-            const eAlong = Math.max(Math.abs(along) - BODY_RADIUS, 0);
-            const ePerp = Math.max(perp - BODY_RADIUS, 0);
-            const tNorm = eAlong / c.lookahead;
-            const wNorm = ePerp / CORRIDOR_HALF_WIDTH;
-            const tDecay =
-              along >= 0 ? DANGER_FORWARD_DECAY : DANGER_BACKWARD_DECAY;
+            const alongScale = along >= 0 ? c.fwdScale : c.bwdScale;
+            const nAlong = along / alongScale;
+            const nPerp = perp / FIELD_RADIUS;
+            const d2 = nAlong * nAlong + nPerp * nPerp;
 
-            totalDanger +=
-              Math.exp(-tDecay * tNorm * tNorm) *
-              Math.exp(-DANGER_WIDTH_DECAY * wNorm * wNorm);
+            totalDanger += Math.exp(-DANGER_DECAY * d2);
           }
 
           const idx = (row * cols + col) * 4;

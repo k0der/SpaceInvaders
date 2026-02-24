@@ -50,25 +50,22 @@ function normalizeAngle(angle) {
   return angle;
 }
 
-/** Body radius (px) used for all asteroids — largest class (SPEC §1.2). */
-export const BODY_RADIUS = 80;
+/** Base radius (px) for Gaussian field scaling — average large asteroid. */
+export const FIELD_RADIUS = 40;
 
-/** Gaussian decay rate ahead of asteroid (along velocity, beyond body). */
-export const DANGER_FORWARD_DECAY = 2.0;
+/** Gaussian steepness — controls how quickly danger decays with distance. */
+export const DANGER_DECAY = 2.0;
 
-/** Gaussian decay rate behind asteroid (beyond body). */
-export const DANGER_BACKWARD_DECAY = 4.0;
-
-/** Gaussian decay rate perpendicular to velocity (beyond body). */
-export const DANGER_WIDTH_DECAY = 2.0;
+/** Backward scale multiplier — alongScale behind = FIELD_RADIUS × this. */
+export const BACKWARD_SCALE = 1.5;
 
 /**
  * Compute a scalar safety potential at the ship's position.
- * Continuous Gaussian field with a flat-top body zone. Within BODY_RADIUS
- * of any asteroid, danger is at full intensity (1.0). Beyond the body,
- * danger decays via Gaussian — elongated forward along velocity (speed-
- * dependent), shorter behind. Size-independent: all asteroids use the
- * same BODY_RADIUS regardless of actual collisionRadius.
+ * Elliptical Gaussian field centered on each moving asteroid. Danger
+ * peaks at the asteroid center (1.0) and decays smoothly outward in an
+ * ellipse. The forward direction is stretched by asteroid speed, making
+ * fast asteroids cast longer danger fields ahead. Size-independent: the
+ * same FIELD_RADIUS is used for all asteroids regardless of collisionRadius.
  *
  * @param {{ x: number, y: number }} ship
  * @param {Array} asteroids
@@ -92,17 +89,16 @@ export function computeSafetyPotential(ship, asteroids) {
     const perp = Math.abs(adx * uy - ady * ux);
     const lookahead = speed * LOOKAHEAD_TIME;
 
-    // Effective distances from body surface (0 inside body)
-    const eAlong = Math.max(Math.abs(along) - BODY_RADIUS, 0);
-    const ePerp = Math.max(perp - BODY_RADIUS, 0);
+    // Directional scaling (elliptical)
+    const alongScale =
+      along >= 0 ? FIELD_RADIUS + lookahead : FIELD_RADIUS * BACKWARD_SCALE;
 
-    const tNorm = eAlong / lookahead;
-    const wNorm = ePerp / CORRIDOR_HALF_WIDTH;
-    const tDecay = along >= 0 ? DANGER_FORWARD_DECAY : DANGER_BACKWARD_DECAY;
+    // Normalized elliptical distance squared
+    const nAlong = along / alongScale;
+    const nPerp = perp / FIELD_RADIUS;
+    const d2 = nAlong * nAlong + nPerp * nPerp;
 
-    totalDanger +=
-      Math.exp(-tDecay * tNorm * tNorm) *
-      Math.exp(-DANGER_WIDTH_DECAY * wNorm * wNorm);
+    totalDanger += Math.exp(-DANGER_DECAY * d2);
   }
   return totalDanger === 0 ? 0 : -totalDanger;
 }

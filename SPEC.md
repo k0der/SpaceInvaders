@@ -1314,19 +1314,17 @@ for *improving* its safety position rather than penalizing it for being in dange
 This preserves the optimal policy while providing dense, directional learning signal.
 
 - `Φ(ship, asteroids)` = negative sum of Gaussian danger contributions at the ship's position
-- Each asteroid with speed ≥ `MIN_ASTEROID_SPEED` generates a continuous danger field:
+- Each asteroid with speed ≥ `MIN_ASTEROID_SPEED` generates an elliptical Gaussian field:
   - Decomposed into `along` (projection onto velocity unit vector) and `perp` (perpendicular distance)
-  - **Flat-top body zone**: `BODY_RADIUS = 80px` (largest asteroid class, §1.2). Effective
-    distances are measured from the body surface, not the center:
-    `eAlong = max(|along| - BODY_RADIUS, 0)`, `ePerp = max(perp - BODY_RADIUS, 0)`
-  - Within `BODY_RADIUS` of center: danger = 1.0 (full intensity, both effective distances = 0)
-  - Beyond the body surface: `tNorm = eAlong / lookahead`, `wNorm = ePerp / CORRIDOR_HALF_WIDTH`
-  - `danger = exp(-tDecay × tNorm²) × exp(-DANGER_WIDTH_DECAY × wNorm²)`
-  - Forward decay: `DANGER_FORWARD_DECAY` (2.0) — elongated ahead along velocity (speed-dependent)
-  - Backward decay: `DANGER_BACKWARD_DECAY` (4.0) — shorter halo behind
-  - Perpendicular decay: `DANGER_WIDTH_DECAY` (2.0) — smooth width falloff
-- No hard edges — smooth Gaussian decay in all directions beyond the body zone
-- **Size-independent**: all asteroids use the same `BODY_RADIUS` regardless of actual `collisionRadius`
+  - Directional scaling (elliptical):
+    - Forward: `alongScale = FIELD_RADIUS + lookahead` — speed stretches the field ahead
+    - Backward: `alongScale = FIELD_RADIUS × BACKWARD_SCALE` — shorter halo behind
+    - Perpendicular: `FIELD_RADIUS` — circular cross-section
+  - `d² = (along / alongScale)² + (perp / FIELD_RADIUS)²` — normalized elliptical distance
+  - `danger = exp(-DANGER_DECAY × d²)` — peaks at 1.0 at center, smooth decay outward
+  - Constants: `FIELD_RADIUS = 40px`, `DANGER_DECAY = 2.0`, `BACKWARD_SCALE = 1.5`
+- Pure elliptical shape — no flat-top, no hard edges, no rectangular corners
+- **Size-independent**: all asteroids use the same `FIELD_RADIUS` regardless of actual `collisionRadius`
 - Φ is cached as a scalar on the reward state (not recomputed from asteroid references)
   because asteroid positions are mutated in-place between ticks
 - Reward = `safetyShaping × (currentΦ - prevΦ)` — positive when moving to safety,
@@ -1502,7 +1500,7 @@ settings panel labeled "Danger Zones".
 **Visualization**:
 - Evaluates safety potential at every 8×8 pixel cell across the viewport
 - Each screen cell is inverse-transformed to world coordinates via `screenToWorld`
-- Computes Gaussian corridor danger using the same constants and math as
+- Computes elliptical Gaussian danger using the same constants and math as
   `computeSafetyPotential` (precomputed per asteroid for performance)
 - Color mapping: red gradient for danger (Φ < 0, brighter = deeper danger),
   subtle green tint for safe areas (Φ ≈ 0)

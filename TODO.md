@@ -1600,10 +1600,10 @@ Increments 31–37 add a third intelligence type — a neural network trained vi
 **Acceptance Criteria**:
 - [x] `computeSafetyPotential(ship, asteroids)` exported from `reward.js`
 - [x] Returns 0 when no asteroids nearby, negative near asteroid paths
-- [x] Continuous Gaussian field with flat-top body zone — `BODY_RADIUS = 80px` at full intensity, smooth Gaussian decay beyond surface
-- [x] Directional: elongated forward along velocity (`DANGER_FORWARD_DECAY=2.0`), narrow perpendicular (`DANGER_WIDTH_DECAY=2.0`), shorter halo behind (`DANGER_BACKWARD_DECAY=4.0`)
-- [x] Size-independent — all asteroids use same `BODY_RADIUS` regardless of actual `collisionRadius`
-- [x] Uses same scale constants as corridor geometry (CORRIDOR_HALF_WIDTH, LOOKAHEAD_TIME, MIN_ASTEROID_SPEED)
+- [x] Elliptical Gaussian field — peaks at center (1.0), smooth decay outward, no flat-top or rectangular corners
+- [x] Directional: forward scale = `FIELD_RADIUS + lookahead` (speed stretches ahead), backward = `FIELD_RADIUS × BACKWARD_SCALE`, perp = `FIELD_RADIUS`
+- [x] Constants: `FIELD_RADIUS=40`, `DANGER_DECAY=2.0`, `BACKWARD_SCALE=1.5`
+- [x] Size-independent — all asteroids use same `FIELD_RADIUS` regardless of actual `collisionRadius`
 - [x] `safetyShaping` added to `DEFAULT_REWARD_WEIGHTS` (default 0.0)
 - [x] `computeReward` computes `safetyShaping × (currentΦ - prevΦ)` when weight ≠ 0
 - [x] `_buildRewardState()` caches `safetyPotential` scalar on reward state
