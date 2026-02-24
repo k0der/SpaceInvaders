@@ -3,7 +3,10 @@ import {
   CORRIDOR_HALF_WIDTH,
   computeReward,
   computeSafetyPotential,
+  DANGER_BACKWARD_DECAY,
+  DANGER_FORWARD_DECAY,
   DANGER_RADIUS_BASE,
+  DANGER_WIDTH_DECAY,
   DEFAULT_REWARD_WEIGHTS,
   ENGAGE_DISTANCE,
   LOOKAHEAD_TIME,
@@ -1406,16 +1409,22 @@ describe('computeSafetyPotential', () => {
     expect(computeSafetyPotential(ship, [asteroid])).toBeLessThan(0);
   });
 
-  it('returns 0 when ship is behind asteroid (along <= 0)', () => {
-    const ship = { x: -50, y: 0 };
+  it('near zero when ship is far behind asteroid (rapid backward decay)', () => {
+    const ship = { x: -200, y: 0 };
     const asteroid = { x: 0, y: 0, vx: 100, vy: 0 };
-    expect(computeSafetyPotential(ship, [asteroid])).toBe(0);
+    const result = computeSafetyPotential(ship, [asteroid]);
+    // Far behind → backward Gaussian decays rapidly, near zero
+    expect(result).toBeGreaterThan(-0.01);
+    expect(result).toBeLessThan(0);
   });
 
-  it('returns 0 when ship is outside corridor width (perp >= 80)', () => {
-    const ship = { x: 50, y: 100 };
+  it('near zero when ship is far outside corridor width', () => {
+    const ship = { x: 50, y: 300 };
     const asteroid = { x: 0, y: 0, vx: 100, vy: 0 };
-    expect(computeSafetyPotential(ship, [asteroid])).toBe(0);
+    const result = computeSafetyPotential(ship, [asteroid]);
+    // Far off to the side → width Gaussian decays, near zero
+    expect(result).toBeGreaterThan(-0.01);
+    expect(result).toBeLessThan(0);
   });
 
   it('more negative when ship is closer to corridor center', () => {
@@ -1450,11 +1459,14 @@ describe('computeSafetyPotential', () => {
   it('diagonal velocity works correctly', () => {
     // Asteroid moving diagonally at (60, 80) → speed = 100
     // Ship at (60, 80): along = 100, perp = 0, lookahead = 150
-    // timeFactor = 1 - 100/150 = 1/3, widthFactor = 1
-    // danger = 1/3 → potential = -1/3
+    // tNorm = 100/150 = 2/3, wNorm = 0
+    // danger = exp(-2 * (2/3)²) * exp(0) = exp(-8/9)
     const asteroid = { x: 0, y: 0, vx: 60, vy: 80 };
     const result = computeSafetyPotential({ x: 60, y: 80 }, [asteroid]);
-    expect(result).toBeCloseTo(-1 / 3, 4);
+    expect(result).toBeCloseTo(
+      -Math.exp(-DANGER_FORWARD_DECAY * (2 / 3) ** 2),
+      4,
+    );
   });
 
   it('size-independent — same result regardless of asteroid radius', () => {
@@ -1469,22 +1481,28 @@ describe('computeSafetyPotential', () => {
     expect(rSmall).toBeCloseTo(rNone, 5);
   });
 
-  it('returns 0 when ship is beyond lookahead distance', () => {
-    // speed = 100, lookahead = 150; ship at (200, 0) → along = 200 > 150
+  it('decays smoothly beyond lookahead distance', () => {
+    // speed = 100, lookahead = 150; ship at (200, 0) → tNorm = 200/150 ≈ 1.33
+    // Gaussian decays but doesn't hit zero
     const ship = { x: 200, y: 0 };
     const asteroid = { x: 0, y: 0, vx: 100, vy: 0 };
-    expect(computeSafetyPotential(ship, [asteroid])).toBe(0);
+    const result = computeSafetyPotential(ship, [asteroid]);
+    expect(result).toBeLessThan(0);
+    // But much smaller than at lookahead center
+    const atCenter = computeSafetyPotential({ x: 10, y: 0 }, [asteroid]);
+    expect(result).toBeGreaterThan(atCenter);
   });
 
   it('computes correct value for known geometry', () => {
     // Asteroid at origin moving right at 100 px/s
     // Ship at (50, 0): along = 50, perp = 0
     // lookahead = 100 * 1.5 = 150
-    // timeFactor = 1 - 50/150 = 2/3, widthFactor = 1 - 0/80 = 1
-    // danger = 2/3 → potential = -2/3
+    // tNorm = 50/150 = 1/3, wNorm = 0
+    // danger = exp(-2 * (1/3)²) * exp(0) = exp(-2/9)
     const ship = { x: 50, y: 0 };
     const asteroid = { x: 0, y: 0, vx: 100, vy: 0 };
-    expect(computeSafetyPotential(ship, [asteroid])).toBeCloseTo(-2 / 3, 4);
+    const expected = -Math.exp(-DANGER_FORWARD_DECAY * (1 / 3) ** 2);
+    expect(computeSafetyPotential(ship, [asteroid])).toBeCloseTo(expected, 4);
   });
 });
 

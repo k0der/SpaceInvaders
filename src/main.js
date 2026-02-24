@@ -47,6 +47,9 @@ import {
 import { setupHiDPICanvas } from './renderer.js';
 import {
   CORRIDOR_HALF_WIDTH,
+  DANGER_BACKWARD_DECAY,
+  DANGER_FORWARD_DECAY,
+  DANGER_WIDTH_DECAY,
   LOOKAHEAD_TIME,
   MIN_ASTEROID_SPEED,
 } from './reward.js';
@@ -669,19 +672,19 @@ export function startApp() {
             const dy = wy - c.y;
             const along = dx * c.ux + dy * c.uy;
             const perp = Math.abs(dx * c.uy - dy * c.ux);
-            if (
-              along > 0 &&
-              along < c.lookahead &&
-              perp < CORRIDOR_HALF_WIDTH
-            ) {
-              const timeFactor = 1 - along / c.lookahead;
-              const widthFactor = 1 - perp / CORRIDOR_HALF_WIDTH;
-              totalDanger += timeFactor * widthFactor;
-            }
+
+            const tNorm = along / c.lookahead;
+            const wNorm = perp / CORRIDOR_HALF_WIDTH;
+            const tDecay =
+              along >= 0 ? DANGER_FORWARD_DECAY : DANGER_BACKWARD_DECAY;
+
+            totalDanger +=
+              Math.exp(-tDecay * tNorm * tNorm) *
+              Math.exp(-DANGER_WIDTH_DECAY * wNorm * wNorm);
           }
 
           const idx = (row * cols + col) * 4;
-          if (totalDanger > 0) {
+          if (totalDanger > 0.01) {
             // Danger zone — red gradient
             const intensity = Math.min(totalDanger / MAX_DANGER, 1.0);
             data[idx] = 255;

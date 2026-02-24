@@ -50,14 +50,24 @@ function normalizeAngle(angle) {
   return angle;
 }
 
+/** Gaussian decay rate for danger ahead of asteroid (along velocity). */
+export const DANGER_FORWARD_DECAY = 2.0;
+
+/** Gaussian decay rate for danger behind asteroid (rapid falloff). */
+export const DANGER_BACKWARD_DECAY = 8.0;
+
+/** Gaussian decay rate for danger perpendicular to velocity. */
+export const DANGER_WIDTH_DECAY = 2.0;
+
 /**
  * Compute a scalar safety potential at the ship's position.
- * Returns negative sum of corridor danger — higher (closer to 0) is safer.
- * Size-independent: uses same corridor geometry for all asteroids.
+ * Continuous Gaussian field — no hard edges. Danger peaks at each asteroid
+ * and decays smoothly: elongated forward along velocity, narrow perpendicular,
+ * small halo behind. Overlapping fields from multiple asteroids sum naturally.
  *
  * @param {{ x: number, y: number }} ship
  * @param {Array} asteroids
- * @returns {number} Φ (0 when safe, negative when inside corridors)
+ * @returns {number} Φ (0 when safe, negative near asteroid paths)
  */
 export function computeSafetyPotential(ship, asteroids) {
   let totalDanger = 0;
@@ -77,11 +87,13 @@ export function computeSafetyPotential(ship, asteroids) {
     const perp = Math.abs(adx * uy - ady * ux);
     const lookahead = speed * LOOKAHEAD_TIME;
 
-    if (along > 0 && along < lookahead && perp < CORRIDOR_HALF_WIDTH) {
-      const timeFactor = 1 - along / lookahead;
-      const widthFactor = 1 - perp / CORRIDOR_HALF_WIDTH;
-      totalDanger += timeFactor * widthFactor;
-    }
+    const tNorm = along / lookahead;
+    const wNorm = perp / CORRIDOR_HALF_WIDTH;
+    const tDecay = along >= 0 ? DANGER_FORWARD_DECAY : DANGER_BACKWARD_DECAY;
+
+    totalDanger +=
+      Math.exp(-tDecay * tNorm * tNorm) *
+      Math.exp(-DANGER_WIDTH_DECAY * wNorm * wNorm);
   }
   return totalDanger === 0 ? 0 : -totalDanger;
 }
