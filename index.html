@@ -1074,15 +1074,14 @@ function selectWaypoint(
   dangerRange = EVASION_DANGER_RANGE,
 ) {
   const valid = [];
-  let farthestX = anchor.x;
-  let farthestY = anchor.y;
-  let farthestDist = -Infinity;
+  const all = [];
 
   for (let i = 0; i < numCandidates; i++) {
     const angle = Math.random() * 2 * Math.PI;
     const r = Math.sqrt(Math.random()) * radius;
     const cx = anchor.x + Math.cos(angle) * r;
     const cy = anchor.y + Math.sin(angle) * r;
+    all.push({ x: cx, y: cy });
 
     // Reject if the path ship→candidate passes within dangerRange of the agent
     const pathDist = pointToSegmentDist(
@@ -1096,23 +1095,11 @@ function selectWaypoint(
     if (pathDist >= dangerRange) {
       valid.push({ x: cx, y: cy });
     }
-
-    // Track farthest from agent as fallback
-    const dx = cx - agent.x;
-    const dy = cy - agent.y;
-    const distSq = dx * dx + dy * dy;
-    if (distSq > farthestDist) {
-      farthestDist = distSq;
-      farthestX = cx;
-      farthestY = cy;
-    }
   }
 
-  // Pick a random valid candidate; fall back to farthest if all rejected
-  const pick =
-    valid.length > 0
-      ? valid[Math.floor(Math.random() * valid.length)]
-      : { x: farthestX, y: farthestY };
+  // Pick a random valid candidate; fall back to random from all if all rejected
+  const pool = valid.length > 0 ? valid : all;
+  const pick = pool[Math.floor(Math.random() * pool.length)];
 
   return { x: pick.x, y: pick.y, vx: 0, vy: 0, alive: true };
 }
