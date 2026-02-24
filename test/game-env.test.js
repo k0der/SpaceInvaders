@@ -424,7 +424,7 @@ describe('Episode termination', () => {
     expect(result.info.winner).toBe('draw_mutual');
   });
 
-  it('terminal info includes rewardBreakdown with all 14 keys', () => {
+  it('terminal info includes rewardBreakdown with all 15 keys', () => {
     env.reset({
       shipHP: 5,
       maxTicks: 2,
@@ -448,6 +448,7 @@ describe('Episode termination', () => {
       'engagePenalty',
       'proximity',
       'asteroidPenalty',
+      'safetyShaping',
       'win',
       'loss',
       'draw',
@@ -1096,5 +1097,57 @@ describe('GameEnv camp check', () => {
     }
 
     expect(result.done).toBe(false);
+  });
+});
+
+// ── Safety potential caching ─────────────────────────────────────────
+describe('GameEnv safety potential', () => {
+  it('_buildRewardState includes safetyPotential as a number', () => {
+    const env = new GameEnv();
+    env.reset({ enemyPolicy: 'static', asteroidDensity: 0.5 });
+    const state = env._buildRewardState();
+    expect(typeof state.safetyPotential).toBe('number');
+    expect(Number.isFinite(state.safetyPotential)).toBe(true);
+  });
+
+  it('_rewardBreakdown includes safetyShaping initially at 0', () => {
+    const env = new GameEnv();
+    env.reset({ enemyPolicy: 'static', asteroidDensity: 0 });
+    expect(env._rewardBreakdown).toHaveProperty('safetyShaping', 0);
+  });
+
+  it('safetyShaping tracks in breakdown when weight is enabled', () => {
+    const env = new GameEnv();
+    env.reset({
+      shipHP: 5,
+      maxTicks: 10,
+      enemyPolicy: 'static',
+      asteroidDensity: 0.5,
+      rewardWeights: {
+        survival: 0,
+        aim: 0,
+        closing: 0,
+        hit: 0,
+        gotHit: 0,
+        nearMiss: 0,
+        firePenalty: 0,
+        win: 0,
+        loss: 0,
+        draw: 0,
+        timeout: 0,
+        engagePenalty: 0,
+        proximity: 0,
+        asteroidPenalty: 0,
+        safetyShaping: 1.0,
+      },
+    });
+
+    // Run several steps to accumulate potential changes
+    for (let i = 0; i < 5; i++) {
+      env.step(0, 0); // thrust forward
+    }
+
+    // safetyShaping should be a finite number (could be 0 if no corridors)
+    expect(Number.isFinite(env._rewardBreakdown.safetyShaping)).toBe(true);
   });
 });

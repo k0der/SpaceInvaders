@@ -1305,6 +1305,24 @@ orders of magnitude more episodes to learn basic behaviors.
 | Near-miss penalty | -0.1 × (1 - dist/danger_radius)² | danger_radius = 3× collisionRadius + 40px base |
 | Fire discipline | -0.002 | When fire action is true |
 | Proximity | +proximity × agentClosing / prevDist | When agent closes distance (action-dependent) |
+| Safety shaping | +safetyShaping × (Φ(s') - Φ(s)) | Potential-based shaping (see below) |
+
+**Safety potential shaping** (`computeSafetyPotential`):
+
+A potential-based reward shaping component (Ng et al. 1999) that rewards the agent
+for *improving* its safety position rather than penalizing it for being in danger.
+This preserves the optimal policy while providing dense, directional learning signal.
+
+- `Φ(ship, asteroids)` = negative sum of corridor danger at the ship's position
+- Each asteroid with speed ≥ `MIN_ASTEROID_SPEED` generates a corridor (same geometry
+  as `asteroidPenalty`: velocity-aligned, `speed × LOOKAHEAD_TIME` length, ±`CORRIDOR_HALF_WIDTH`)
+- `corridorDanger = timeFactor × widthFactor` (0 outside, peaks at 1.0 at corridor center)
+- **Size-independent**: no reference to asteroid radius or `collisionRadius`
+- Φ is cached as a scalar on the reward state (not recomputed from asteroid references)
+  because asteroid positions are mutated in-place between ticks
+- Reward = `safetyShaping × (currentΦ - prevΦ)` — positive when moving to safety,
+  negative when entering danger
+- Default weight: 0.0 (disabled). Active in stages 14+ at 1.0.
 
 **Terminal rewards**:
 

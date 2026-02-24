@@ -14,7 +14,11 @@ import {
   processBulletShipCollisions,
 } from './game.js';
 import { buildObservation } from './observation.js';
-import { computeReward, DEFAULT_REWARD_WEIGHTS } from './reward.js';
+import {
+  computeReward,
+  computeSafetyPotential,
+  DEFAULT_REWARD_WEIGHTS,
+} from './reward.js';
 import { createShip, MAX_SPEED, SHIP_SIZE, updateShip } from './ship.js';
 import { createSimulation, updateSimulation } from './simulation.js';
 
@@ -179,6 +183,7 @@ export class GameEnv {
       engagePenalty: 0,
       proximity: 0,
       asteroidPenalty: 0,
+      safetyShaping: 0,
       win: 0,
       loss: 0,
       draw: 0,
@@ -478,6 +483,7 @@ export class GameEnv {
       shipHP: this._agentHP,
       targetHP: this._opponentHP,
       tick: this._tick,
+      safetyPotential: computeSafetyPotential(this._agent, this._sim.asteroids),
     };
   }
 }

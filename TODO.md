@@ -1590,3 +1590,22 @@ Increments 31–37 add a third intelligence type — a neural network trained vi
 - [ ] Renderer reads `observedAsteroids` from AI state (not recomputed)
 - [ ] `GameEnv` callers use `.obs` for the Float32Array
 - [ ] All existing tests pass (updated to destructure `{ obs }`)
+
+## Increment 45: Safety Potential Reward Shaping
+
+**Goal**: Replace penalty-based asteroid avoidance with potential-based reward shaping (Ng et al. 1999). Instead of punishing the agent for being in danger, reward it for *improving* its safety position. This preserves the optimal policy while providing dense, directional learning signal. See SPEC §16.7.
+
+**Modules**: `src/reward.js`, `src/game-env.js`, `src/main.js`, `training/config.yaml`
+
+**Acceptance Criteria**:
+- [x] `computeSafetyPotential(ship, asteroids)` exported from `reward.js`
+- [x] Returns 0 when no corridors overlap ship, negative when inside corridors
+- [x] Size-independent — no reference to asteroid radius or collisionRadius
+- [x] Uses same corridor geometry as `asteroidPenalty` (CORRIDOR_HALF_WIDTH, LOOKAHEAD_TIME, MIN_ASTEROID_SPEED)
+- [x] `safetyShaping` added to `DEFAULT_REWARD_WEIGHTS` (default 0.0)
+- [x] `computeReward` computes `safetyShaping × (currentΦ - prevΦ)` when weight ≠ 0
+- [x] `_buildRewardState()` caches `safetyPotential` scalar on reward state
+- [x] `_rewardBreakdown` includes `safetyShaping` component
+- [x] Danger zone visualization uses gradient corridors (brighter near asteroid, fading along path)
+- [x] All existing tests pass (updated for new weight key)
+- [x] New tests cover `computeSafetyPotential` (geometry, edge cases, size-independence) and shaping reward (delta, scaling, breakdown)

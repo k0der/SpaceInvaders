@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CORRIDOR_HALF_WIDTH,
   computeReward,
+  computeSafetyPotential,
   DANGER_RADIUS_BASE,
   DEFAULT_REWARD_WEIGHTS,
   ENGAGE_DISTANCE,
@@ -34,6 +35,7 @@ function makeState(overrides = {}) {
     shipHP: overrides.shipHP ?? 5,
     targetHP: overrides.targetHP ?? 5,
     tick: overrides.tick ?? 0,
+    safetyPotential: overrides.safetyPotential ?? 0,
   };
 }
 
@@ -58,7 +60,7 @@ function makeConfig(overrides = {}) {
 // --- Tests ---
 
 describe('DEFAULT_REWARD_WEIGHTS', () => {
-  it('exports all 14 reward weight keys', () => {
+  it('exports all 15 reward weight keys', () => {
     const expected = [
       'survival',
       'aim',
@@ -74,6 +76,7 @@ describe('DEFAULT_REWARD_WEIGHTS', () => {
       'engagePenalty',
       'proximity',
       'asteroidPenalty',
+      'safetyShaping',
     ];
     expect(Object.keys(DEFAULT_REWARD_WEIGHTS).sort()).toEqual(expected.sort());
   });
@@ -94,6 +97,7 @@ describe('DEFAULT_REWARD_WEIGHTS', () => {
       engagePenalty: 0.0,
       proximity: 0.0,
       asteroidPenalty: 0.0,
+      safetyShaping: 0.0,
     });
   });
 });
@@ -1135,6 +1139,7 @@ describe('computeReward — asteroid danger track penalty', () => {
       engagePenalty: 0,
       proximity: 0,
       asteroidPenalty: 0,
+      safetyShaping: 0,
       win: 0,
       loss: 0,
       draw: 0,
@@ -1211,7 +1216,7 @@ describe('computeReward — edge cases', () => {
 });
 
 describe('computeReward — breakdown accumulator', () => {
-  /** Create a zeroed breakdown object with all 14 keys. */
+  /** Create a zeroed breakdown object with all 15 keys. */
   function makeBreakdown() {
     return {
       survival: 0,
@@ -1224,6 +1229,7 @@ describe('computeReward — breakdown accumulator', () => {
       engagePenalty: 0,
       proximity: 0,
       asteroidPenalty: 0,
+      safetyShaping: 0,
       win: 0,
       loss: 0,
       draw: 0,
@@ -1364,5 +1370,203 @@ describe('computeReward — breakdown accumulator', () => {
     const breakdown = makeBreakdown();
     computeReward(prev, curr, action, config, breakdown);
     expect(breakdown.proximity).toBeCloseTo(0.02, 5);
+  });
+
+  it('accumulates safetyShaping component', () => {
+    const prev = makeState({ safetyPotential: -1.0 });
+    const curr = makeState({ safetyPotential: -0.5 });
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ safetyShaping: 2.0 }),
+    });
+    const breakdown = makeBreakdown();
+    computeReward(prev, curr, action, config, breakdown);
+    // delta = -0.5 - (-1.0) = 0.5; reward = 2.0 * 0.5 = 1.0
+    expect(breakdown.safetyShaping).toBeCloseTo(1.0, 5);
+  });
+});
+
+// ── computeSafetyPotential ──────────────────────────────────────────
+describe('computeSafetyPotential', () => {
+  it('returns 0 when no asteroids', () => {
+    const ship = { x: 0, y: 0 };
+    expect(computeSafetyPotential(ship, [])).toBe(0);
+  });
+
+  it('returns 0 when all asteroids below MIN_ASTEROID_SPEED', () => {
+    const ship = { x: 50, y: 0 };
+    const slowAsteroid = { x: 0, y: 0, vx: 2, vy: 0 };
+    expect(computeSafetyPotential(ship, [slowAsteroid])).toBe(0);
+  });
+
+  it('returns negative value when ship is inside a corridor', () => {
+    const ship = { x: 50, y: 0 };
+    // Asteroid at origin moving right at 100 px/s, ship directly ahead
+    const asteroid = { x: 0, y: 0, vx: 100, vy: 0 };
+    expect(computeSafetyPotential(ship, [asteroid])).toBeLessThan(0);
+  });
+
+  it('returns 0 when ship is behind asteroid (along <= 0)', () => {
+    const ship = { x: -50, y: 0 };
+    const asteroid = { x: 0, y: 0, vx: 100, vy: 0 };
+    expect(computeSafetyPotential(ship, [asteroid])).toBe(0);
+  });
+
+  it('returns 0 when ship is outside corridor width (perp >= 80)', () => {
+    const ship = { x: 50, y: 100 };
+    const asteroid = { x: 0, y: 0, vx: 100, vy: 0 };
+    expect(computeSafetyPotential(ship, [asteroid])).toBe(0);
+  });
+
+  it('more negative when ship is closer to corridor center', () => {
+    // Center: perp = 0
+    const center = computeSafetyPotential({ x: 50, y: 0 }, [
+      { x: 0, y: 0, vx: 100, vy: 0 },
+    ]);
+    // Edge: perp = 40
+    const edge = computeSafetyPotential({ x: 50, y: 40 }, [
+      { x: 0, y: 0, vx: 100, vy: 0 },
+    ]);
+    expect(center).toBeLessThan(edge);
+    expect(edge).toBeLessThan(0);
+  });
+
+  it('more negative when ship is closer to asteroid (higher timeFactor)', () => {
+    const asteroid = { x: 0, y: 0, vx: 100, vy: 0 };
+    const close = computeSafetyPotential({ x: 10, y: 0 }, [asteroid]);
+    const far = computeSafetyPotential({ x: 100, y: 0 }, [asteroid]);
+    expect(close).toBeLessThan(far);
+  });
+
+  it('multiple corridors: additive danger', () => {
+    const ship = { x: 50, y: 0 };
+    const a1 = { x: 0, y: 0, vx: 100, vy: 0 };
+    const a2 = { x: 0, y: 0, vx: 100, vy: 0 };
+    const single = computeSafetyPotential(ship, [a1]);
+    const double = computeSafetyPotential(ship, [a1, a2]);
+    expect(double).toBeCloseTo(single * 2, 5);
+  });
+
+  it('diagonal velocity works correctly', () => {
+    // Asteroid moving diagonally at (60, 80) → speed = 100
+    // Ship at (60, 80): along = 100, perp = 0, lookahead = 150
+    // timeFactor = 1 - 100/150 = 1/3, widthFactor = 1
+    // danger = 1/3 → potential = -1/3
+    const asteroid = { x: 0, y: 0, vx: 60, vy: 80 };
+    const result = computeSafetyPotential({ x: 60, y: 80 }, [asteroid]);
+    expect(result).toBeCloseTo(-1 / 3, 4);
+  });
+
+  it('size-independent — same result regardless of asteroid radius', () => {
+    const ship = { x: 50, y: 0 };
+    const small = { x: 0, y: 0, vx: 100, vy: 0, collisionRadius: 10 };
+    const large = { x: 0, y: 0, vx: 100, vy: 0, collisionRadius: 80 };
+    const noRadius = { x: 0, y: 0, vx: 100, vy: 0 };
+    const rSmall = computeSafetyPotential(ship, [small]);
+    const rLarge = computeSafetyPotential(ship, [large]);
+    const rNone = computeSafetyPotential(ship, [noRadius]);
+    expect(rSmall).toBeCloseTo(rLarge, 5);
+    expect(rSmall).toBeCloseTo(rNone, 5);
+  });
+
+  it('returns 0 when ship is beyond lookahead distance', () => {
+    // speed = 100, lookahead = 150; ship at (200, 0) → along = 200 > 150
+    const ship = { x: 200, y: 0 };
+    const asteroid = { x: 0, y: 0, vx: 100, vy: 0 };
+    expect(computeSafetyPotential(ship, [asteroid])).toBe(0);
+  });
+
+  it('computes correct value for known geometry', () => {
+    // Asteroid at origin moving right at 100 px/s
+    // Ship at (50, 0): along = 50, perp = 0
+    // lookahead = 100 * 1.5 = 150
+    // timeFactor = 1 - 50/150 = 2/3, widthFactor = 1 - 0/80 = 1
+    // danger = 2/3 → potential = -2/3
+    const ship = { x: 50, y: 0 };
+    const asteroid = { x: 0, y: 0, vx: 100, vy: 0 };
+    expect(computeSafetyPotential(ship, [asteroid])).toBeCloseTo(-2 / 3, 4);
+  });
+});
+
+// ── safetyShaping reward ────────────────────────────────────────────
+describe('computeReward — safetyShaping', () => {
+  it('positive reward when potential improves (currΦ > prevΦ)', () => {
+    const prev = makeState({ safetyPotential: -1.0 });
+    const curr = makeState({ safetyPotential: -0.5 });
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ safetyShaping: 1.0 }),
+    });
+    // delta = -0.5 - (-1.0) = 0.5
+    expect(computeReward(prev, curr, action, config)).toBeCloseTo(0.5, 5);
+  });
+
+  it('negative reward when potential worsens (currΦ < prevΦ)', () => {
+    const prev = makeState({ safetyPotential: -0.5 });
+    const curr = makeState({ safetyPotential: -1.0 });
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ safetyShaping: 1.0 }),
+    });
+    // delta = -1.0 - (-0.5) = -0.5
+    expect(computeReward(prev, curr, action, config)).toBeCloseTo(-0.5, 5);
+  });
+
+  it('zero reward when potential unchanged', () => {
+    const prev = makeState({ safetyPotential: -0.5 });
+    const curr = makeState({ safetyPotential: -0.5 });
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ safetyShaping: 1.0 }),
+    });
+    expect(computeReward(prev, curr, action, config)).toBe(0.0);
+  });
+
+  it('scaled by weight', () => {
+    const prev = makeState({ safetyPotential: -1.0 });
+    const curr = makeState({ safetyPotential: 0.0 });
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ safetyShaping: 3.0 }),
+    });
+    // delta = 0 - (-1) = 1.0; reward = 3.0 * 1.0 = 3.0
+    expect(computeReward(prev, curr, action, config)).toBeCloseTo(3.0, 5);
+  });
+
+  it('zero when weight is 0 (disabled)', () => {
+    const prev = makeState({ safetyPotential: -1.0 });
+    const curr = makeState({ safetyPotential: 0.0 });
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ safetyShaping: 0.0 }),
+    });
+    expect(computeReward(prev, curr, action, config)).toBe(0.0);
+  });
+
+  it('works with ?? 0 fallback when safetyPotential not on state', () => {
+    // States without safetyPotential field — should default to 0
+    const prev = {
+      ship: makeShip(),
+      target: makeShip({ x: 300, y: 0 }),
+      asteroids: [],
+      shipHP: 5,
+      targetHP: 5,
+      tick: 0,
+    };
+    const curr = {
+      ship: makeShip(),
+      target: makeShip({ x: 300, y: 0 }),
+      asteroids: [],
+      shipHP: 5,
+      targetHP: 5,
+      tick: 1,
+      safetyPotential: -0.5,
+    };
+    const action = { moveAction: 0, fireAction: 0 };
+    const config = makeConfig({
+      rewardWeights: zeroWeights({ safetyShaping: 1.0 }),
+    });
+    // prev has no safetyPotential → 0; delta = -0.5 - 0 = -0.5
+    expect(computeReward(prev, curr, action, config)).toBeCloseTo(-0.5, 5);
   });
 });

@@ -643,7 +643,10 @@ export function startApp() {
         ctx.save();
         ctx.translate(asteroid.x, asteroid.y);
         ctx.rotate(angle);
-        ctx.fillStyle = 'rgba(255, 0, 0, 0.12)';
+        const gradient = ctx.createLinearGradient(0, 0, lookahead, 0);
+        gradient.addColorStop(0, 'rgba(255, 40, 0, 0.25)');
+        gradient.addColorStop(1, 'rgba(255, 40, 0, 0.0)');
+        ctx.fillStyle = gradient;
         ctx.fillRect(
           0,
           -CORRIDOR_HALF_WIDTH,

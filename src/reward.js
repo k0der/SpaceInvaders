@@ -14,6 +14,7 @@ export const DEFAULT_REWARD_WEIGHTS = {
   engagePenalty: 0.0,
   proximity: 0.0,
   asteroidPenalty: 0.0,
+  safetyShaping: 0.0,
 };
 
 /** Distance threshold (px) for aim alignment reward. */
@@ -47,6 +48,42 @@ function normalizeAngle(angle) {
   while (angle > Math.PI) angle -= 2 * Math.PI;
   while (angle < -Math.PI) angle += 2 * Math.PI;
   return angle;
+}
+
+/**
+ * Compute a scalar safety potential at the ship's position.
+ * Returns negative sum of corridor danger — higher (closer to 0) is safer.
+ * Size-independent: uses same corridor geometry for all asteroids.
+ *
+ * @param {{ x: number, y: number }} ship
+ * @param {Array} asteroids
+ * @returns {number} Φ (0 when safe, negative when inside corridors)
+ */
+export function computeSafetyPotential(ship, asteroids) {
+  let totalDanger = 0;
+  for (let i = 0; i < asteroids.length; i++) {
+    const a = asteroids[i];
+    const avx = a.vx || 0;
+    const avy = a.vy || 0;
+    const speed = Math.sqrt(avx * avx + avy * avy);
+    if (speed < MIN_ASTEROID_SPEED) continue;
+
+    const ux = avx / speed;
+    const uy = avy / speed;
+    const adx = ship.x - a.x;
+    const ady = ship.y - a.y;
+
+    const along = adx * ux + ady * uy;
+    const perp = Math.abs(adx * uy - ady * ux);
+    const lookahead = speed * LOOKAHEAD_TIME;
+
+    if (along > 0 && along < lookahead && perp < CORRIDOR_HALF_WIDTH) {
+      const timeFactor = 1 - along / lookahead;
+      const widthFactor = 1 - perp / CORRIDOR_HALF_WIDTH;
+      totalDanger += timeFactor * widthFactor;
+    }
+  }
+  return totalDanger === 0 ? 0 : -totalDanger;
 }
 
 /**
@@ -164,6 +201,16 @@ export function computeReward(
         if (breakdown) breakdown.asteroidPenalty += penalty;
       }
     }
+  }
+
+  // 6c. Safety potential shaping — reward for moving toward safety
+  if (w.safetyShaping !== 0) {
+    const prevPotential = prevState.safetyPotential ?? 0;
+    const currPotential = currentState.safetyPotential ?? 0;
+    const delta = currPotential - prevPotential;
+    const shapingReward = w.safetyShaping * delta;
+    reward += shapingReward;
+    if (breakdown) breakdown.safetyShaping += shapingReward;
   }
 
   // 7. Fire discipline

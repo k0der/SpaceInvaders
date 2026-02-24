@@ -383,7 +383,8 @@ stages:
       timeout: -5.0
       engagePenalty: 0.0
       proximity: 0.5
-      asteroidPenalty: -0.15
+      asteroidPenalty: 0.0
+      safetyShaping: 1.0
 
   15:
     description: "Chase faster evasion enemy, 1 HP"
@@ -414,7 +415,8 @@ stages:
       timeout: -5.0
       engagePenalty: 0.0
       proximity: 0.5
-      asteroidPenalty: -0.15
+      asteroidPenalty: 0.0
+      safetyShaping: 1.0
 
   16:
     description: "Navigate and engage unarmed predictive-optimized, far spawn"
@@ -481,7 +483,7 @@ stages:
     aiMaxSpeedFactor: 1.2
     evasionWaypointRadius: 1000
     evasionMaxHoldTime: 2.0
-    spawnDistance: [500, 1000]
+    spawnDistance: [1000, 2000]
     spawnFacing: false
     frameSkip: 2
     campCheckTicks: 0
@@ -500,7 +502,8 @@ stages:
       timeout: -5.0
       engagePenalty: 0.0
       proximity: 0.5
-      asteroidPenalty: -1.5
+      asteroidPenalty: 0.0
+      safetyShaping: 1.0
 
   19:
     description: "Fast evasion through full asteroid field, 1 HP"
@@ -531,7 +534,8 @@ stages:
       timeout: -5.0
       engagePenalty: 0.0
       proximity: 0.5
-      asteroidPenalty: -1.5
+      asteroidPenalty: 0.0
+      safetyShaping: 1.0
 
   20:
     description: "Far spawn evasion through full asteroid field"
@@ -562,7 +566,8 @@ stages:
       timeout: -5.0
       engagePenalty: 0.0
       proximity: 0.5
-      asteroidPenalty: -1.5
+      asteroidPenalty: 0.0
+      safetyShaping: 1.0
 
   21:
     description: "Self-play, nerfed opponent fire rate, full asteroids"
@@ -592,7 +597,8 @@ stages:
       timeout: -5.0
       engagePenalty: 0.0
       proximity: 1.5
-      asteroidPenalty: -1.5
+      asteroidPenalty: 0.0
+      safetyShaping: 1.0
 
   22:
     description: "Self-play, full strength, full asteroids"
@@ -621,6 +627,7 @@ stages:
       timeout: -5.0
       engagePenalty: 0.0
       proximity: 1.5
-      asteroidPenalty: -1.5
+      asteroidPenalty: 0.0
+      safetyShaping: 1.0
 
 
